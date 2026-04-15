@@ -1,0 +1,4 @@
+.env
+.twilio_token
+.DS_Store
+memoria.json

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Carrito Mercadona — ZIA</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+    h1 { font-size: 1.25rem; }
+    code { background: #f4f4f4; padding: 0.15rem 0.35rem; border-radius: 4px; font-size: 0.9em; }
+    ul { padding-left: 1.2rem; }
+    li { margin: 0.5rem 0; }
+    a { color: #006d4f; }
+  </style>
+</head>
+<body>
+  <h1>🛒 Carrito Mercadona (ZIA)</h1>
+  <p>
+    Abre este archivo en el navegador. Opcional: añade productos en la URL separados por comas
+    (<code>items</code>):
+  </p>
+  <p><code>carrito.html?items=pechugas+pollo,salsa+tomate,arroz+basmati</code></p>
+  <ul id="links"></ul>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const raw = params.get("items") || "";
+      const items = raw.split(",").map(function (s) { return s.trim().replace(/\+/g, " "); }).filter(Boolean);
+      const ul = document.getElementById("links");
+      if (items.length === 0) {
+        ul.innerHTML =
+          "<li>Pega en la barra de direcciones los nombres de productos tras <code>?items=</code> " +
+          "o usa los enlaces 🛒 que ZIA generó en el chat.</li>";
+        return;
+      }
+      items.forEach(function (name) {
+        const q = name.replace(/\s+/g, "+");
+        const li = document.createElement("li");
+        const a = document.createElement("a");
+        a.href = "https://tienda.mercadona.es/search?query=" + encodeURIComponent(name).replace(/%20/g, "+");
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.textContent = name + " → buscar en Mercadona";
+        li.appendChild(a);
+        ul.appendChild(li);
+      });
+    })();
+  </script>
+</body>
+</html>
