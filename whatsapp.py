@@ -152,7 +152,7 @@ def webhook():
 
     sesion = cargar_sesion(phone)
     estado = sesion.get("estado", "inicio")
-    memoria = main.cargar_memoria(phone)
+    memoria = main.cargar_memoria_usuario(phone)
     perfil = memoria.get("perfil", {})
 
     if tl in ("reset", "reiniciar", "nuevo perfil", "empezar de nuevo"):
