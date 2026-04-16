@@ -280,6 +280,7 @@ def webhook():
             sesion["estado"] = "onboarding"
             sesion["onboarding_step"] = 0
             sesion["perfil_tmp"] = {"tipo_plan": "individual"}
+            guardar_estado_sesion(phone, sesion)
             _, pregunta = PREGUNTAS_INDIVIDUAL[0]
             return enviar(f"Perfecto 💪\n\n{pregunta}")
 
@@ -288,6 +289,7 @@ def webhook():
             sesion["estado"] = "onboarding"
             sesion["onboarding_step"] = 0
             sesion["perfil_tmp"] = {"tipo_plan": "familiar"}
+            guardar_estado_sesion(phone, sesion)
             _, pregunta = PREGUNTAS_FAMILIAR[0]
             return enviar(f"Perfecto 👨‍👩‍👧\n\n{pregunta}")
 
@@ -320,6 +322,7 @@ def webhook():
 
         if sesion["onboarding_step"] < len(preguntas):
             _, siguiente = preguntas[sesion["onboarding_step"]]
+            guardar_estado_sesion(phone, sesion)
             return enviar(siguiente)
 
         # Onboarding completo
