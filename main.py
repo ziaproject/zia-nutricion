@@ -3415,10 +3415,6 @@ def main() -> None:
     print(f"ZIA: ¿Quieres la lista de la compra de {nombre_super} o prefieres comparar precios con otros supermercados?")
     print("     1️⃣  Sí, quiero la lista de " + nombre_super)
     print("     2️⃣  Comparar precios con otros supermercados\n")
-    else:
-        historial: list[dict[str, Any]] = [
-            {"role": "system", "content": system_zia_completo()},
-        ]
 
     nevera_esperando_ingredientes = False
     foto_esperando_ruta = False
@@ -4305,11 +4301,11 @@ def main() -> None:
             seguimiento_estado = 0
             seguimiento_como_fue = ""
             nombre_super = nombre_supermercado_perfil(perfil)
-    print(f"ZIA: ¿Quieres la lista de la compra de {nombre_super} o prefieres comparar precios con otros supermercados?")
-    print("     1️⃣  Sí, quiero la lista de " + nombre_super)
-    print("     2️⃣  Comparar precios con otros supermercados\n")
-            esperando_si_lista = True
-            continue
+        print(f"ZIA: ¿Quieres la lista de la compra de {nombre_super} o prefieres comparar precios con otros supermercados?")
+        print("     1️⃣ Si, quiero la lista de " + nombre_super)
+        print("     2️⃣ Comparar precios con otros supermercados\n")
+        esperando_si_lista = True
+        continue
 
         if deporte_estado == 1:
             tl = texto.lower()
