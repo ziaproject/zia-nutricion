@@ -255,7 +255,7 @@ def webhook():
     tl = message.lower().strip()
 
     if phone not in sesiones:
-        sesiones[phone] = sesion_nueva()
+        sesiones[phone] = sesion_nueva(phone)
 
     sesion = sesiones[phone]
     memoria = sesion["memoria"]
@@ -265,7 +265,7 @@ def webhook():
     # ── RESET ──
     if tl in ("reset", "reiniciar", "nuevo perfil", "empezar de nuevo"):
         main.reset_memoria_tras_nuevo(memoria)
-        sesiones[phone] = sesion_nueva()
+        sesiones[phone] = sesion_nueva(phone)
         return enviar(
             "*¡Hola! Soy ZIA, tu nutricionista personal* 🥗\n\n"
             "¿El plan es para ti solo o para toda tu familia?\n"
