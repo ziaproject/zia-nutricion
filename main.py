@@ -27,6 +27,11 @@ MODEL = "gpt-4o"
 MEMORIA_PATH = Path(__file__).resolve().parent / "memoria.json"
 
 
+def resetear_memoria_en_railway() -> None:
+    """Borra memoria.json en el servidor si existe."""
+    if MEMORIA_PATH.is_file():
+        MEMORIA_PATH.unlink()
+
 def memoria_por_defecto() -> dict[str, Any]:
     return {
         "perfil": {},
@@ -3326,6 +3331,10 @@ def main() -> None:
 
     memoria = cargar_memoria()
     client = crear_cliente()
+
+    # Forzar reset si el perfil no tiene tipo_plan (usuario pre-nuevo-onboarding)
+    if memoria.get("perfil", {}).get("tipo_plan") is None and perfil_tiene_datos(memoria.get("perfil", {})):
+        reset_memoria_tras_nuevo(memoria)
 
     if MEMORIA_PATH.is_file() and perfil_tiene_datos(memoria.get("perfil", {})):
         if ofrecer_perfil_guardado(memoria) == "nuevo":
