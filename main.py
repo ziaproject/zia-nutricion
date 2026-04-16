@@ -1,9 +1,10 @@
+from __future__ import annotations
+import os
 """
 ZIA — Agente de nutrición familiar.
 Plan semanal con recetas rápidas (<20 min) y productos preparados del supermercado.
 """
 
-from __future__ import annotations
 
 import base64
 import json
@@ -396,8 +397,37 @@ def total_lista_a_float(lista_txt: str) -> float | None:
 
 
 def print_pregunta_donde_comprar(perfil: dict[str, str]) -> None:
+    """Compat: redirige al flujo con precio / cercanía / entrega."""
+    print_pregunta_comparar_o_cadena_tras_lista(perfil)
+
+
+def print_confirmacion_super_y_presupuesto_antes_lista(perfil: dict[str, str]) -> None:
+    """Antes de generar la lista: confirma super habitual y avisa si hay presupuesto en perfil."""
     ns = nombre_supermercado_perfil(perfil)
-    print(f"ZIA: ¿Te lo pido en {ns} o prefieres ver si sale más barato en otro?\n")
+    pres = presupuesto_semanal_euros(perfil)
+    print(f"\nZIA: Uso tu super habitual ({ns}) para estimar todos los precios de la lista.")
+    if pres is not None:
+        print(
+            f"   Tu presupuesto semanal en el perfil: {pres:.2f}€. "
+            "Si el total estimado lo supera, te avisaré y podrás aprobar el extra o ajustar la lista.\n"
+        )
+    else:
+        print(
+            "   No tengo presupuesto guardado en el perfil; los importes son orientativos.\n"
+        )
+
+
+def print_pregunta_comparar_o_cadena_tras_lista(perfil: dict[str, str]) -> None:
+    """Tras confirmar la compra: comparar por precio, cercanía o entrega, o elegir cadena."""
+    ns = nombre_supermercado_perfil(perfil)
+    print(
+        "\nZIA: ¿Quieres comparar esta cesta con otras opciones?\n"
+        "   • Precio — escribe «comparar precios» y te muestro el total estimado en varias cadenas.\n"
+        "   • Cercanía — escribe «cercanía» y te oriento sobre qué suele ser más fácil tener cerca (según tu ciudad del perfil).\n"
+        "   • Entrega / rapidez — escribe «entrega» u «online» para orientación sobre reparto y compra online.\n"
+        f"   • O dime una cadena concreta (p. ej. Lidl) y preparo el carrito solo con precios de esa tienda.\n"
+        f"   • Si te vale con {ns}, di «me quedo en mi super» o «así está bien».\n"
+    )
 
 
 def registrar_evento_aprobacion_gastos(
@@ -483,8 +513,9 @@ def encolar_aprobacion_post_lista(
     if pres is not None and tot is not None and tot > pres + 0.01:
         diff = round(tot - pres, 2)
         print(
-            f"\n⚠️ Esta lista cuesta {tot:.2f}€, que supera tu presupuesto de {pres:.2f}€ en {diff:.2f}€.\n"
-            "¿Apruebas el gasto extra o quieres que ajuste la lista para quedarme dentro del presupuesto?\n"
+            f"\n⚠️ Atención presupuesto: el total estimado es {tot:.2f}€ y tu presupuesto semanal es {pres:.2f}€ "
+            f"(vas {diff:.2f}€ por encima). Con ese presupuesto no alcanza tal cual.\n"
+            "¿Apruebas el gasto extra o quieres que ajuste la lista para ceñirme al presupuesto?\n"
             "1️⃣ Aprobar igualmente\n"
             "2️⃣ Ajustar lista al presupuesto\n"
         )
@@ -1788,6 +1819,68 @@ def intencion_comparar_otras_tiendas(texto: str) -> bool:
     return False
 
 
+def intencion_comparar_cercania(texto: str) -> bool:
+    tn = texto_sin_acentos(texto.lower())
+    if "comparar" in tn and "precio" in tn:
+        return False
+    if "mas barato" in tn or "más barato" in tn:
+        return False
+    return any(
+        x in tn
+        for x in (
+            "cercania",
+            "cercanía",
+            "cerca de casa",
+            "mas cerca",
+            "más cerca",
+            "tienda cerca",
+            "donde hay mas tiendas",
+            "donde hay más tiendas",
+            "distancia",
+        )
+    )
+
+
+def intencion_comparar_entrega_online(texto: str) -> bool:
+    tn = texto_sin_acentos(texto.lower())
+    return any(
+        x in tn
+        for x in (
+            "entrega",
+            "reparto",
+            "domicilio",
+            "rapidez",
+            "rapido",
+            "rápido",
+            "compra online",
+            "online",
+            "recogida",
+            "click",
+            "envio",
+            "envío",
+            "a domicilio",
+        )
+    )
+
+
+def texto_orientacion_cercania_supermercados(perfil: dict[str, str]) -> str:
+    ciudad = (perfil.get("ciudad") or perfil.get("ubicacion") or "tu zona").strip() or "tu zona"
+    ns = nombre_supermercado_perfil(perfil)
+    return (
+        f"En {ciudad}, la cercanía depende del barrio: Mercadona, Carrefour y Consum suelen tener muchas tiendas; "
+        f"Lidl y Aldi también son frecuentes. Tu cadena habitual ({ns}) es buena opción si ya compras ahí cerca. "
+        "Para ver cuál está más cerca de casa, revisa Maps o la app de la cadena.\n"
+    )
+
+
+def texto_orientacion_entrega_supermercados() -> str:
+    return (
+        "Orientación rápida: Amazon Fresh y Carrefour suelen tener entrega en muchas zonas; "
+        "Mercadona y Consum también en muchas ciudades con franja; Lidl y Aldi suelen tener menos cobertura de reparto. "
+        "Comprueba tu código postal en la web de cada cadena.\n"
+    )
+
+
 def intencion_quedarse_super_habitual(texto: str) -> bool:
     tn = texto_sin_acentos(texto.lower())
     if intencion_comparar_otras_tiendas(texto):
@@ -2219,20 +2312,37 @@ def mensaje_lista_compra_para_super(
     ids = ids_supermercados_detectados(perfil.get("supermercado", ""))
     cid = ids[0] if len(ids) >= 1 else "mercadona"
     nombre, _url = SUPER_TIENDA_URL[cid]
+    factor = FACTOR_PRECIO_VS_MERCADONA.get(cid, 1.0)
+    pres = presupuesto_semanal_euros(perfil)
+    pres_bloque = ""
+    if pres is not None:
+        pres_bloque = (
+            f"\nPresupuesto semanal del usuario: {pres:.2f}€. "
+            "Los precios línea a línea y el TOTAL deben ser realistas; si el conjunto superaría claramente ese tope, "
+            "prioriza productos o cantidades más económicos manteniendo el plan cubierto.\n"
+        )
     enlace_o_no = (
         f"Última línea exacta: 🛒 Comprar en {nombre} → {_url}\n"
         if ACUERDO_COMERCIAL_ENLACES
         else "NO incluyas enlaces, URLs ni líneas «Comprar en …» (la app no muestra tiendas hasta acuerdo comercial).\n"
     )
-    return f"""Con este PLAN SEMANAL, genera ÚNICAMENTE la LISTA DE LA COMPRA para cubrir esa semana.
+    return f"""The user wants shopping list prices AS IF they bought EVERYTHING at ONE chain only.
+
+The user's habitual supermarket is: {nombre} (internal price factor vs Mercadona reference: ×{factor:.2f}).
+City / context from profile: use {perfil.get("ciudad", "") or perfil.get("ubicacion", "") or "España"} only as locale context, NOT to mix other chains' prices.
+
+Con este PLAN SEMANAL, genera ÚNICAMENTE la LISTA DE LA COMPRA para cubrir esa semana.
 
 PLAN:
 ---
 {plan_texto.strip()}
 ---
 
-Supermercado habitual del usuario: {nombre} (precios orientativos en euros, coherentes con el presupuesto del perfil).
-
+OBLIGATORIO — UNA SOLA CADENA EN LOS PRECIOS:
+- TODOS los importes (cada línea y el TOTAL ESTIMADO) deben ser precios orientativos como si la compra entera fuera en **{nombre}** únicamente.
+- Para estimar: usa precio referencia tipo Mercadona por ítem coherente con el producto, luego aplica ×{factor:.2f} para reflejar el nivel de precio de {nombre}.
+- NO mezcles precios de otras cadenas en la misma lista. NO pongas alternativas «en otra tienda».
+{pres_bloque}
 Estructura:
 - FRESCO: líneas • producto (cantidad) → XX.XX€
 - PREPARADO: líneas • producto (cantidad) → XX.XX€
@@ -3769,7 +3879,30 @@ def main() -> None:
             tn = texto_sin_acentos(texto.lower())
             if respuesta_es_demasiado_ambigua(texto):
                 print(
-                    "\nZIA: ¿Te quedas con tu super de siempre o prefieres que compare precios entre cadenas?\n"
+                    "\nZIA: Di «comparar precios», «cercanía», «entrega», o el nombre de una cadena, "
+                    "o «me quedo en mi super».\n"
+                )
+                continue
+            if intencion_comparar_cercania(texto):
+                print("\nZIA: " + texto_orientacion_cercania_supermercados(perfil).strip() + "\n")
+                historial.extend(
+                    [
+                        {"role": "user", "content": f"[Carrito: cercanía] {texto}"},
+                        {
+                            "role": "assistant",
+                            "content": texto_orientacion_cercania_supermercados(perfil).strip(),
+                        },
+                    ]
+                )
+                continue
+            if intencion_comparar_entrega_online(texto):
+                msg_e = texto_orientacion_entrega_supermercados().strip()
+                print(f"\nZIA: {msg_e}\n")
+                historial.extend(
+                    [
+                        {"role": "user", "content": f"[Carrito: entrega] {texto}"},
+                        {"role": "assistant", "content": msg_e},
+                    ]
                 )
                 continue
             if intencion_comparar_otras_tiendas(texto):
@@ -3827,8 +3960,8 @@ def main() -> None:
                 )
                 continue
             print(
-                "\nZIA: No te he pillado del todo: ¿te quedas con tu super habitual, "
-                "quieres comparar en otras cadenas, o prefieres decirme una cadena concreta?\n"
+                "\nZIA: No lo tengo claro. Puedes decir «comparar precios», «cercanía», «entrega», "
+                "una cadena concreta, o «me quedo en mi super».\n"
             )
             continue
 
@@ -3872,7 +4005,8 @@ def main() -> None:
         if esperando_si_lista and aprobacion_lista_ctx is None:
             if es_respuesta_si_lista(texto):
                 plan_ref = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
-                print("\nZIA: Preparando tu lista…\n")
+                print_confirmacion_super_y_presupuesto_antes_lista(perfil)
+                print("ZIA: Preparando tu lista…\n")
                 lista_txt = generar_lista_compra_respuesta(client, perfil, plan_ref)
                 memoria["lista_compra_actual"] = lista_txt
                 memoria["ultimo_plan"] = (plan_ref + "\n\n" + lista_txt).strip()
