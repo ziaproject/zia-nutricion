@@ -254,10 +254,9 @@ def webhook():
     media_type = request.form.get("MediaContentType0", "image/jpeg")
     tl = message.lower().strip()
 
-    if phone not in sesiones:
-        sesiones[phone] = sesion_nueva(phone)
-
-    sesion = sesiones[phone]
+    # Cargar estado desde disco en cada mensaje
+    sesion = sesion_nueva(phone)
+    sesiones[phone] = sesion
     memoria = sesion["memoria"]
     perfil = memoria.get("perfil", {})
     estado = sesion.get("estado", "inicio")
