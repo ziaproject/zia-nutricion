@@ -35,7 +35,7 @@ def enviar(texto):
 import json
 from pathlib import Path
 
-DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
+DATA_DIR = Path("/tmp/zia_estados")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 def estado_path(phone):
