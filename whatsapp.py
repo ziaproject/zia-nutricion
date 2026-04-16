@@ -222,7 +222,7 @@ def webhook():
     sesion = sesiones[phone]
     memoria = sesion["memoria"]
     perfil = memoria.get("perfil", {})
-    estado = sesion["estado"]
+    estado = sesion.get("estado", "inicio")
 
     # ── RESET ──
     if tl in ("reset", "reiniciar", "nuevo perfil", "empezar de nuevo"):
