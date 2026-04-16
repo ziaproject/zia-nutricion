@@ -189,16 +189,32 @@ ONBOARDING_QUESTIONS: list[tuple[str, str]] = [
         "¿Cómo te llamamos?",
     ),
     (
+        "genero",
+        "¿Cuál es tu género? (hombre/mujer/otro)",
+    ),
+    (
+        "edad",
+        "¿Cuántos años tienes?",
+    ),
+    (
+        "peso_kg",
+        "¿Cuánto pesas aproximadamente? (en kg, ej.: 75)",
+    ),
+    (
+        "altura_cm",
+        "¿Cuánto mides? (en cm, ej.: 175)",
+    ),
+    (
+        "objetivo",
+        "¿Cuál es tu objetivo principal? (perder grasa / ganar músculo / mantenimiento / comer más sano / más energía)",
+    ),
+    (
         "num_personas",
         "¿Cuántas personas coméis habitualmente en casa?",
     ),
     (
         "ninos_edades",
         "¿Hay niños? Indica edades (o escribe «no» si no aplica).",
-    ),
-    (
-        "objetivo",
-        "Objetivo: ¿comer más sano, perder peso, más energía, ahorrar u otro? Describe brevemente.",
     ),
     (
         "restricciones",
@@ -210,7 +226,7 @@ ONBOARDING_QUESTIONS: list[tuple[str, str]] = [
     ),
     (
         "supermercado",
-        "¿En qué supermercado sueles comprar? (nombre o cadena)",
+        "¿En qué supermercado sueles comprar? (Mercadona, Lidl, Carrefour…)",
     ),
     (
         "presupuesto",
