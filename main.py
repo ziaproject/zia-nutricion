@@ -3447,6 +3447,15 @@ def main() -> None:
             print("ZIA: ¡Hasta pronto!")
             break
 
+        if texto.lower() in ("reset", "reiniciar", "nuevo perfil", "empezar de nuevo"):
+            reset_memoria_tras_nuevo(memoria)
+            memoria = cargar_memoria()
+            print("\nZIA: Perfil borrado. Vamos a empezar desde cero.\n")
+            perfil = ejecutar_onboarding()
+            memoria["perfil"] = perfil
+            guardar_memoria(memoria)
+            continue
+
         if nevera_foto_esperando_plato:
             tl = texto.lower()
             if tl in ("cancelar", "cancela"):
