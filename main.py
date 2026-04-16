@@ -3240,22 +3240,51 @@ def main() -> None:
         memoria["perfil"] = perfil
         guardar_memoria(memoria)
 
-    print("\nZIA: Perfecto. Generando tu plan semanal de 7 días…\n")
+    print("\nZIA: Perfecto. ¿Qué quieres hacer hoy?")
+    print("1️⃣  Quiero mi plan de dieta personalizado")
+    print("2️⃣  Solo necesito la lista de la compra familiar\n")
 
-    plan_menu, messages = generar_plan_semanal_respuesta(client, perfil, memoria, None)
-    print(plan_menu)
-    print()
+    while True:
+        opcion_inicio = input("Tú: ").strip()
+        if opcion_inicio in ("1", "1️⃣", "dieta", "plan", "quiero mi plan"):
+            modo_inicio = "dieta"
+            break
+        elif opcion_inicio in ("2", "2️⃣", "lista", "compra", "lista de la compra"):
+            modo_inicio = "lista"
+            break
+        else:
+            print("ZIA: Escribe 1 para el plan de dieta o 2 para la lista de la compra.\n")
 
-    memoria["plan_semanal_actual"] = plan_menu
-    memoria["ultimo_plan"] = plan_menu
-    añadir_lista_al_historial(memoria, plan_menu)
-    guardar_memoria(memoria)
+    if modo_inicio == "lista":
+        print("\nZIA: Generando tu lista de la compra familiar…\n")
+        plan_ref = (memoria.get("ultimo_plan") or "").strip()
+        if not plan_ref:
+            plan_ref = mensaje_plan_semanal(perfil, memoria)
+        print_confirmacion_super_y_presupuesto_antes_lista(perfil)
+        lista_txt = generar_lista_compra_respuesta(client, perfil, plan_ref)
+        print(lista_txt)
+        memoria["lista_compra_actual"] = lista_txt
+        guardar_memoria(memoria)
+        aprobacion_lista_ctx = encolar_aprobacion_post_lista(lista_txt, perfil, omitir_vista_carrito=True)
+    else:
+        print("\nZIA: Perfecto. Generando tu plan semanal de 7 días…\n")
 
-    historial: list[dict[str, Any]] = messages + [
-        {"role": "assistant", "content": plan_menu},
-    ]
-
-    print("ZIA: ¿Quieres que prepare tu lista de la compra? Escribe sí o no\n")
+    if modo_inicio == "dieta":
+        plan_menu, messages = generar_plan_semanal_respuesta(client, perfil, memoria, None)
+        print(plan_menu)
+        print()
+        memoria["plan_semanal_actual"] = plan_menu
+        memoria["ultimo_plan"] = plan_menu
+        añadir_lista_al_historial(memoria, plan_menu)
+        guardar_memoria(memoria)
+        historial: list[dict[str, Any]] = messages + [
+            {"role": "assistant", "content": plan_menu},
+        ]
+        print("ZIA: ¿Quieres que prepare tu lista de la compra? Escribe sí o no\n")
+    else:
+        historial: list[dict[str, Any]] = [
+            {"role": "system", "content": system_zia_completo()},
+        ]
 
     nevera_esperando_ingredientes = False
     foto_esperando_ruta = False
