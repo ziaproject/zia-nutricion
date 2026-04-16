@@ -70,7 +70,7 @@ def webhook():
                 estado["perfil_tmp"] = {}
                 guardar_json(est_path, estado)
                 _, pregunta = ONBOARDING_QUESTIONS[0]
-                resp.message(f"ZIA: {pregunta}")
+                resp.message(pregunta)
                 return str(resp)
             resp.message("Escribe si cuando quieras empezar")
             return str(resp)
@@ -82,7 +82,7 @@ def webhook():
                 estado["paso"] = paso + 1
                 _, siguiente = ONBOARDING_QUESTIONS[paso]
                 guardar_json(est_path, estado)
-                resp.message(f"ZIA: {siguiente}")
+                resp.message(siguiente)
                 return str(resp)
             else:
                 perfil_nuevo = {k: str(v) for k, v in estado["perfil_tmp"].items()}
