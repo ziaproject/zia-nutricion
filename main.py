@@ -2346,6 +2346,27 @@ NO incluyas LISTA DE LA COMPRA ni precios de cesta (se generará aparte si el us
 NO frase motivacional al final (la añade el programa)."""
 
 
+REGLAS_UNIDADES_REALES_SUPER = """
+REGLAS DE UNIDADES REALES DE SUPERMERCADO (obligatorio aplicar a cada producto):
+- Huevos: siempre docena (12 uds) aunque el plan use menos
+- Leche: bricks de 1L o 6x1L
+- Patatas: malla de 1kg, 2kg o 3kg (la más cercana a lo necesario)
+- Carne y pescado: en gramos/kg reales de bandeja (ej: bandeja 500g, no 320g)
+- Pan: barra, hogaza o paquete según corresponda
+- Arroz/pasta/legumbres: paquete de 500g o 1kg
+- Aceite: botella de 750ml o 1L
+- Yogures: pack de 4 o 8 uds
+- Fruta: en kg (malla o al peso), unidades enteras cuando sean piezas grandes
+- Verdura: en unidades enteras o bolsas estándar del super
+- Queso: en porciones o bloques estándar (200g, 400g...)
+- Jamón/embutido: en paquetes estándar (100g, 150g, 200g)
+- Conservas: número de latas enteras
+- Agua: garrafas de 5L o pack de 6 botellas de 1.5L
+- Detergente/limpieza: formato estándar de venta
+NUNCA pongas cantidades imposibles de comprar (ej: 3 huevos, 320g carne, 0.7L leche).
+SIEMPRE redondea AL FORMATO MÁS CERCANO que se vende en el supermercado.
+"""
+
 def mensaje_lista_compra_para_super(
     perfil: dict[str, str],
     plan_texto: str,
@@ -2384,9 +2405,10 @@ OBLIGATORIO — UNA SOLA CADENA EN LOS PRECIOS:
 - Para estimar: usa precio referencia tipo Mercadona por ítem coherente con el producto, luego aplica ×{factor:.2f} para reflejar el nivel de precio de {nombre}.
 - NO mezcles precios de otras cadenas en la misma lista. NO pongas alternativas «en otra tienda».
 {pres_bloque}
+{REGLAS_UNIDADES_REALES_SUPER}
 Estructura:
-- FRESCO: líneas • producto (cantidad) → XX.XX€
-- PREPARADO: líneas • producto (cantidad) → XX.XX€
+- FRESCO: líneas • producto (cantidad real de supermercado) → XX.XX€
+- PREPARADO: líneas • producto (cantidad real de supermercado) → XX.XX€
 - TOTAL ESTIMADO: XX.XX€
 {enlace_o_no}
 Perfil: {perfil_a_texto(perfil)}
@@ -3389,7 +3411,10 @@ def main() -> None:
         historial: list[dict[str, Any]] = messages + [
             {"role": "assistant", "content": plan_menu},
         ]
-        print("ZIA: ¿Quieres que prepare tu lista de la compra? Escribe sí o no\n")
+        nombre_super = nombre_supermercado_perfil(perfil)
+    print(f"ZIA: ¿Quieres la lista de la compra de {nombre_super} o prefieres comparar precios con otros supermercados?")
+    print("     1️⃣  Sí, quiero la lista de " + nombre_super)
+    print("     2️⃣  Comparar precios con otros supermercados\n")
     else:
         historial: list[dict[str, Any]] = [
             {"role": "system", "content": system_zia_completo()},
@@ -4147,16 +4172,20 @@ def main() -> None:
             continue
 
         if esperando_si_lista and aprobacion_lista_ctx is None:
-            if es_respuesta_si_lista(texto):
+            tl = texto.strip().lower()
+            nombre_super = nombre_supermercado_perfil(perfil)
+
+            # Opción 1: quiere la lista del super habitual
+            if tl in ("1", "1️⃣", "si", "sí", "s", "yes", "ok", "vale", "claro"):
                 plan_ref = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
-                print_confirmacion_super_y_presupuesto_antes_lista(perfil)
-                print("ZIA: Preparando tu lista…\n")
+                print(f"\nZIA: Preparando tu lista de {nombre_super}…\n")
                 lista_txt = generar_lista_compra_respuesta(client, perfil, plan_ref)
+                print(lista_txt)
+                print()
                 memoria["lista_compra_actual"] = lista_txt
                 memoria["ultimo_plan"] = (plan_ref + "\n\n" + lista_txt).strip()
                 guardar_memoria(memoria)
                 añadir_lista_al_historial(memoria, memoria["ultimo_plan"])
-                aprobacion_lista_ctx = encolar_aprobacion_post_lista(lista_txt, perfil)
                 historial.extend(
                     [
                         {"role": "user", "content": "sí — lista de la compra"},
@@ -4164,13 +4193,37 @@ def main() -> None:
                     ]
                 )
                 esperando_si_lista = False
-            elif es_respuesta_no_lista(texto):
+                # Ir directo a comparar o confirmar sin más preguntas
+                carrito_fase = "pregunta_donde_comprar"
+                print(f"\nZIA: ¿Quieres comparar esta lista con otros supermercados o la confirmamos en {nombre_super}?")
+                print("     1️⃣  Confirmar en " + nombre_super)
+                print("     2️⃣  Comparar precios con otros supermercados\n")
+
+            # Opción 2: quiere comparar precios
+            elif tl in ("2", "2️⃣", "comparar", "comparar precios", "otros", "otros supermercados"):
+                print("\nZIA: Calculando precios en todos los supermercados…\n")
+                tot_txt = generar_totales_comparativa(client, memoria)
+                print(tot_txt)
+                print()
+                print("ZIA: ¿En qué supermercado quieres hacer la compra?")
+                print("     O escribe «mix» si quieres repartir la compra entre varios supermercados\n")
+                esperando_si_lista = False
+                carrito_fase = "elegir_cadena_tras_comparativa"
+                historial.extend(
+                    [
+                        {"role": "user", "content": "comparar precios supermercados"},
+                        {"role": "assistant", "content": tot_txt},
+                    ]
+                )
+
+            elif tl in ("no", "n"):
                 print(
-                    "\nZIA: De acuerdo. ¿Te tiro una idea para cenar esta semana o prefieres hablar de la compra?\n"
+                    "\nZIA: De acuerdo. ¿Quieres que te sugiera una receta rápida para hoy o prefieres otra cosa?\n"
                 )
                 esperando_si_lista = False
+
             else:
-                print("\nZIA: Escribe sí o no.\n")
+                print(f"\nZIA: Escribe 1 para la lista de {nombre_super} o 2 para comparar precios.\n")
             continue
 
         if foto_esperando_tipo_nevera_o_plato:
@@ -4242,7 +4295,10 @@ def main() -> None:
             )
             seguimiento_estado = 0
             seguimiento_como_fue = ""
-            print("ZIA: ¿Quieres que prepare tu lista de la compra? Escribe sí o no\n")
+            nombre_super = nombre_supermercado_perfil(perfil)
+    print(f"ZIA: ¿Quieres la lista de la compra de {nombre_super} o prefieres comparar precios con otros supermercados?")
+    print("     1️⃣  Sí, quiero la lista de " + nombre_super)
+    print("     2️⃣  Comparar precios con otros supermercados\n")
             esperando_si_lista = True
             continue
 
