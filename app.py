@@ -4,6 +4,11 @@ import os
 
 app = Flask(__name__)
 
+@app.route("/", methods=["GET"])
+@app.route("/webhook", methods=["GET"])
+def health():
+    return "ZIA OK", 200
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     msg = request.form.get("Body", "")
@@ -12,5 +17,5 @@ def webhook():
     return str(resp)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
