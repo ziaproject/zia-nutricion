@@ -1,55 +1,61 @@
 from dotenv import load_dotenv
 load_dotenv()
-import os
-import threading
+import os, json, threading, requests, base64
 import main
-import requests
-import base64
+from pathlib import Path
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
 
 app = Flask(__name__)
-sesiones = {}
+DATA_DIR = Path("/app/data")
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
 
+def estado_file(phone):
+    safe = phone.replace("+","").replace(":","_").replace(" ","_")
+    return DATA_DIR / f"s_{safe}.json"
+
+def cargar_sesion(phone):
+    f = estado_file(phone)
+    if f.is_file():
+        try:
+            return json.loads(f.read_text())
+        except:
+            pass
+    return {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0}
+
+def guardar_sesion(phone, datos):
+    try:
+        estado_file(phone).write_text(json.dumps(datos, ensure_ascii=False))
+    except Exception as e:
+        print(f"Error guardando sesion: {e}")
+
 def send(to, texto):
     try:
         cl = TwilioClient(TWILIO_SID, TWILIO_TOKEN)
-        partes = [texto[i:i+1500] for i in range(0, len(texto), 1500)]
-        for parte in partes:
+        for parte in [texto[i:i+1500] for i in range(0, len(texto), 1500)]:
             cl.messages.create(body=parte, from_=TWILIO_FROM, to=to)
     except Exception as e:
         print(f"Error enviando: {e}")
 
 def enviar(texto):
     resp = MessagingResponse()
-    partes = [texto[i:i+1500] for i in range(0, len(texto), 1500)]
-    for parte in partes:
+    for parte in [texto[i:i+1500] for i in range(0, len(texto), 1500)]:
         resp.message(parte)
     return str(resp), 200, {"Content-Type": "text/xml"}
 
-def sesion_nueva():
-    return {
-        "memoria": main.cargar_memoria(),
-        "historial": [],
-        "estado": "inicio",
-        "perfil_tmp": {},
-        "tipo_plan": None,
-        "onboarding_step": 0,
-    }
-
 PREGUNTAS_INDIVIDUAL = [
     ("nombre", "¿Cómo te llamamos?"),
-    ("datos_fisicos", "Para personalizar tu plan necesito algunos datos en un mensaje:\nGénero, edad, peso (kg) y altura (cm)\nEjemplo: hombre, 35 años, 80 kg, 178 cm"),
+    ("datos_fisicos", "Para personalizar tu plan necesito algunos datos:\nGénero, edad, peso (kg) y altura (cm)\nEjemplo: hombre, 35 años, 80 kg, 178 cm"),
     ("objetivo", "¿Cuál es tu objetivo principal?\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía"),
     ("presupuesto", "¿Cuánto quieres gastar a la semana en comida? (ej: 80€)"),
     ("supermercado", "¿En qué supermercado sueles comprar?\nMercadona, Lidl, Aldi, Carrefour, Consum…"),
     ("restricciones", "¿Tienes alguna alergia o intolerancia?\nSi no hay ninguna escribe: ninguna"),
-    ("tiempo_cocina", "¿Cuánto tiempo tienes para cocinar al día?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar"),
+    ("tiempo_cocina", "¿Cuánto tiempo tienes para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar"),
 ]
 
 PREGUNTAS_FAMILIAR = [
@@ -57,156 +63,84 @@ PREGUNTAS_FAMILIAR = [
     ("num_personas", "¿Cuántas personas coméis en casa?"),
     ("ninos_edades", "¿Hay niños en casa? Si sí indica edades.\nSi no escribe: no"),
     ("gustos_familia", "Cuéntame gustos o comidas favoritas y si alguien no come algo."),
-    ("restricciones", "¿Hay alergias o intolerancias en casa?\nSi no hay escribe: ninguna"),
+    ("restricciones", "¿Hay alergias o intolerancias?\nSi no hay escribe: ninguna"),
     ("presupuesto", "¿Cuánto queréis gastar a la semana? (ej: 150€)"),
     ("supermercado", "¿En qué supermercado soléis comprar?\nMercadona, Lidl, Aldi, Carrefour, Consum…"),
     ("tiempo_cocina", "¿Cuánto tiempo tenéis para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tenemos tiempo, nos gusta cocinar"),
 ]
 
-MAPA_OBJETIVO = {
-    "1": "Perder grasa", "2": "Ganar músculo", "3": "Mantenimiento",
-    "4": "Comer más sano", "5": "Más energía",
-}
-MAPA_TIEMPO = {
-    "1": "menos de 20 minutos",
-    "2": "entre 20 y 40 minutos",
-    "3": "tengo tiempo, me gusta cocinar",
-}
-
-SUPERS_COMPARATIVA = ["mercadona", "lidl", "aldi", "carrefour", "consum"]
+MAPA_OBJETIVO = {"1":"Perder grasa","2":"Ganar músculo","3":"Mantenimiento","4":"Comer más sano","5":"Más energía"}
+MAPA_TIEMPO = {"1":"menos de 20 minutos","2":"entre 20 y 40 minutos","3":"tengo tiempo, me gusta cocinar"}
 
 def procesar_campo(campo, valor):
-    if campo == "objetivo":
-        return MAPA_OBJETIVO.get(valor.strip(), valor)
-    if campo == "tiempo_cocina":
-        return MAPA_TIEMPO.get(valor.strip(), valor)
+    if campo == "objetivo": return MAPA_OBJETIVO.get(valor.strip(), valor)
+    if campo == "tiempo_cocina": return MAPA_TIEMPO.get(valor.strip(), valor)
     return valor
 
-def nombre_super(perfil):
-    return main.nombre_supermercado_perfil(perfil)
-
-def url_super(perfil):
-    ids = main.ids_supermercados_detectados(perfil.get("supermercado", ""))
-    cid = ids[0] if ids else "mercadona"
-    return main.SUPER_TIENDA_URL[cid][1]
-
-# ─── GENERACIÓN ASÍNCRONA ────────────────────────────────────────
+def ns(perfil): return main.nombre_supermercado_perfil(perfil)
+def us(perfil):
+    ids = main.ids_supermercados_detectados(perfil.get("supermercado",""))
+    return main.SUPER_TIENDA_URL[ids[0] if ids else "mercadona"][1]
 
 def generar_plan_async(phone, perfil, memoria):
     try:
         client = main.crear_cliente()
-
-        # System sin tiempos de preparación en el plan semanal
-        system_sin_minutos = main.system_zia_completo().replace(
+        system = main.system_zia_completo().replace(
             "SIEMPRE indica el tiempo de preparación en minutos para cada receta (ej: 15 min).",
-            "NO incluyas tiempos de preparación en el plan semanal. Los tiempos solo aparecen cuando el usuario pide una receta específica."
+            "NO incluyas tiempos de preparación en el plan semanal."
         )
-
-        messages = [
-            {"role": "system", "content": system_sin_minutos},
-            {"role": "user", "content": main.mensaje_plan_semanal(perfil, memoria)},
-        ]
-        plan = main.completar(client, messages, max_tokens=8192)
-
+        plan = main.completar(client, [
+            {"role":"system","content":system},
+            {"role":"user","content":main.mensaje_plan_semanal(perfil, memoria)}
+        ], max_tokens=8192)
         memoria["plan_semanal_actual"] = plan
         memoria["ultimo_plan"] = plan
         main.añadir_lista_al_historial(memoria, plan)
         main.guardar_memoria(memoria)
-
-        if phone in sesiones:
-            sesiones[phone]["estado"] = "esperando_cambios"
-            sesiones[phone]["memoria"] = memoria
-
-        # Enviar plan en partes
-        partes = [plan[i:i+1400] for i in range(0, len(plan), 1400)]
-        for parte in partes:
+        s = cargar_sesion(phone)
+        s["estado"] = "esperando_cambios"
+        guardar_sesion(phone, s)
+        for parte in [plan[i:i+1400] for i in range(0, len(plan), 1400)]:
             send(phone, parte)
-
         send(phone, "¿Quieres cambiar o añadir algo al plan? (sí/no)")
-
     except Exception as e:
-        send(phone, f"Error generando el plan: {e}\nEscribe reset para empezar de nuevo.")
-        if phone in sesiones:
-            sesiones[phone]["estado"] = "chat"
+        send(phone, f"Error: {e}\nEscribe reset para empezar.")
+        s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
 
 def generar_lista_async(phone, perfil, memoria):
     try:
         client = main.crear_cliente()
-        plan_ref = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
+        plan_ref = (memoria.get("plan_semanal_actual") or "").strip()
         lista = main.generar_lista_compra_respuesta(client, perfil, plan_ref)
         memoria["lista_compra_actual"] = lista
         memoria["ultimo_plan"] = (plan_ref + "\n\n" + lista).strip()
         main.guardar_memoria(memoria)
-
-        if phone in sesiones:
-            sesiones[phone]["estado"] = "esperando_pago_o_comparar"
-            sesiones[phone]["memoria"] = memoria
-
-        ns = nombre_super(perfil)
-        partes = [lista[i:i+1400] for i in range(0, len(lista), 1400)]
-        for parte in partes:
+        s = cargar_sesion(phone); s["estado"] = "esperando_pago_o_comparar"; guardar_sesion(phone, s)
+        for parte in [lista[i:i+1400] for i in range(0, len(lista), 1400)]:
             send(phone, parte)
-
-        send(phone,
-            f"¿Qué quieres hacer?\n"
-            f"1️⃣ Pagar en {ns}\n"
-            f"2️⃣ Comparar precios con otros supermercados"
-        )
+        send(phone, f"¿Qué quieres hacer?\n1️⃣ Pagar en {ns(perfil)}\n2️⃣ Comparar precios")
     except Exception as e:
-        send(phone, f"Error generando la lista: {e}")
-        if phone in sesiones:
-            sesiones[phone]["estado"] = "chat"
+        send(phone, f"Error: {e}")
+        s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
 
-def generar_comparativa_async(phone, memoria):
+def generar_comparativa_async(phone, memoria, perfil):
     try:
         client = main.crear_cliente()
-
-        # Generar totales para los 5 supers
         ref = (memoria.get("ultimo_plan") or "").strip()
-        prompt = f"""Basándote en esta lista de la compra, calcula el TOTAL estimado para cada supermercado.
-
-Lista:
----
-{ref[:10000]}
----
-
-{main.texto_factores_precio_supermercados()}
-
-Muestra SOLO estas 5 líneas con el total de cada supermercado, sin más texto:
-🏪 Mercadona → XX.XX€
-🏪 Lidl → XX.XX€
-🏪 Aldi → XX.XX€
-🏪 Carrefour → XX.XX€
-🏪 Consum → XX.XX€
-
-Al final de la línea más económica añade: ⭐ MÁS ECONÓMICO
-Sin texto adicional."""
-
-        messages = [
-            {"role": "system", "content": "Respondes solo las líneas pedidas. Sin texto extra."},
-            {"role": "user", "content": prompt},
-        ]
-        totales = main.completar(client, messages, temperature=0.2, max_tokens=300)
-
-        if phone in sesiones:
-            sesiones[phone]["estado"] = "elegir_super_comparativa"
-
+        prompt = f"Lista:\n{ref[:10000]}\n\n{main.texto_factores_precio_supermercados()}\n\nMuestra SOLO estas 5 líneas:\n🏪 Mercadona → XX.XX€\n🏪 Lidl → XX.XX€\n🏪 Aldi → XX.XX€\n🏪 Carrefour → XX.XX€\n🏪 Consum → XX.XX€\nAñade ⭐ MÁS ECONÓMICO al más barato."
+        totales = main.completar(client, [
+            {"role":"system","content":"Solo las líneas pedidas."},
+            {"role":"user","content":prompt}
+        ], temperature=0.2, max_tokens=300)
+        s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
         send(phone, totales)
-        # Excluir el super habitual del usuario
-        ids_habitual = main.ids_supermercados_detectados(
-            sesiones[phone]["memoria"].get("perfil", {}).get("supermercado", "")
-        )
-        cid_habitual = ids_habitual[0] if ids_habitual else "mercadona"
+        ids = main.ids_supermercados_detectados(perfil.get("supermercado",""))
+        cid_hab = ids[0] if ids else "mercadona"
         todos = [("1","mercadona","Mercadona"),("2","lidl","Lidl"),("3","aldi","Aldi"),("4","carrefour","Carrefour"),("5","consum","Consum")]
-        opciones = [f"{n}️⃣ {nombre}" for n, cid, nombre in todos if cid != cid_habitual]
-        send(phone, "Con cual te quedas?\n" + "\n".join(opciones))
-
+        opciones = [f"{n} {nombre}" for n,cid,nombre in todos if cid != cid_hab]
+        send(phone, "¿Con cuál te quedas?\n" + "\n".join(opciones))
     except Exception as e:
-        send(phone, f"Error comparando precios: {e}")
-        if phone in sesiones:
-            sesiones[phone]["estado"] = "chat"
-
-# ─── WEBHOOK ─────────────────────────────────────────────────────
+        send(phone, f"Error: {e}")
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -216,223 +150,133 @@ def webhook():
     media_type = request.form.get("MediaContentType0", "image/jpeg")
     tl = message.lower().strip()
 
-    if phone not in sesiones:
-        sesiones[phone] = sesion_nueva()
-
-    sesion = sesiones[phone]
-    memoria = sesion["memoria"]
+    sesion = cargar_sesion(phone)
+    estado = sesion.get("estado", "inicio")
+    memoria = main.cargar_memoria()
     perfil = memoria.get("perfil", {})
-    estado = sesion["estado"]
 
-    # ── RESET ──
     if tl in ("reset", "reiniciar", "nuevo perfil", "empezar de nuevo"):
         main.reset_memoria_tras_nuevo(memoria)
-        sesiones[phone] = sesion_nueva()
-        return enviar(
-            "*¡Hola! Soy ZIA, tu nutricionista personal* 🥗\n\n"
-            "¿El plan es para ti solo o para toda tu familia?\n"
-            "1️⃣ Para mí solo\n"
-            "2️⃣ Para mi familia"
-        )
+        guardar_sesion(phone, {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0})
+        return enviar("*¡Hola! Soy ZIA, tu nutricionista personal* 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
 
-    # ── INICIO ──
     if estado == "inicio" or not main.perfil_tiene_datos(perfil):
-        if tl in ("1", "para mi", "para mí", "solo", "individual", "yo"):
-            sesion["tipo_plan"] = "individual"
-            sesion["estado"] = "onboarding"
-            sesion["onboarding_step"] = 0
-            sesion["perfil_tmp"] = {"tipo_plan": "individual"}
-            _, pregunta = PREGUNTAS_INDIVIDUAL[0]
-            return enviar(f"Perfecto 💪\n\n{pregunta}")
+        if tl in ("1","para mi","para mí","solo","individual","yo"):
+            sesion.update({"tipo_plan":"individual","estado":"onboarding","onboarding_step":0,"perfil_tmp":{"tipo_plan":"individual"}})
+            guardar_sesion(phone, sesion)
+            return enviar(f"Perfecto 💪\n\n{PREGUNTAS_INDIVIDUAL[0][1]}")
+        if tl in ("2","familia","familiar","todos","para mi familia"):
+            sesion.update({"tipo_plan":"familiar","estado":"onboarding","onboarding_step":0,"perfil_tmp":{"tipo_plan":"familiar"}})
+            guardar_sesion(phone, sesion)
+            return enviar(f"Perfecto 👨‍👩‍👧\n\n{PREGUNTAS_FAMILIAR[0][1]}")
+        return enviar("*¡Hola! Soy ZIA, tu nutricionista personal* 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
 
-        if tl in ("2", "familia", "familiar", "todos", "para mi familia"):
-            sesion["tipo_plan"] = "familiar"
-            sesion["estado"] = "onboarding"
-            sesion["onboarding_step"] = 0
-            sesion["perfil_tmp"] = {"tipo_plan": "familiar"}
-            _, pregunta = PREGUNTAS_FAMILIAR[0]
-            return enviar(f"Perfecto 👨‍👩‍👧\n\n{pregunta}")
-
-        return enviar(
-            "*¡Hola! Soy ZIA, tu nutricionista personal* 🥗\n\n"
-            "¿El plan es para ti solo o para toda tu familia?\n"
-            "1️⃣ Para mí solo\n"
-            "2️⃣ Para mi familia"
-        )
-
-    # ── ONBOARDING ──
     if estado == "onboarding":
-        tipo = sesion.get("tipo_plan", "individual")
+        tipo = sesion.get("tipo_plan","individual")
         preguntas = PREGUNTAS_INDIVIDUAL if tipo == "individual" else PREGUNTAS_FAMILIAR
-        step = sesion["onboarding_step"]
+        step = sesion.get("onboarding_step", 0)
         campo_actual = preguntas[step][0]
-
-        if campo_actual == "objetivo":
-            rl = message.lower()
-            if any(x in rl for x in (" y ", ",", " también")):
-                return enviar(
-                    "Elige solo tu objetivo PRINCIPAL:\n\n"
-                    "1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n"
-                    "4️⃣ Comer más sano\n5️⃣ Más energía"
-                )
-
-        valor = procesar_campo(campo_actual, message)
-        sesion["perfil_tmp"][campo_actual] = valor
-        sesion["onboarding_step"] += 1
-
+        if campo_actual == "objetivo" and any(x in message.lower() for x in (" y ",","," también")):
+            return enviar("Elige solo tu objetivo PRINCIPAL:\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía")
+        sesion["perfil_tmp"][campo_actual] = procesar_campo(campo_actual, message)
+        sesion["onboarding_step"] = step + 1
         if sesion["onboarding_step"] < len(preguntas):
-            _, siguiente = preguntas[sesion["onboarding_step"]]
-            return enviar(siguiente)
-
-        # Onboarding completo
+            guardar_sesion(phone, sesion)
+            return enviar(preguntas[sesion["onboarding_step"]][1])
         perfil = sesion["perfil_tmp"].copy()
-        if "num_personas" not in perfil:
-            perfil["num_personas"] = "1"
+        if "num_personas" not in perfil: perfil["num_personas"] = "1"
         memoria["perfil"] = perfil
         main.guardar_memoria(memoria)
         sesion["estado"] = "generando_plan"
-        sesion["memoria"] = memoria
-
+        guardar_sesion(phone, sesion)
         t = threading.Thread(target=generar_plan_async, args=(phone, perfil, memoria))
-        t.daemon = True
-        t.start()
+        t.daemon = True; t.start()
+        return enviar("✅ Perfecto. Generando tu plan semanal... Dame un momento 🔄")
 
-        return enviar("✅ Perfecto. Generando tu plan semanal personalizado... Dame un momento 🔄")
-
-    # ── ESPERANDO CAMBIOS AL PLAN ──
     if estado == "esperando_cambios":
-        if tl in ("no", "n", "nop", "nope", "no gracias", "así está bien", "me gusta"):
-            sesion["estado"] = "esperando_si_lista"
-            ns = nombre_super(perfil)
-            return enviar(f"¿Quieres que prepare tu lista de la compra en {ns}? (sí/no)")
+        if tl in ("no","n","nop","no gracias"):
+            sesion["estado"] = "esperando_si_lista"; guardar_sesion(phone, sesion)
+            return enviar(f"¿Quieres que prepare tu lista de la compra en {ns(perfil)}? (sí/no)")
+        sesion["estado"] = "escuchando_cambios"; guardar_sesion(phone, sesion)
+        return enviar("Dime qué quieres cambiar.")
 
-        if tl in ("si", "sí", "s", "yes", "ok", "vale", "claro"):
-            sesion["estado"] = "escuchando_cambios"
-            return enviar("Dime qué quieres cambiar o añadir al plan.")
-
-        # Respuesta ambigua — tratar como cambio
-        sesion["estado"] = "escuchando_cambios"
-        return enviar("Dime qué quieres cambiar o añadir al plan.")
-
-    # ── ESCUCHANDO CAMBIOS ──
     if estado == "escuchando_cambios":
         try:
             client = main.crear_cliente()
-            plan_actual = memoria.get("plan_semanal_actual", "")
-            messages = [
-                {"role": "system", "content": main.system_zia_completo()},
-                {"role": "user", "content": f"Plan actual:\n{plan_actual[:6000]}\n\nEl usuario quiere cambiar: {message}\n\nActualiza el plan con este cambio. Sin tiempos de preparación en el plan."},
-            ]
-            plan_nuevo = main.completar(client, messages, max_tokens=6000)
+            plan_nuevo = main.completar(client, [
+                {"role":"system","content":main.system_zia_completo()},
+                {"role":"user","content":f"Plan:\n{memoria.get('plan_semanal_actual','')[:6000]}\n\nCambio: {message}\n\nActualiza sin tiempos de preparación."}
+            ], max_tokens=6000)
             memoria["plan_semanal_actual"] = plan_nuevo
             memoria["ultimo_plan"] = plan_nuevo
             main.guardar_memoria(memoria)
-            sesion["memoria"] = memoria
-            sesion["estado"] = "esperando_cambios"
-
-            partes = [plan_nuevo[i:i+1400] for i in range(0, len(plan_nuevo), 1400)]
+            sesion["estado"] = "esperando_cambios"; guardar_sesion(phone, sesion)
             resp = MessagingResponse()
-            for parte in partes:
-                resp.message(parte)
+            for p in [plan_nuevo[i:i+1400] for i in range(0,len(plan_nuevo),1400)]: resp.message(p)
             resp.message("¿Quieres cambiar algo más? (sí/no)")
-            return str(resp), 200, {"Content-Type": "text/xml"}
+            return str(resp), 200, {"Content-Type":"text/xml"}
         except Exception as e:
-            sesion["estado"] = "esperando_cambios"
-            return enviar(f"Error: {e}\n¿Quieres cambiar algo más? (sí/no)")
+            sesion["estado"] = "esperando_cambios"; guardar_sesion(phone, sesion)
+            return enviar(f"Error: {e}")
 
-    # ── ESPERANDO SI QUIERE LISTA ──
     if estado == "esperando_si_lista":
-        ns = nombre_super(perfil)
-        if tl in ("si", "sí", "s", "yes", "ok", "vale", "claro"):
-            sesion["estado"] = "generando_lista"
+        if tl in ("si","sí","s","yes","ok","vale","claro"):
+            sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
             t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
-            t.daemon = True
-            t.start()
-            return enviar("⏳ Preparando tu lista de la compra...")
-
-        if tl in ("no", "n", "nop", "ahora no"):
-            sesion["estado"] = "chat"
+            t.daemon = True; t.start()
+            return enviar("⏳ Preparando tu lista...")
+        if tl in ("no","n","nop"):
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
             return enviar("De acuerdo. Cuando quieras la lista dímelo 😊")
+        return enviar(f"¿Quieres la lista en {ns(perfil)}? Escribe sí o no.")
 
-        return enviar(f"¿Quieres que prepare tu lista de la compra en {ns}? Escribe sí o no.")
-
-    # ── ESPERANDO PAGO O COMPARAR ──
     if estado == "esperando_pago_o_comparar":
-        ns = nombre_super(perfil)
-        us = url_super(perfil)
-
-        if tl in ("1", "pagar", "pagar aqui", "confirmar", "si", "sí", "ok", "vale", ns.lower()):
-            sesion["estado"] = "chat"
-            return enviar(
-                f"✅ ¡Perfecto! Aquí tienes el enlace para comprar:\n\n"
-                f"🛒 {ns} → {us}\n\n"
-                f"¿Necesitas algo más?"
-            )
-
-        if tl in ("2", "comparar", "comparar precios", "otros", "otros supermercados"):
-            sesion["estado"] = "generando_comparativa"
-            t = threading.Thread(target=generar_comparativa_async, args=(phone, memoria))
-            t.daemon = True
-            t.start()
+        if tl in ("1","pagar","confirmar","si","sí","ok","vale"):
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar(f"✅ Aquí tienes el enlace:\n\n🛒 {ns(perfil)} → {us(perfil)}\n\n¿Necesitas algo más?")
+        if tl in ("2","comparar","comparar precios"):
+            sesion["estado"] = "generando_comparativa"; guardar_sesion(phone, sesion)
+            t = threading.Thread(target=generar_comparativa_async, args=(phone, memoria, perfil))
+            t.daemon = True; t.start()
             return enviar("⏳ Calculando precios en 5 supermercados...")
+        return enviar(f"1️⃣ Pagar en {ns(perfil)}\n2️⃣ Comparar precios")
 
-        return enviar(
-            f"Escribe:\n"
-            f"1️⃣ para pagar en {ns}\n"
-            f"2️⃣ para comparar precios"
-        )
-
-    # ── ELEGIR SUPER TRAS COMPARATIVA ──
     if estado == "elegir_super_comparativa":
-        mapa_num = {
-            "1": "mercadona", "2": "lidl", "3": "aldi",
-            "4": "carrefour", "5": "consum",
-        }
-        cid = mapa_num.get(tl) or main.detectar_id_supermercado_en_texto(message)
+        mapa = {"1":"mercadona","2":"lidl","3":"aldi","4":"carrefour","5":"consum"}
+        cid = mapa.get(tl) or main.detectar_id_supermercado_en_texto(message)
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_c, url_c = main.SUPER_TIENDA_URL[cid]
-            sesion["estado"] = "chat"
-            return enviar(
-                f"✅ Perfecto, tu compra en {nombre_c}.\n\n"
-                f"🛒 {nombre_c} → {url_c}\n\n"
-                f"¿Necesitas algo más?"
-            )
-        return enviar(
-            "Elige el supermercado:\n"
-            "1️⃣ Mercadona\n2️⃣ Lidl\n3️⃣ Aldi\n4️⃣ Carrefour\n5️⃣ Consum"
-        )
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar(f"✅ Tu compra en {nombre_c}.\n\n🛒 {nombre_c} → {url_c}\n\n¿Necesitas algo más?")
+        return enviar("Elige:\n1️⃣ Mercadona\n2️⃣ Lidl\n3️⃣ Aldi\n4️⃣ Carrefour\n5️⃣ Consum")
 
-    # ── CHAT CON IMAGEN ──
     if media_url:
         try:
             r = requests.get(media_url, auth=(TWILIO_SID, TWILIO_TOKEN))
             img_b64 = base64.b64encode(r.content).decode("utf-8")
             client = main.crear_cliente()
-            messages = [
-                {"role": "system", "content": main.system_para_vision()},
-                {"role": "user", "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{img_b64}"}},
-                    {"type": "text", "text": message or "Analiza esta imagen y sugiere recetas con lo que ves"}
+            respuesta = main.completar(client, [
+                {"role":"system","content":main.system_para_vision()},
+                {"role":"user","content":[
+                    {"type":"image_url","image_url":{"url":f"data:{media_type};base64,{img_b64}"}},
+                    {"type":"text","text":message or "Analiza esta imagen y sugiere recetas"}
                 ]}
-            ]
-            respuesta = main.completar(client, messages, max_tokens=2048)
+            ], max_tokens=2048)
             return enviar(respuesta[:1500])
         except Exception as e:
-            return enviar(f"Error analizando imagen: {e}")
+            return enviar(f"Error: {e}")
 
-    # ── CHAT LIBRE ──
     client = main.crear_cliente()
     historial = sesion.get("historial", [])
-    historial.append({"role": "user", "content": message})
-    tail = historial[-20:]
-    messages = [
-        {"role": "system", "content": main.system_chat_con_memoria(perfil, memoria) + "\n\nIMPORTANTE: Estás en WhatsApp. Máximo 300 palabras. Sin markdown con asteriscos."},
-        *tail,
-    ]
+    historial.append({"role":"user","content":message})
     try:
-        respuesta = main.completar(client, messages, max_tokens=1024)
-        historial.append({"role": "assistant", "content": respuesta})
+        respuesta = main.completar(client, [
+            {"role":"system","content":main.system_chat_con_memoria(perfil, memoria)+"\n\nIMPORTANTE: WhatsApp. Máximo 300 palabras."},
+            *historial[-20:]
+        ], max_tokens=1024)
+        historial.append({"role":"assistant","content":respuesta})
         sesion["historial"] = historial[-20:]
+        guardar_sesion(phone, sesion)
         main.guardar_memoria(memoria)
         return enviar(respuesta[:1500])
     except Exception as e:
