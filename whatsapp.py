@@ -32,15 +32,53 @@ def enviar(texto):
         resp.message(parte)
     return str(resp), 200, {"Content-Type": "text/xml"}
 
-def sesion_nueva():
+import json
+from pathlib import Path
+
+DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+def estado_path(phone):
+    safe = phone.replace("+","").replace(":","_").replace(" ","_").replace("whatsapp","")
+    return DATA_DIR / f"sesion_{safe}.json"
+
+def cargar_estado(phone):
+    p = estado_path(phone)
+    if p.is_file():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except:
+            pass
+    return {}
+
+def guardar_estado(phone, datos):
+    try:
+        estado_path(phone).write_text(
+            json.dumps(datos, ensure_ascii=False, indent=2),
+            encoding="utf-8"
+        )
+    except Exception as e:
+        print(f"Error guardando estado: {e}")
+
+def sesion_nueva(phone):
+    memoria = main.cargar_memoria()
+    estado_guardado = cargar_estado(phone)
     return {
-        "memoria": main.cargar_memoria(),
+        "memoria": memoria,
         "historial": [],
-        "estado": "inicio",
-        "perfil_tmp": {},
-        "tipo_plan": None,
-        "onboarding_step": 0,
+        "estado": estado_guardado.get("estado", "inicio"),
+        "perfil_tmp": estado_guardado.get("perfil_tmp", {}),
+        "tipo_plan": estado_guardado.get("tipo_plan"),
+        "onboarding_step": estado_guardado.get("onboarding_step", 0),
     }
+
+def guardar_estado_sesion(phone, sesion):
+    guardar_estado(phone, {
+        "estado": sesion.get("estado", "inicio"),
+        "perfil_tmp": sesion.get("perfil_tmp", {}),
+        "tipo_plan": sesion.get("tipo_plan"),
+        "onboarding_step": sesion.get("onboarding_step", 0),
+    })
 
 PREGUNTAS_INDIVIDUAL = [
     ("nombre", "¿Cómo te llamamos?"),

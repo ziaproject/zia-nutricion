@@ -50,6 +50,32 @@ def memoria_por_defecto() -> dict[str, Any]:
     }
 
 
+def cargar_memoria_usuario(phone: str) -> dict[str, Any]:
+    """Carga memoria específica para un usuario de WhatsApp."""
+    safe = phone.replace("+", "").replace(":", "_").replace(" ", "_")
+    path = Path(__file__).resolve().parent / f"memoria_{safe}.json"
+    if not path.is_file():
+        return memoria_por_defecto()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        base = memoria_por_defecto()
+        for k in base:
+            if k in data:
+                base[k] = data[k]
+        # Preservar campos de estado
+        for k in ("_estado", "_perfil_tmp", "_tipo_plan", "_onboarding_step"):
+            if k in data:
+                base[k] = data[k]
+        return base
+    except Exception:
+        return memoria_por_defecto()
+
+def guardar_memoria_usuario(phone: str, memoria: dict[str, Any]) -> None:
+    """Guarda memoria específica para un usuario de WhatsApp."""
+    safe = phone.replace("+", "").replace(":", "_").replace(" ", "_")
+    path = Path(__file__).resolve().parent / f"memoria_{safe}.json"
+    path.write_text(json.dumps(memoria, ensure_ascii=False, indent=2), encoding="utf-8")
+
 def cargar_memoria() -> dict[str, Any]:
     if not MEMORIA_PATH.is_file():
         return memoria_por_defecto()
