@@ -199,8 +199,8 @@ Sin texto adicional."""
         cid_habitual = ids_habitual[0] if ids_habitual else "mercadona"
         todos = [("1","mercadona","Mercadona"),("2","lidl","Lidl"),("3","aldi","Aldi"),("4","carrefour","Carrefour"),("5","consum","Consum")]
         opciones = [f"{n}️⃣ {nombre}" for n, cid, nombre in todos if cid != cid_habitual]
-        send(phone, "¿Con cuál te quedas?
-" + "\n".join(opciones))
+        send(phone, "Con cual te quedas?\n" + "\n".join(opciones))
+
     except Exception as e:
         send(phone, f"Error comparando precios: {e}")
         if phone in sesiones:
