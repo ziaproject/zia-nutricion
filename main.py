@@ -183,7 +183,7 @@ def añadir_lista_al_historial(memoria: dict[str, Any], texto_plan_completo: str
     guardar_memoria(memoria)
 
 
-ONBOARDING_QUESTIONS: list[tuple[str, str]] = [
+ONBOARDING_QUESTIONS_INDIVIDUAL: list[tuple[str, str]] = [
     (
         "nombre",
         "¿Cómo te llamamos?",
@@ -194,7 +194,30 @@ ONBOARDING_QUESTIONS: list[tuple[str, str]] = [
     ),
     (
         "objetivo",
-        "¿Cuál es tu objetivo principal?\n• Perder grasa\n• Ganar músculo\n• Mantenimiento\n• Comer más sano\n• Más energía\nEscribe el que más te encaje.",
+        "¿Cuál es tu objetivo principal? Elige solo uno:\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía",
+    ),
+    (
+        "presupuesto",
+        "¿Cuánto quieres gastar a la semana en comida? (en euros, ej.: 80)",
+    ),
+    (
+        "supermercado",
+        "¿En qué supermercado sueles comprar? (Mercadona, Lidl, Carrefour…)",
+    ),
+    (
+        "restricciones",
+        "¿Tienes alguna alergia, intolerancia o preferencia alimentaria? (ej.: sin gluten, vegetariano…)\nSi no hay ninguna, escribe «ninguna».",
+    ),
+    (
+        "tiempo_cocina",
+        "¿Cuánto tiempo tienes para cocinar al día?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar",
+    ),
+]
+
+ONBOARDING_QUESTIONS_FAMILIAR: list[tuple[str, str]] = [
+    (
+        "nombre",
+        "¿Cómo te llamamos?",
     ),
     (
         "num_personas",
@@ -202,25 +225,32 @@ ONBOARDING_QUESTIONS: list[tuple[str, str]] = [
     ),
     (
         "ninos_edades",
-        "¿Hay niños? Indica edades (o escribe «no» si no aplica).",
+        "¿Hay niños en casa? Si es que sí, indica sus edades.\nSi no hay, escribe «no».",
+    ),
+    (
+        "gustos_familia",
+        "Cuéntame los gustos o comidas favoritas de la familia y si hay algo que no le guste a alguien.\nEjemplo: al mayor no le gusta el pescado, a los niños les encanta la pasta.",
     ),
     (
         "restricciones",
-        "Alergias, intolerancias o preferencias (vegetariano, sin lactosa…). Si no hay, escribe «ninguna».",
-    ),
-    (
-        "tiempo_cocina",
-        "¿Cuánto tiempo puedes dedicar a cocinar al día? (ej.: menos de 20 minutos)",
-    ),
-    (
-        "supermercado",
-        "¿En qué supermercado sueles comprar? (Mercadona, Lidl, Carrefour…)",
+        "¿Hay alergias o intolerancias en casa? (ej.: celiaquía, sin lactosa, vegetariano…)\nSi no hay ninguna, escribe «ninguna».",
     ),
     (
         "presupuesto",
-        "Presupuesto semanal aproximado para la compra (en euros, ej.: 100).",
+        "¿Cuánto queréis gastar a la semana en la compra? (en euros, ej.: 150)",
+    ),
+    (
+        "supermercado",
+        "¿En qué supermercado soléis comprar? (Mercadona, Lidl, Carrefour…)",
+    ),
+    (
+        "tiempo_cocina",
+        "¿Cuánto tiempo tenéis para cocinar al día?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tenemos tiempo, nos gusta cocinar",
     ),
 ]
+
+# Compatibilidad con código existente
+ONBOARDING_QUESTIONS = ONBOARDING_QUESTIONS_INDIVIDUAL
 
 SYSTEM_BASE = """Eres ZIA, la mejor nutricionista del mundo, especializada en nutrición personalizada en España.
 - Eres como una nutricionista de élite que además es amiga cercana: cercana, directa, sin postureo ni jerga innecesaria.
@@ -2526,10 +2556,29 @@ def completar(
 
 def ejecutar_onboarding() -> dict[str, str]:
     perfil: dict[str, str] = {}
-    print("\n=== ZIA — Nutrición familiar ===\n")
-    print("Te haré 8 preguntas para personalizar tu plan. Escribe «salir» en cualquier momento para terminar.\n")
+    print("\n=== ZIA — Tu nutricionista personal ===\n")
+    print("ZIA: ¡Hola! Soy ZIA, tu nutricionista personal. Voy a hacerte unas preguntas rápidas para personalizar tu experiencia.\n")
+    print("ZIA: ¿El plan es para ti solo o para toda tu familia?")
+    print("     1️⃣  Para mí solo")
+    print("     2️⃣  Para mi familia\n")
 
-    for campo, pregunta in ONBOARDING_QUESTIONS:
+    while True:
+        tipo = input("Tú: ").strip().lower()
+        if tipo in ("salir",):
+            raise SystemExit(0)
+        if tipo in ("1", "1️⃣", "solo", "mi solo", "para mi", "para mí", "individual", "yo"):
+            perfil["tipo_plan"] = "individual"
+            preguntas = ONBOARDING_QUESTIONS_INDIVIDUAL
+            print("\nZIA: Perfecto, vamos a crear tu plan personalizado.\n")
+            break
+        if tipo in ("2", "2️⃣", "familia", "familiar", "todos", "para mi familia", "para toda la familia"):
+            perfil["tipo_plan"] = "familiar"
+            preguntas = ONBOARDING_QUESTIONS_FAMILIAR
+            print("\nZIA: Perfecto, vamos a crear el plan para toda la familia.\n")
+            break
+        print("ZIA: Escribe 1 para plan individual o 2 para plan familiar.\n")
+
+    for campo, pregunta in preguntas:
         print(f"ZIA: {pregunta}")
         respuesta = input("Tú: ").strip()
         if respuesta.lower() == "salir":
@@ -2539,7 +2588,58 @@ def ejecutar_onboarding() -> dict[str, str]:
             respuesta = input("Tú: ").strip()
             if respuesta.lower() == "salir":
                 raise SystemExit(0)
+
+        # Validar objetivo individual — solo uno
+        if campo == "objetivo":
+            mapa = {
+                "1": "Perder grasa", "1️⃣": "Perder grasa",
+                "2": "Ganar músculo", "2️⃣": "Ganar músculo",
+                "3": "Mantenimiento", "3️⃣": "Mantenimiento",
+                "4": "Comer más sano", "4️⃣": "Comer más sano",
+                "5": "Más energía", "5️⃣": "Más energía",
+            }
+            if respuesta in mapa:
+                respuesta = mapa[respuesta]
+            else:
+                # Detectar si pone dos objetivos
+                rl = respuesta.lower()
+                if any(x in rl for x in (" y ", ",", " también")):
+                    print("\nZIA: Entiendo que quieres las dos cosas, pero para darte el mejor plan necesito que elijas tu objetivo PRINCIPAL ahora.\nPuedes ajustarlo más adelante.\n")
+                    print("ZIA: ¿Cuál es tu objetivo principal?\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía\n")
+                    while True:
+                        respuesta = input("Tú: ").strip()
+                        if respuesta in mapa:
+                            respuesta = mapa[respuesta]
+                            break
+                        # Intentar detectar palabra clave
+                        rl2 = respuesta.lower()
+                        if "grasa" in rl2 or "peso" in rl2:
+                            respuesta = "Perder grasa"; break
+                        if "musc" in rl2:
+                            respuesta = "Ganar músculo"; break
+                        if "manten" in rl2:
+                            respuesta = "Mantenimiento"; break
+                        if "sano" in rl2 or "salud" in rl2:
+                            respuesta = "Comer más sano"; break
+                        if "energ" in rl2:
+                            respuesta = "Más energía"; break
+                        print("ZIA: Escribe el número (1-5) o el nombre del objetivo.\n")
+
+        # Validar tiempo cocina
+        if campo == "tiempo_cocina":
+            mapa_t = {
+                "1": "menos de 20 minutos", "1️⃣": "menos de 20 minutos",
+                "2": "entre 20 y 40 minutos", "2️⃣": "entre 20 y 40 minutos",
+                "3": "tengo tiempo, me gusta cocinar", "3️⃣": "tengo tiempo, me gusta cocinar",
+            }
+            if respuesta in mapa_t:
+                respuesta = mapa_t[respuesta]
+
         perfil[campo] = respuesta
+
+    # Compatibilidad: asegurar campos comunes
+    if "num_personas" not in perfil:
+        perfil["num_personas"] = "1"
 
     return perfil
 
