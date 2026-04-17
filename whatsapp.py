@@ -137,7 +137,7 @@ def generar_comparativa_async(phone, memoria, perfil):
         client = main.crear_cliente()
         presupuesto = perfil.get("presupuesto", "no especificado")
         lista_ref = memoria.get("lista_compra_actual") or memoria.get("ultimo_plan") or ""
-        prompt = f"""Calcula el precio TOTAL realista de toda esta lista de la compra en cada supermercado espanol. Presupuesto semanal del usuario: {presupuesto}.
+        prompt = f"""El usuario tiene un presupuesto de {presupuesto}. Usa ese total como base y ajusta a cada supermercado: Aldi y Lidl 10-15% mas baratos, Carrefour similar a Mercadona, Consum algo mas caro.
 
 Lista: {lista_ref[:2000]}
 
