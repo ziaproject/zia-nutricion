@@ -54,7 +54,7 @@ PREGUNTAS_INDIVIDUAL = [
     ("datos_fisicos", "Para personalizar tu plan necesito algunos datos:\nGénero, edad, peso (kg) y altura (cm)\nEjemplo: hombre, 35 años, 80 kg, 178 cm"),
     ("objetivo", "¿Cuál es tu objetivo principal?\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía"),
     ("presupuesto", "¿Cuánto quieres gastar a la semana en comida? (ej: 80€)"),
-    ("supermercado", "¿En qué supermercado sueles comprar?\nMercadona, Lidl, Aldi, Carrefour, Consum…"),
+    ("supermercado", "¿En qué supermercado/s sueles comprar?\nPuedes elegir varios separados por coma\nEj: Mercadona, Lidl"),
     ("restricciones", "¿Tienes alguna alergia o intolerancia?\nSi no hay ninguna escribe: ninguna"),
     ("tiempo_cocina", "¿Cuánto tiempo tienes para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar"),
 ]
@@ -66,7 +66,7 @@ PREGUNTAS_FAMILIAR = [
     ("gustos_familia", "Cuéntame gustos o comidas favoritas y si alguien no come algo."),
     ("restricciones", "¿Hay alergias o intolerancias?\nSi no hay escribe: ninguna"),
     ("presupuesto", "¿Cuánto queréis gastar a la semana? (ej: 150€)"),
-    ("supermercado", "¿En qué supermercado soléis comprar?\nMercadona, Lidl, Aldi, Carrefour, Consum…"),
+    ("supermercado", "¿En qué supermercado/s soléis comprar?\nPodéis elegir varios separados por coma\nEj: Mercadona, Lidl"),
     ("tiempo_cocina", "¿Cuánto tiempo tenéis para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tenemos tiempo, nos gusta cocinar"),
 ]
 
@@ -140,7 +140,7 @@ def generar_comparativa_async(phone, memoria, perfil):
         ids = main.ids_supermercados_detectados(perfil.get("supermercado",""))
         cid_hab = ids[0] if ids else "mercadona"
         todos = [("1","mercadona","Mercadona"),("2","lidl","Lidl"),("3","aldi","Aldi"),("4","carrefour","Carrefour"),("5","consum","Consum")]
-        opciones = [f"{n} {nombre}" for n,cid,nombre in todos if cid != cid_hab]
+        opciones = [f"{n}️⃣ {nombre}" for n,cid,nombre in todos if cid != cid_hab]
         send(phone, "¿Con cuál te quedas?\n" + "\n".join(opciones))
     except Exception as e:
         send(phone, f"Error: {e}")
