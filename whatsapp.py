@@ -141,7 +141,7 @@ def generar_comparativa_async(phone, memoria, perfil):
         cid_hab = ids[0] if ids else "mercadona"
         todos = [("1","mercadona","Mercadona"),("2","lidl","Lidl"),("3","aldi","Aldi"),("4","carrefour","Carrefour"),("5","consum","Consum")]
         opciones = [f"{n}️⃣ {nombre}" for n,cid,nombre in todos if cid != cid_hab]
-        send(phone, "¿Con cuál te quedas?\n" + "\n".join(opciones))
+        send(phone, "¿Con cuál te quedas? Elige un número o escribe el nombre:\n" + "\n".join(opciones))
     except Exception as e:
         send(phone, f"Error: {e}")
 
@@ -234,7 +234,7 @@ def webhook():
         if tl in ("no","n","nop"):
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
             return enviar("De acuerdo. Cuando quieras la lista dímelo 😊")
-        return enviar(f"¿Quieres la lista en {ns(perfil)}? Escribe sí o no.")
+        return enviar(f"Escribe sí para la lista de {ns(perfil)} o no para continuar.")
 
     if estado == "esperando_pago_o_comparar":
         if tl in ("1","pagar","confirmar","si","sí","ok","vale"):
