@@ -198,8 +198,10 @@ def webhook():
 
     if estado == "esperando_cambios":
         if tl in ("no","n","nop","no gracias"):
-            sesion["estado"] = "esperando_si_lista"; guardar_sesion(phone, sesion)
-            return enviar(f"¿Quieres que prepare tu lista de la compra en {ns(perfil)}? (sí/no)")
+            sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
+            t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
+            t.daemon = True; t.start()
+            return enviar("Perfecto 👌 Preparando tu lista de la compra...")
         sesion["estado"] = "escuchando_cambios"; guardar_sesion(phone, sesion)
         return enviar("Dime qué quieres cambiar.")
 
@@ -216,7 +218,7 @@ def webhook():
             sesion["estado"] = "esperando_cambios"; guardar_sesion(phone, sesion)
             resp = MessagingResponse()
             for p in [plan_nuevo[i:i+1400] for i in range(0,len(plan_nuevo),1400)]: resp.message(p)
-            resp.message("¿Quieres cambiar algo más? (sí/no)")
+            resp.message("✅ Plan actualizado. ¿Quieres cambiar algo más? (sí/no)")
             return str(resp), 200, {"Content-Type":"text/xml"}
         except Exception as e:
             sesion["estado"] = "esperando_cambios"; guardar_sesion(phone, sesion)
