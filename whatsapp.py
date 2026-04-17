@@ -117,7 +117,7 @@ def generar_lista_async(phone, perfil, memoria):
             send(phone, "No tengo plan. Escribe reset para crear uno")
             s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
             return
-        lista = main.generar_lista_compra_respuesta(client=main.crear_cliente(), perfil=perfil, plan_ref=plan_ref)
+        lista = main.generar_lista_compra_respuesta(client=main.crear_cliente(), perfil=perfil, plan_texto=plan_ref)
         memoria["lista_compra_actual"] = lista
         memoria["ultimo_plan"] = (plan_ref + "\n\n" + lista).strip()
         main.guardar_memoria_usuario(phone, memoria)
