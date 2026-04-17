@@ -54,22 +54,22 @@ def enviar(texto):
     return str(resp), 200, {"Content-Type": "text/xml"}
 
 PREGUNTAS_INDIVIDUAL = [
-    ("nombre", "Como te llamamos?"),
+    ("nombre", "👋 ¿Cómo te llamamos?"),
     ("datos_fisicos", "Para personalizar tu plan necesito algunos datos:\nGenero, edad, peso (kg) y altura (cm)\nEjemplo: hombre, 36 anos, 80 kg, 175 cm"),
     ("objetivo", "Cual es tu objetivo principal?\n1 Perder grasa\n2 Ganar musculo\n3 Mantenimiento\n4 Comer mas sano\n5 Mas energia"),
-    ("presupuesto", "Cuanto quieres gastar a la semana en comida? (ej: 80 euros)"),
+    ("presupuesto", "💰 ¿Cuánto quieres gastar a la semana en comida? (ej: 80€)"),
     ("supermercado", "En que supermercado/s sueles comprar?\nEj: Mercadona, Lidl"),
     ("restricciones", "Tienes alguna alergia o intolerancia?\nSi no hay ninguna escribe: ninguna"),
     ("tiempo_cocina", "Cuanto tiempo tienes para cocinar?\n1 Menos de 20 minutos\n2 Entre 20 y 40 minutos\n3 Tengo tiempo, me gusta cocinar"),
 ]
 
 PREGUNTAS_FAMILIAR = [
-    ("nombre", "Como te llamamos?"),
-    ("num_personas", "Cuantas personas comeis en casa?"),
+    ("nombre", "👋 ¿Cómo te llamamos?"),
+    ("num_personas", "👨‍👩‍👧‍👦 ¿Cuántas personas coméis en casa?"),
     ("ninos_edades", "Hay ninos en casa? Si es asi indica edades.\nSi no escribe: no"),
     ("gustos_familia", "Cuales son los gustos o comidas favoritas de la familia?\nSi alguien no come algo, indicalo"),
     ("restricciones", "Hay alergias o intolerancias en la familia?\nSi no hay ninguna escribe: ninguna"),
-    ("presupuesto", "Cuanto quereis gastar a la semana? (ej: 150 euros)"),
+    ("presupuesto", "💰 ¿Cuánto queréis gastar a la semana? (ej: 150€)"),
     ("supermercado", "En que supermercado/s soleis comprar?\nEj: Mercadona, Lidl"),
     ("tiempo_cocina", "Cuanto tiempo teneis para cocinar?\n1 Menos de 20 minutos\n2 Entre 20 y 40 minutos\n3 Tenemos tiempo, nos gusta cocinar"),
 ]
@@ -105,7 +105,7 @@ def generar_plan_async(phone, perfil, memoria):
         for parte in [plan[i:i+1400] for i in range(0, len(plan), 1400)]:
             send(phone, parte)
             time.sleep(1)
-        send(phone, "Quieres cambiar algo del plan? (si/no)")
+        send(phone, "💪 ¿Quieres cambiar algo del plan? (sí/no)")
     except Exception as e:
         send(phone, "Error generando plan. Escribe reset para empezar.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
@@ -135,7 +135,7 @@ def generar_comparativa_async(phone, memoria, perfil):
         client = main.crear_cliente()
         prompt = f"Lista pedidos.\n{main.texto_factores_precio_supermercados()}\n\nMuestra SOLO 5 lineas:\nMercadona XX.XX euros\nLidl XX.XX euros\nAldi XX.XX euros\nCarrefour XX.XX euros\nConsum XX.XX euros\nMAS ECONOMICO al mas barato."
         totales = main.completar(client, [
-            {"role":"system","content":"Solo las lineas pedidas, sin texto extra."},
+            {"role":"system","content":"Solo las 5 líneas pedidas con el TOTAL de toda la lista de la compra en cada supermercado. Sin texto extra."},
             {"role":"user","content":prompt}
         ], max_tokens=250)
         s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
@@ -238,7 +238,7 @@ def webhook():
             send(phone, f"Aqui tienes el enlace: {us(perfil)}")
             time.sleep(1)
             return enviar(MENU)
-        if tl in ("2","comparar","comparar precios"):
+        if tl in ("2","comparar","comparar precios","comparar precios"):
             sesion["estado"] = "generando_comparativa"; guardar_sesion(phone, sesion)
             t = threading.Thread(target=generar_comparativa_async, args=(phone, memoria, perfil))
             t.daemon = True; t.start()
