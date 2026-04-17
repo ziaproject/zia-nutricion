@@ -205,6 +205,28 @@ def webhook():
         sesion["estado"] = "escuchando_cambios"; guardar_sesion(phone, sesion)
         return enviar("Dime qué quieres cambiar.")
 
+    if estado == "esperando_respuesta_comida":
+        momento = sesion.get("momento_actual", "comida")
+        plato = sesion.get("plato_actual", "")
+        if tl in ("1", "tengo todo", "perfecto", "lo tengo"):
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar(f"A por ello 💪 Que aproveche.\n\n¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒")
+        if tl in ("2", "me falta", "falta algo", "necesito algo"):
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar(f"¿Qué te falta para el {momento.lower()}? Dímelo y te lo busco.")
+        if tl in ("3", "cambiame", "cambiar", "otro plato"):
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            client = main.crear_cliente()
+            nuevo = main.completar(client, [
+                {"role":"system","content":"Eres ZIA. Cambia este plato por otro similar manteniendo los mismos macros aproximados. Devuelve solo el nuevo plato con ingredientes y macros. Máximo 100 palabras."},
+                {"role":"user","content":f"Plato actual:\n{plato}\n\nDame una alternativa con macros similares."}
+            ], max_tokens=300)
+            return enviar(f"Te cambio el plato 🔄\n\n{nuevo}\n\n¿Este te va mejor?\n1️⃣ Perfecto ✅\n2️⃣ Dame otro 🔄")
+        if tl in ("4", "tengo poco", "foto nevera", "nevera"):
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar("Mándame la foto de tu nevera 📸 y te preparo algo rico con lo que tienes.")
+        sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+
     if estado == "escuchando_cambios":
         try:
             client = main.crear_cliente()
