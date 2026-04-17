@@ -87,7 +87,7 @@ def generar_plan_async(phone, perfil, memoria):
         client = main.crear_cliente()
         system = main.system_zia_completo().replace(
             "SIEMPRE indica el tiempo de preparación en minutos para cada receta (ej: 15 min).",
-            "NO incluyas tiempos de preparación en el plan semanal. Termina el plan con la última cena del domingo sin añadir ninguna pregunta ni comentario final."
+            "NO incluyas tiempos de preparación. Termina SIEMPRE con la cena del domingo. PROHIBIDO añadir preguntas, comentarios, valoraciones o frases finales de ningún tipo."
         )
         plan = main.completar(client, [
             {"role":"system","content":system},
@@ -102,7 +102,7 @@ def generar_plan_async(phone, perfil, memoria):
         guardar_sesion(phone, s)
         for parte in [plan[i:i+1400] for i in range(0, len(plan), 1400)]:
             send(phone, parte)
-        send(phone, "¿Quieres cambiar o añadir algo al plan? (sí/no)")
+        send(phone, "¿Quieres cambiar algo del plan? (sí/no)")
     except Exception as e:
         send(phone, f"Error: {e}\nEscribe reset para empezar.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
