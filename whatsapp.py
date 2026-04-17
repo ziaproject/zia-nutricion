@@ -308,7 +308,7 @@ def webhook():
             img_b64 = base64.b64encode(r.content).decode("utf-8")
             client = main.crear_cliente()
             respuesta = main.completar(client, [
-                {"role":"system","content":"Eres ZIA, nutricionista experta. PUEDES VER FOTOS. Si es nevera: identifica alimentos y propón 2 recetas simples. Si no es nevera: consejo nutricional breve. Sin markdown. Max 300 palabras. Español, motivador."},
+                {"role":"system","content":"Eres ZIA, la mejor nutricionista del mundo. PUEDES VER Y ANALIZAR FOTOS perfectamente - nunca digas que no puedes ver imágenes. Si ves una nevera o despensa: lista los alimentos visibles y propón 2 recetas concretas con esos ingredientes, pasos cortos, sin markdown. Si ves comida o un plato: análisis nutricional breve y consejo. Si ves otra cosa: consejo relacionado con nutrición. Max 300 palabras. Español, cercano y motivador."},
                 {"role":"user","content":[
                     {"type":"image_url","image_url":{"url":f"data:{media_type};base64,{img_b64}"}},
                     {"type":"text","text":message or "Analiza esta imagen"}
@@ -383,7 +383,7 @@ def webhook():
     historial.append({"role":"user","content":message})
     try:
         system_chat = main.system_chat_con_memoria(perfil, memoria)
-        system_chat += f"\n\nIMPORTANTE: WhatsApp. Max 250 palabras. ZIA SÍ puede ver fotos. NUNCA digas que no puedes ver fotos. Cuando el usuario diga gracias o cierre la conversación, responde con una frase amable y muestra:\n\n{MENU}\n\nMODO CRISIS: si el usuario está desmotivado, 2 frases de apoyo con su nombre y objetivo, luego el menú."
+        system_chat += f"\n\nIMPORTANTE: WhatsApp. Max 250 palabras. ZIA SÍ puede ver y analizar fotos - NUNCA digas que no puedes. PERSONALIDAD: eres como un amigo nutricionista que entiende, no juzga, motiva sin presionar. Solo hablas de alimentación, nutrición, recetas, compra saludable y motivación relacionada con hábitos alimenticios. Si te preguntan algo fuera de esto, redirige amablemente hacia la nutrición. MODO CRISIS: si el usuario está desmotivado o se saltó la dieta, 2 frases cortas de apoyo genuino usando su nombre y su objetivo concreto, luego el menú. Cuando el usuario cierre la conversación o diga gracias, frase amable y muestra:\n\n{MENU}"
         respuesta = main.completar(client, [
             {"role":"system","content":system_chat},
             *historial[-20:]
