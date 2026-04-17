@@ -208,9 +208,10 @@ def webhook():
     if estado == "escuchando_cambios":
         try:
             client = main.crear_cliente()
+            system_cambio = "Eres ZIA nutricionista. Tu UNICA tarea: aplicar el cambio pedido y devolver el plan completo actualizado. PROHIBIDO preguntar nada, hacer comentarios, preguntar como se siente el usuario o si quiere continuar. Solo el plan con el cambio aplicado."
             plan_nuevo = main.completar(client, [
-                {"role":"system","content":main.system_zia_completo()},
-                {"role":"user","content":f"Plan:\n{memoria.get('plan_semanal_actual','')[:6000]}\n\nCambio: {message}\n\nActualiza sin tiempos de preparación."}
+                {"role":"system","content":system_cambio},
+                {"role":"user","content":f"Plan actual:\n{memoria.get('plan_semanal_actual','')[:6000]}\n\nCAMBIO: {message}\n\nDevuelve el plan completo de 7 dias con el cambio aplicado. Sin preguntas ni comentarios al final. Termina con la cena del domingo."}
             ], max_tokens=6000)
             memoria["plan_semanal_actual"] = plan_nuevo
             memoria["ultimo_plan"] = plan_nuevo
