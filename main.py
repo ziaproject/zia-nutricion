@@ -2107,6 +2107,22 @@ def texto_sin_acentos(s: str) -> str:
 
 # id interno → nombre visible, URL única de la tienda (sin búsqueda por producto)
 SUPER_TIENDA_URL: dict[str, tuple[str, str]] = {
+    "mercadona": ("Mercadona", "https://www.mercadona.es"),
+    "lidl": ("Lidl", "https://www.lidl.es"),
+    "aldi": ("Aldi", "https://www.aldi.es"),
+    "carrefour": ("Carrefour", "https://www.carrefour.es"),
+    "consum": ("Consum", "https://www.consum.es"),
+    "dia": ("Día", "https://www.dia.es"),
+    "alcampo": ("Alcampo", "https://www.alcampo.es"),
+    "eroski": ("Eroski", "https://www.eroski.es"),
+    "elcorteingles": ("El Corte Inglés", "https://www.elcorteingles.es/supermercado"),
+    "hipercor": ("Hipercor", "https://www.hipercor.es"),
+    "bonpreu": ("BonPreu", "https://www.bonpreuesclat.cat"),
+    "ahorramas": ("Ahorramas", "https://www.ahorramas.com"),
+    "condis": ("Condis", "https://www.condis.es"),
+    "gadis": ("Gadis", "https://www.gadis.es"),
+    "coviran": ("Covirán", "https://www.coviran.es"),
+    "herbolarionavarro": ("Herbolario Navarro", "https://www.herbolarionavarro.es"),
     "mercadona": ("Mercadona", "https://tienda.mercadona.es"),
     "lidl": ("Lidl", "https://www.lidl.es"),
     "aldi": ("Aldi", "https://www.aldi.es"),
