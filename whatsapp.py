@@ -354,12 +354,15 @@ def webhook():
     if tl in ("4", "foto nevera", "foto de mi nevera"):
         return enviar("Mándame la foto de tu nevera o despensa 📸 y te preparo recetas con lo que tienes.")
 
-    if tl in ("5", "nueva lista", "nueva lista de la compra"):
+    if tl in ("5", "nueva lista", "nueva lista de la compra", "hacer la compra"):
+        plan = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
+        if not plan:
+            return enviar("Primero necesito generarte un plan. Escribe reset para empezar 💪")
         sesion["estado"] = "generando_lista"
         guardar_sesion(phone, sesion)
         t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
         t.daemon = True; t.start()
-        return enviar("⏳ Generando tu nueva lista de la compra...")
+        return enviar("⏳ Generando tu lista de la compra...")
 
     client = main.crear_cliente()
     historial = sesion.get("historial", [])
