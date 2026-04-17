@@ -352,7 +352,7 @@ def webhook():
     historial.append({"role":"user","content":message})
     try:
         respuesta = main.completar(client, [
-            {"role":"system","content":main.system_chat_con_memoria(perfil, memoria)+"\n\nIMPORTANTE: WhatsApp. Máximo 300 palabras."},
+            {"role":"system","content":main.system_chat_con_memoria(perfil, memoria)+"\n\nCUANDO EL USUARIO DIGA gracias, de nada, ok, perfecto, genial o cualquier cierre de conversacion, responde con UNA frase corta y amable y luego muestra SIEMPRE este menu exacto:\n\n¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒\n\nIMPORTANTE: WhatsApp. Máximo 300 palabras."},
             *historial[-20:]
         ], max_tokens=1024)
         historial.append({"role":"assistant","content":respuesta})
