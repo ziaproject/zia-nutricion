@@ -227,6 +227,17 @@ def webhook():
             return enviar("Mándame la foto de tu nevera 📸 y te preparo algo rico con lo que tienes.")
         sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
 
+    if estado == "esperando_faltante":
+        producto = message.strip()
+        if producto:
+            super_url = main.url_super_principal_o_default(perfil)
+            super_nombre = main.nombre_supermercado_perfil(perfil)
+            memoria.setdefault("mini_lista_faltantes", []).append({"ingredient": producto, "line": producto, "price": "0"})
+            main.guardar_memoria_usuario(phone, memoria)
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar(f"Anotado ✅\n\n🛒 Cómpralo en {super_nombre} → {super_url}\n\n¿Necesitas algo más?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒")
+        return enviar("¿Qué te falta? Escríbelo y te lo busco.")
+
     if estado == "escuchando_cambios":
         try:
             client = main.crear_cliente()
