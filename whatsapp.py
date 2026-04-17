@@ -97,7 +97,7 @@ def generar_plan_async(phone, perfil, memoria):
         ], max_tokens=3192)
         memoria["plan_semanal_actual"] = plan
         memoria["ultimo_plan"] = plan
-        main.aniadir_lista_al_historial(memoria, plan)
+        main.añadir_lista_al_historial(memoria, plan)
         main.guardar_memoria_usuario(phone, memoria)
         s = cargar_sesion(phone)
         s["estado"] = "esperando_cambios"
@@ -159,7 +159,7 @@ def webhook():
     perfil = memoria.get("perfil",{})
 
     if tl in ("reset","reiniciar","nuevo perfil","empezar de nuevo"):
-        main.reset_memoria_tres_nuevo(memoria)
+        main.reset_memoria_tras_nuevo(memoria)
         guardar_sesion(phone, {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0})
         return enviar("Hola! Soy ZIA, tu nutricionista personal\n\nEl plan es para ti solo o para toda tu familia?\n\n1 Para mi solo\n2 Para mi familia")
 
