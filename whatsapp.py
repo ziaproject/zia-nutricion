@@ -198,7 +198,9 @@ def webhook():
     if estado == "esperando_cambios":
         if tl in ("no","n","no gracias","nop","nel","nope"):
             sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
-            t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
+            memoria_fresca = main.cargar_memoria_usuario(phone)
+            perfil_fresco = memoria_fresca.get("perfil", perfil)
+            t = threading.Thread(target=generar_lista_async, args=(phone, perfil_fresco, memoria_fresca))
             t.daemon = True; t.start()
             return enviar("¡Perfecto! 🛒 Preparando tu lista de la compra...")
         if tl in ("si","s","yes","ok","vale","claro","quiero cambiar","cambiar"):
