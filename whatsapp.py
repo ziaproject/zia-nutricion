@@ -141,7 +141,7 @@ def generar_comparativa_async(phone, memoria, perfil):
         s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
         send(phone, totales)
         time.sleep(1)
-        send(phone, "Con cual te quedas?\n\n1 Mercadona\n2 Lidl\n3 Aldi\n4 Carrefour\n5 Consum")
+        
     except Exception as e:
         send(phone, "Error calculando precios. Intentalo de nuevo.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
