@@ -137,27 +137,28 @@ def generar_comparativa_async(phone, memoria, perfil):
         client = main.crear_cliente()
         presupuesto = perfil.get("presupuesto", "no especificado")
         lista_ref = memoria.get("lista_compra_actual") or memoria.get("ultimo_plan") or ""
-        prompt = f"""Tienes esta lista de la compra. El presupuesto semanal es {presupuesto}.
-Calcula el precio TOTAL realista de toda la lista en cada supermercado.
+        prompt = f"""Calcula el precio TOTAL realista de toda esta lista de la compra en cada supermercado espanol. Presupuesto semanal del usuario: {presupuesto}.
 
 Lista: {lista_ref[:2000]}
 
-Muestra SOLO estas 5 lineas ordenadas de mas barato a mas caro:
-Aldi → XX.XX euros (MAS BARATO)
-Lidl → XX.XX euros
-Mercadona → XX.XX euros
-Consum → XX.XX euros
-Carrefour → XX.XX euros
+Devuelve EXACTAMENTE este formato, con precios reales calculados, marcando el mas barato:
 
-Solo esas 5 lineas con precios reales. Sin texto adicional."""
+Con cual te quedas?
+
+1 Mercadona → XX.XX euros
+2 Lidl → XX.XX euros
+3 Aldi → XX.XX euros (MAS BARATO)
+4 Carrefour → XX.XX euros
+5 Consum → XX.XX euros
+
+Mantén siempre esa numeración fija. Solo ese bloque, sin texto extra."""
         totales = main.completar(client, [
-            {"role":"system","content":"Eres un experto en precios de supermercados espanoles. Solo las lineas pedidas."},
+            {"role":"system","content":"Experto en precios de supermercados espanoles. Devuelve solo el formato pedido."},
             {"role":"user","content":prompt}
-        ], max_tokens=200)
+        ], max_tokens=250)
         s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
+        guardar_sesion(phone, s)
         send(phone, totales)
-        time.sleep(2)
-        send(phone, "¿Con cuál te quedas?\n\n1️⃣ Mercadona 🟢\n2️⃣ Lidl 🟡\n3️⃣ Aldi 🔵\n4️⃣ Carrefour 🟠\n5️⃣ Consum 🔴")
     except Exception as e:
         send(phone, "❌ Error calculando precios. Inténtalo de nuevo.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
