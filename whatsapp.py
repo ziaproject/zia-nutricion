@@ -11,7 +11,7 @@ from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
 
 app = Flask(__name__)
-DATA_DIR = Path("/app/data")
+DATA_DIR = Path(os.getenv("DATA_DIR", "/app/data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
