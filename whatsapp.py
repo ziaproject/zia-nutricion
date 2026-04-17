@@ -262,6 +262,7 @@ def webhook():
         if tl in ("1","pagar","confirmar","si","sí","ok","vale"):
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
         send(phone, f"✅ Aquí tienes el enlace:\n\n🛒 {ns(perfil)} → {us(perfil)}")
+        import time; time.sleep(1)
         return enviar("¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒")
         if tl in ("2","comparar","comparar precios"):
             sesion["estado"] = "generando_comparativa"; guardar_sesion(phone, sesion)
