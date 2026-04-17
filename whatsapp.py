@@ -90,7 +90,7 @@ def us(perfil):
 def generar_plan_async(phone, perfil, memoria):
     try:
         client = main.crear_cliente()
-        system = main.system_zia_completo()
+        system = main.system_zia_completo() + "\n\nIMPORTANTE: PROHIBIDO añadir preguntas, comentarios, valoraciones o frases finales al plan. Termina EXACTAMENTE con la cena del domingo sin añadir nada más."
         plan = main.completar(client, [
             {"role":"system","content":system},
             {"role":"user","content":main.mensaje_plan_semanal(perfil, memoria)}
@@ -125,7 +125,7 @@ def generar_lista_async(phone, perfil, memoria):
         for parte in [lista[i:i+1400] for i in range(0, len(lista), 1400)]:
             send(phone, parte)
             time.sleep(1)
-        send(phone, f"Que quieres hacer?\n\n1 Pagar en {ns(perfil)}\n2 Comparar precios")
+        send(phone, f"Que quieres hacer?\n\n1️⃣ Pagar en {ns(perfil)}\n2️⃣ Comparar precios")
     except Exception as e:
         send(phone, "Error generando lista. Intentalo de nuevo.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
@@ -141,7 +141,7 @@ def generar_comparativa_async(phone, memoria, perfil):
         s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
         send(phone, totales)
         time.sleep(1)
-        send(phone, "Con cual te quedas? Escribe: 1-Mercadona 2-Lidl 3-Aldi 4-Carrefour 5-Consum")
+        send(phone, "Con cual te quedas?\n\n1️⃣ Mercadona\n2️⃣ Lidl\n3️⃣ Aldi\n4️⃣ Carrefour\n5️⃣ Consum")
     except Exception as e:
         send(phone, "Error calculando precios. Intentalo de nuevo.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
