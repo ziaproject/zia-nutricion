@@ -56,11 +56,11 @@ def enviar(texto):
 PREGUNTAS_INDIVIDUAL = [
     ("nombre", "👋 ¿Cómo te llamamos?"),
     ("datos_fisicos", "Para personalizar tu plan necesito algunos datos:\nGenero, edad, peso (kg) y altura (cm)\nEjemplo: hombre, 36 anos, 80 kg, 175 cm"),
-    ("objetivo", "Cual es tu objetivo principal?\n1 Perder grasa\n2 Ganar musculo\n3 Mantenimiento\n4 Comer mas sano\n5 Mas energia"),
+    ("objetivo", "🎯 ¿Cuál es tu objetivo principal?\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía"),
     ("presupuesto", "💰 ¿Cuánto quieres gastar a la semana en comida? (ej: 80€)"),
     ("supermercado", "En que supermercado/s sueles comprar?\nEj: Mercadona, Lidl"),
     ("restricciones", "Tienes alguna alergia o intolerancia?\nSi no hay ninguna escribe: ninguna"),
-    ("tiempo_cocina", "Cuanto tiempo tienes para cocinar?\n1 Menos de 20 minutos\n2 Entre 20 y 40 minutos\n3 Tengo tiempo, me gusta cocinar"),
+    ("tiempo_cocina", "⏱️ ¿Cuánto tiempo tienes para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar"),
 ]
 
 PREGUNTAS_FAMILIAR = [
@@ -71,7 +71,7 @@ PREGUNTAS_FAMILIAR = [
     ("restricciones", "Hay alergias o intolerancias en la familia?\nSi no hay ninguna escribe: ninguna"),
     ("presupuesto", "💰 ¿Cuánto queréis gastar a la semana? (ej: 150€)"),
     ("supermercado", "En que supermercado/s soleis comprar?\nEj: Mercadona, Lidl"),
-    ("tiempo_cocina", "Cuanto tiempo teneis para cocinar?\n1 Menos de 20 minutos\n2 Entre 20 y 40 minutos\n3 Tenemos tiempo, nos gusta cocinar"),
+    ("tiempo_cocina", "⏱️ ¿Cuánto tiempo tenéis para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tenemos tiempo, nos gusta cocinar"),
 ]
 
 MAPA_OBJETIVO = {"1":"Perder grasa","2":"Ganar musculo","3":"Mantenimiento","4":"Comer mas sano","5":"Mas energia"}
@@ -140,7 +140,13 @@ def generar_comparativa_async(phone, memoria, perfil):
         ], max_tokens=250)
         s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
         send(phone, totales)
-        send(phone, "Con cual te quedas? Escribe el numero.")
+        time.sleep(1)
+        send(phone, "Con cual te quedas?
+1 Mercadona
+2 Lidl
+3 Aldi
+4 Carrefour
+5 Consum")
     except Exception as e:
         send(phone, "Error calculando precios. Intentalo de nuevo.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
