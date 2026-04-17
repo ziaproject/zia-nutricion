@@ -87,7 +87,7 @@ def generar_plan_async(phone, perfil, memoria):
         client = main.crear_cliente()
         system = main.system_zia_completo().replace(
             "SIEMPRE indica el tiempo de preparación en minutos para cada receta (ej: 15 min).",
-            "NO incluyas tiempos de preparación en el plan semanal."
+            "NO incluyas tiempos de preparación en el plan semanal. Termina el plan con la última cena del domingo sin añadir ninguna pregunta ni comentario final."
         )
         plan = main.completar(client, [
             {"role":"system","content":system},
