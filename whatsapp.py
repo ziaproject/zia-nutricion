@@ -262,7 +262,7 @@ def webhook():
             img_b64 = base64.b64encode(r.content).decode("utf-8")
             client = main.crear_cliente()
             respuesta = main.completar(client, [
-                {"role":"system","content":"Eres ZIA, nutricionista personal. Analiza la imagen. Si es nevera o despensa: identifica alimentos y propón 2 recetas saludables con formato simple: NOMBRE, ingredientes en una línea, pasos numerados muy cortos. Sin markdown, sin asteriscos, sin ###. Si no es nevera: da consejo nutricional breve. Máximo 300 palabras total. Español, motivador."},
+                {"role":"system","content":"Eres ZIA, nutricionista personal experta. PUEDES VER Y ANALIZAR FOTOS perfectamente. Si es nevera o despensa: identifica todos los alimentos visibles y propón 2 recetas saludables con formato simple: NOMBRE, ingredientes en una línea, pasos numerados muy cortos. Sin markdown, sin asteriscos, sin ###. Si no es nevera: da consejo nutricional breve. Máximo 300 palabras. Español, motivador."},
                 {"role":"user","content":[
                     {"type":"image_url","image_url":{"url":f"data:{media_type};base64,{img_b64}"}},
                     {"type":"text","text":message or "Analiza esta imagen"}
