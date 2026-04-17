@@ -261,7 +261,13 @@ def webhook():
     if estado == "esperando_pago_o_comparar":
         if tl in ("1","pagar","confirmar","si","sí","ok","vale"):
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-            return enviar(f"✅ Aquí tienes el enlace:\n\n🛒 {ns(perfil)} → {us(perfil)}\n\n¿Qué quieres hacer ahora?\n1️⃣ Ver mi plan semanal\n2️⃣ Cambiar algo del plan\n3️⃣ Ideas para hoy (receta rápida)\n4️⃣ Foto de mi nevera → recetas con lo que tengo\n5️⃣ Nueva lista de la compra")
+            return enviar(f"✅ Aquí tienes el enlace:\n\n🛒 {ns(perfil)} → {us(perfil)}\n\n¿Qué quieres hacer ahora?
+¿Qué necesitas ahora?
+1️⃣ Dime qué como hoy 🍽️
+2️⃣ Ajustar mi plan 💪
+3️⃣ Sorpréndeme con una receta ⚡
+4️⃣ Miro mi nevera 📸
+5️⃣ Hacer la compra 🛒")
         if tl in ("2","comparar","comparar precios"):
             sesion["estado"] = "generando_comparativa"; guardar_sesion(phone, sesion)
             t = threading.Thread(target=generar_comparativa_async, args=(phone, memoria, perfil))
@@ -275,7 +281,13 @@ def webhook():
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_c, url_c = main.SUPER_TIENDA_URL[cid]
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-            return enviar(f"✅ Tu compra en {nombre_c}.\n\n🛒 {nombre_c} → {url_c}\n\n¿Qué quieres hacer ahora?\n1️⃣ Ver mi plan semanal\n2️⃣ Cambiar algo del plan\n3️⃣ Ideas para hoy (receta rápida)\n4️⃣ Foto de mi nevera → recetas con lo que tengo\n5️⃣ Nueva lista de la compra")
+            return enviar(f"✅ Tu compra en {nombre_c}.\n\n🛒 {nombre_c} → {url_c}\n\n¿Qué quieres hacer ahora?
+¿Qué necesitas ahora?
+1️⃣ Dime qué como hoy 🍽️
+2️⃣ Ajustar mi plan 💪
+3️⃣ Sorpréndeme con una receta ⚡
+4️⃣ Miro mi nevera 📸
+5️⃣ Hacer la compra 🛒")
         return enviar("Elige:\n1️⃣ Mercadona\n2️⃣ Lidl\n3️⃣ Aldi\n4️⃣ Carrefour\n5️⃣ Consum")
 
     if media_url:
