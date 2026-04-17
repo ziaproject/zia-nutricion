@@ -103,6 +103,8 @@ def generar_plan_async(phone, perfil, memoria):
         guardar_sesion(phone, s)
         for parte in [plan[i:i+1400] for i in range(0, len(plan), 1400)]:
             send(phone, parte)
+            time.sleep(1)
+        send(phone, "💪 ¿Quieres cambiar algo del plan? (sí/no)")
         
     except Exception as e:
         send(phone, f"Error: {e}\nEscribe reset para empezar.")
