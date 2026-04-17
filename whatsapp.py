@@ -295,13 +295,36 @@ def webhook():
             return enviar(f"Error: {e}")
 
     # MENU PRINCIPAL - respuestas numericas
-    if tl in ("1", "ver plan", "mi plan", "ver mi plan"):
-        plan = memoria.get("plan_semanal_actual", "").strip()
+    if tl in ("1", "ver plan", "mi plan", "ver mi plan", "que como", "que ceno", "que desayuno", "que meriendo"):
+        import datetime, pytz
+        spain = pytz.timezone("Europe/Madrid")
+        ahora = datetime.datetime.now(spain)
+        hora = ahora.hour
+        dias = ["LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES","SÁBADO","DOMINGO"]
+        hoy = dias[ahora.weekday()]
+        if 6 <= hora < 11:
+            momento = "DESAYUNO"; emoji = "☀️"
+        elif 11 <= hora < 16:
+            momento = "COMIDA"; emoji = "🥗"
+        elif 16 <= hora < 18:
+            momento = "MERIENDA"; emoji = "🍎"
+        elif 18 <= hora < 24:
+            momento = "CENA"; emoji = "🍽️"
+        else:
+            momento = "CENA"; emoji = "🌙"
+        plan = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
         if plan:
-            for parte in [plan[i:i+1400] for i in range(0, len(plan), 1400)]:
-                send(phone, parte)
-            return enviar("Este es tu plan actual. ¿Quieres cambiar algo?")
-        return enviar("Aún no tienes un plan generado. Escribe reset para crear uno.")
+            client = main.crear_cliente()
+            resumen = main.completar(client, [
+                {"role":"system","content":f"Extrae SOLO el {momento} del {hoy}. Nombre del plato, ingredientes con gramos y macros (P/C/G/kcal). Max 120 palabras."},
+                {"role":"user","content":f"Plan:\n{plan[:6000]}\n\nDame solo el {momento} del {hoy}."}
+            ], max_tokens=400)
+            sesion["estado"] = "esperando_respuesta_comida"
+            sesion["momento_actual"] = momento
+            sesion["plato_actual"] = resumen
+            guardar_sesion(phone, sesion)
+            return enviar(f"{emoji} Tu {momento.lower()} de hoy ({hoy}):\n\n{resumen}\n\n¿Todo listo?\n1️⃣ Tengo todo ✅\n2️⃣ Me falta algo 🛒\n3️⃣ Cámbiame este plato 🔄\n4️⃣ Foto de mi nevera 📸")
+        return enviar("Aún no tienes un plan 💪 Escribe reset para crear uno.")
 
     if tl in ("2", "cambiar plan", "cambiar algo"):
         sesion["estado"] = "escuchando_cambios"
