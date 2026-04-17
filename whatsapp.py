@@ -160,7 +160,7 @@ def webhook():
         guardar_sesion(phone, {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0})
         return enviar("*¡Hola! Soy ZIA, tu nutricionista personal* 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
 
-    if estado == "inicio" or not main.perfil_tiene_datos(perfil):
+    if estado == "inicio":
         if tl in ("1","para mi","para mí","solo","individual","yo"):
             sesion.update({"tipo_plan":"individual","estado":"onboarding","onboarding_step":0,"perfil_tmp":{"tipo_plan":"individual"}})
             guardar_sesion(phone, sesion)
