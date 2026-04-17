@@ -96,7 +96,7 @@ def generar_plan_async(phone, perfil, memoria):
         memoria["plan_semanal_actual"] = plan
         memoria["ultimo_plan"] = plan
         main.añadir_lista_al_historial(memoria, plan)
-        main.guardar_memoria_usuario(memoria, phone)
+        main.guardar_memoria_usuario(phone, memoria)
         s = cargar_sesion(phone)
         s["estado"] = "esperando_cambios"
         guardar_sesion(phone, s)
@@ -114,7 +114,7 @@ def generar_lista_async(phone, perfil, memoria):
         lista = main.generar_lista_compra_respuesta(client, perfil, plan_ref)
         memoria["lista_compra_actual"] = lista
         memoria["ultimo_plan"] = (plan_ref + "\n\n" + lista).strip()
-        main.guardar_memoria_usuario(memoria, phone)
+        main.guardar_memoria_usuario(phone, memoria)
         s = cargar_sesion(phone); s["estado"] = "esperando_pago_o_comparar"; guardar_sesion(phone, s)
         for parte in [lista[i:i+1400] for i in range(0, len(lista), 1400)]:
             send(phone, parte)
@@ -186,7 +186,7 @@ def webhook():
         perfil = sesion["perfil_tmp"].copy()
         if "num_personas" not in perfil: perfil["num_personas"] = "1"
         memoria["perfil"] = perfil
-        main.guardar_memoria_usuario(memoria, phone)
+        main.guardar_memoria_usuario(phone, memoria)
         sesion["estado"] = "generando_plan"
         guardar_sesion(phone, sesion)
         t = threading.Thread(target=generar_plan_async, args=(phone, perfil, memoria))
@@ -209,7 +209,7 @@ def webhook():
             ], max_tokens=6000)
             memoria["plan_semanal_actual"] = plan_nuevo
             memoria["ultimo_plan"] = plan_nuevo
-            main.guardar_memoria_usuario(memoria, phone)
+            main.guardar_memoria_usuario(phone, memoria)
             sesion["estado"] = "esperando_cambios"; guardar_sesion(phone, sesion)
             resp = MessagingResponse()
             for p in [plan_nuevo[i:i+1400] for i in range(0,len(plan_nuevo),1400)]: resp.message(p)
@@ -277,7 +277,7 @@ def webhook():
         historial.append({"role":"assistant","content":respuesta})
         sesion["historial"] = historial[-20:]
         guardar_sesion(phone, sesion)
-        main.guardar_memoria_usuario(memoria, phone)
+        main.guardar_memoria_usuario(phone, memoria)
         return enviar(respuesta[:1500])
     except Exception as e:
         return enviar(f"Error: {e}")
