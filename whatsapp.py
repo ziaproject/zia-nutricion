@@ -56,7 +56,7 @@ PREGUNTAS_INDIVIDUAL = [
     ("datos_fisicos", "📊 Para personalizar tu plan necesito algunos datos:\nGenero, edad, peso (kg) y altura (cm)\nEjemplo: hombre, 36 anos, 80 kg, 175 cm"),
     ("objetivo", "🎯 ¿Cuál es tu objetivo principal?\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía"),
     ("presupuesto", "💰 ¿Cuánto quieres gastar a la semana? (ej: 80€)"),
-    ("supermercado", "🛒 ¿En qué supermercado/s sueles comprar?\nEj: Mercadona, Lidl"),
+    ("supermercado", "🛒 ¿En qué supermercado/s sueles comprar?\nEj: 1️⃣ 1️⃣ Mercadona, 2️⃣ Lidl"),
     ("restricciones", "⚠️ ¿Tienes alguna alergia o intolerancia?\nSi no hay ninguna escribe: ninguna"),
     ("tiempo_cocina", "⏱️ ¿Cuánto tiempo tienes para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar"),
 ]
@@ -68,7 +68,7 @@ PREGUNTAS_FAMILIAR = [
     ("gustos_familia", "🍽️ ¿Cuáles son los gustos o comidas favoritas de la familia?\nSi alguien no come algo, indicalo"),
     ("restricciones", "⚠️ ¿Hay alergias o intolerancias en la familia?\nSi no hay ninguna escribe: ninguna"),
     ("presupuesto", "💰 ¿Cuánto queréis gastar a la semana? (ej: 150€)"),
-    ("supermercado", "🛒 ¿En qué supermercado/s soléis comprar?\nEj: Mercadona, Lidl"),
+    ("supermercado", "🛒 ¿En qué supermercado/s soléis comprar?\nEj: 1️⃣ 1️⃣ Mercadona, 2️⃣ Lidl"),
     ("tiempo_cocina", "⏱️ ¿Cuánto tiempo tenéis para cocinar?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tenemos tiempo, nos gusta cocinar"),
 ]
 
@@ -83,7 +83,7 @@ def procesar_campo(campo, valor):
 def ns(perfil): return main.nombre_supermercado_perfil(perfil)
 def us(perfil):
     ids = main.ids_supermercados_detectados(perfil.get("supermercado",""))
-    return main.SUPER_TIENDA_URL[ids[0]][1] if ids and ids[0] in main.SUPER_TIENDA_URL else "https://www.mercadona.es"
+    return main.SUPER_TIENDA_URL[ids[0]][1] if ids and ids[0] in main.SUPER_TIENDA_URL else "https://www.1️⃣ 1️⃣ Mercadona.es"
 
 def generar_plan_async(phone, perfil, memoria):
     try:
@@ -143,13 +143,13 @@ Lista: {lista_ref[:2000]}
 
 Devuelve EXACTAMENTE este formato, con precios reales calculados, marcando el mas barato:
 
-Con cual te quedas?
+¿Con cual te quedas?
 
-1 Mercadona → XX.XX euros
-2 Lidl → XX.XX euros
-3 Aldi → XX.XX euros (MAS BARATO)
-4 Carrefour → XX.XX euros
-5 Consum → XX.XX euros
+1️⃣ Mercadona → XX.XX euros
+2️⃣ Lidl → XX.XX euros
+3️⃣ Aldi → XX.XX euros (MAS BARATO)
+4️⃣ Carrefour → XX.XX euros
+5️⃣ Consum → XX.XX euros
 
 Mantén siempre esa numeración fija. Solo ese bloque, sin texto extra."""
         totales = main.completar(client, [
@@ -267,7 +267,7 @@ def webhook():
         return enviar(f"¿Qué quieres hacer?\n\n1️⃣ Pagar en {ns(perfil)}\n2️⃣ Comparar precios")
 
     if estado == "elegir_super_comparativa":
-        mapa = {"1":"mercadona","2":"lidl","3":"aldi","4":"carrefour","5":"consum"}
+        mapa = {"1":"1️⃣ 1️⃣ Mercadona","2":"2️⃣ Lidl","3":"3️⃣ 3️⃣ 3️⃣ Aldi","4":"4️⃣ Carrefour","5":"5️⃣ Consum"}
         cid = mapa.get(tl) or main.detectar_id_supermercado_en_texto(message)
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_s, url_s = main.SUPER_TIENDA_URL[cid]
