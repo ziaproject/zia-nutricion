@@ -217,7 +217,7 @@ def webhook():
         try:
             client = main.crear_cliente()
             plan_nuevo = main.completar(client, [
-                {"role":"system","content":"Eres ZIA Nutricionista. Aplica el cambio y devuelve el plan completo actualizado. PROHIBIDO preguntar nada. Solo el plan. Termina con la cena del domingo."},
+                {"role":"system","content":"Eres ZIA Nutricionista. UNICA tarea: devolver el plan completo actualizado con el cambio aplicado. PROHIBIDO añadir preguntas, comentarios, valoraciones o frases finales. Solo el plan. Termina exactamente con la cena del domingo."},
                 {"role":"user","content":f"Plan actual:\n\n{memoria.get(chr(112)+chr(108)+chr(97)+chr(110)+chr(95)+chr(115)+chr(101)+chr(109)+chr(97)+chr(110)+chr(97)+chr(108)+chr(95)+chr(97)+chr(99)+chr(116)+chr(117)+chr(97)+chr(108),'')[:6000]}\n\nCAMBIO: {message}\n\nDevuelve el plan completo actualizado."}
             ], max_tokens=3000)
             memoria["plan_semanal_actual"] = plan_nuevo
@@ -246,7 +246,7 @@ def webhook():
         return enviar(f"1 Pagar en {ns(perfil)}\n2 Comparar precios")
 
     if estado == "elegir_super_comparativa":
-        mapa = {"1":"Mercadona","2":"Lidl","3":"Aldi","4":"Carrefour","5":"Consum"}
+        mapa = {"1":"mercadona","2":"lidl","3":"aldi","4":"carrefour","5":"consum"}
         cid = mapa.get(tl) or main.detectar_id_supermercado_en_texto(message)
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_s, url_s = main.SUPER_TIENDA_URL[cid]
@@ -254,7 +254,8 @@ def webhook():
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
             time.sleep(1)
             return enviar(MENU)
-        return enviar("Elige un numero:\n1 Mercadona\n2 Lidl\n3 Aldi\n4 Carrefour\n5 Consum")
+        sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+        return enviar(f"Aqui tienes el enlace: {main.url_super_principal_o_default(perfil)}\n\n{MENU}")
 
     if media_url:
         try:
