@@ -18,7 +18,7 @@ TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
 
-MENU = "Que necesitas ahora?\n\n1 Dime que como hoy\n2 Ajustar mi plan\n3 Sorprendeme con una receta\n4 Miro mi nevera\n5 Hacer la compra"
+MENU = "¿Qué necesitas ahora?\n\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 🧊\n5️⃣ Hacer la compra 🛒"
 
 def estado_file(phone):
     safe = phone.replace("+","").replace(":","_").replace(" ","_")
@@ -161,18 +161,18 @@ def webhook():
     if tl in ("reset","reiniciar","nuevo perfil","empezar de nuevo"):
         main.reset_memoria_tras_nuevo(memoria)
         guardar_sesion(phone, {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0})
-        return enviar("Hola! Soy ZIA, tu nutricionista personal\n\nEl plan es para ti solo o para toda tu familia?\n\n1 Para mi solo\n2 Para mi familia")
+        return enviar("¡Hola! Soy ZIA, tu nutricionista personal 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
 
     if estado == "inicio":
         if tl in ("1","para mi","para mi solo","solo","individual","yo"):
             sesion.update({"tipo_plan":"individual","estado":"onboarding","onboarding_step":0,"perfil_tmp":{"tipo_plan":"individual"}})
             guardar_sesion(phone, sesion)
-            return enviar(f"Perfecto!\n\n{PREGUNTAS_INDIVIDUAL[0][1]}")
+            return enviar(f"¡Perfecto! 🎯\n\n{PREGUNTAS_INDIVIDUAL[0][1]}")
         if tl in ("2","familia","familiar","todos","para mi familia"):
             sesion.update({"tipo_plan":"familiar","estado":"onboarding","onboarding_step":0,"perfil_tmp":{"tipo_plan":"familiar"}})
             guardar_sesion(phone, sesion)
-            return enviar(f"Perfecto! Vamos a crear el plan para toda la familia\n\n{PREGUNTAS_FAMILIAR[0][1]}")
-        return enviar("Hola! Soy ZIA, tu nutricionista personal\n\nEl plan es para ti solo o para toda tu familia?\n\n1 Para mi solo\n2 Para mi familia")
+            return enviar(f"¡Perfecto! Vamos a crear el plan para toda la familia 👨‍👩‍👧‍👦\n\n{PREGUNTAS_FAMILIAR[0][1]}")
+        return enviar("¡Hola! Soy ZIA, tu nutricionista personal 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
 
     if estado == "onboarding":
         tipo = sesion.get("tipo_plan","individual")
@@ -193,14 +193,14 @@ def webhook():
         guardar_sesion(phone, sesion)
         t = threading.Thread(target=generar_plan_async, args=(phone, perfil, memoria))
         t.daemon = True; t.start()
-        return enviar("Perfecto. Generando tu plan semanal... Dame un momento")
+        return enviar("🚀 Perfecto. Generando tu plan semanal... Dame un momento 🧠")
 
     if estado == "esperando_cambios":
         if tl in ("no","n","no gracias","nop","nel","nope"):
             sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
             t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
             t.daemon = True; t.start()
-            return enviar("Perfecto! Preparando tu lista de la compra...")
+            return enviar("¡Perfecto! 🛒 Preparando tu lista de la compra...")
         if tl in ("si","s","yes","ok","vale","claro","quiero cambiar","cambiar"):
             sesion["estado"] = "escuchando_cambios"; guardar_sesion(phone, sesion)
             return enviar("Dime que quieres cambiar.")
@@ -211,7 +211,7 @@ def webhook():
             sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
             t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
             t.daemon = True; t.start()
-            return enviar("Perfecto! Preparando tu lista de la compra...")
+            return enviar("¡Perfecto! 🛒 Preparando tu lista de la compra...")
         try:
             client = main.crear_cliente()
             plan_nuevo = main.completar(client, [
