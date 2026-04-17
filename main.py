@@ -2375,14 +2375,16 @@ Perfil:
 {extra}
 {seg}
 OBLIGATORIO — LOS SIETE DÍAS COMPLETOS:
-- Incluye obligatoriamente, en este orden y con sección claramente titulada para cada uno: LUNES, MARTES, MIÉRCOLES, JUEVES, VIERNES, SÁBADO y DOMINGO.
-- No omitas ningún día. No agrupes varios días en un solo bloque. No digas «el resto de la semana igual» ni des solo un ejemplo de uno o dos días.
-- Cada uno de los siete días debe tener su desayuno, comida y cena (o el esquema de comidas que encaje con la familia), con platos concretos.
+- Incluye obligatoriamente, en este orden: LUNES, MARTES, MIÉRCOLES, JUEVES, VIERNES, SÁBADO y DOMINGO.
+- No omitas ningún día. No agrupes varios días. No digas el resto de la semana igual.
+- Cada día tiene: DESAYUNO, MERIENDA, COMIDA y CENA. Si el objetivo es ganar músculo incluye siempre merienda proteica.
 
 Requisitos del plan:
-1. Incluye recetas caseras que se puedan hacer en MENOS DE 20 MINUTOS (indica tiempo estimado) repartidas a lo largo de la semana.
-2. En varias comidas, sugiere productos PREPARADOS del supermercado (ensaladas, hummus, pollo asado, etc.) mezclados con algo mínimo en casa si hace falta.
-3. Sé concreto con nombres de platos y ideas prácticas en todos los días.
+1. Eres el mejor nutricionista del mundo. Cada comida incluye macros exactos: proteínas (g), carbohidratos (g), grasas (g) y kcal. Al final de cada día un resumen TOTAL DEL DÍA con los 4 valores.
+2. Sé muy específico: no digas solo pollo a la plancha, di pechuga de pollo (150g) con salsa de mostaza y miel casera, arroz basmati (80g en crudo) con aceite de oliva y orégano.
+3. Especifica salsas, aliños y condimentos exactos: vinagreta de limón, salsa yogur con ajo, salsa de soja con jengibre, etc. La gente se cuida y quiere saber exactamente qué poner.
+4. Recetas en menos de 20 min donde sea posible. En varias comidas usa productos preparados del supermercado (hummus, pollo asado, conservas) combinados con algo fresco.
+5. Adapta los macros y raciones al objetivo del perfil (ganar músculo, perder grasa, etc.) calculando con Mifflin-St Jeor.
 
 NO incluyas LISTA DE LA COMPRA ni precios de cesta (se generará aparte si el usuario lo pide).
 NO frase motivacional al final (la añade el programa)."""
