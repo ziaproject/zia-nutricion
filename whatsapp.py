@@ -3,6 +3,8 @@ load_dotenv()
 import os, json, threading, requests, base64
 import main
 import time
+import datetime
+import pytz
 from pathlib import Path
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
@@ -15,6 +17,8 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886")
+
+MENU = "¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒"
 
 def estado_file(phone):
     safe = phone.replace("+","").replace(":","_").replace(" ","_")
@@ -88,7 +92,7 @@ def generar_plan_async(phone, perfil, memoria):
         client = main.crear_cliente()
         system = main.system_zia_completo().replace(
             "SIEMPRE indica el tiempo de preparación en minutos para cada receta (ej: 15 min).",
-            "NO incluyas tiempos de preparación. Termina SIEMPRE con la cena del domingo. PROHIBIDO añadir preguntas, comentarios, valoraciones o frases finales de ningún tipo."
+            "NO incluyas tiempos de preparación. Termina SIEMPRE con la cena del domingo. PROHIBIDO añadir preguntas, comentarios, valoraciones o frases finales."
         )
         plan = main.completar(client, [
             {"role":"system","content":system},
@@ -105,15 +109,18 @@ def generar_plan_async(phone, perfil, memoria):
             send(phone, parte)
             time.sleep(2)
         send(phone, "💪 ¿Quieres cambiar algo del plan? (sí/no)")
-        
     except Exception as e:
-        send(phone, f"Error: {e}\nEscribe reset para empezar.")
+        send(phone, "Error generando plan. Escribe reset para empezar.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
 
 def generar_lista_async(phone, perfil, memoria):
     try:
         client = main.crear_cliente()
-        plan_ref = (memoria.get("plan_semanal_actual") or "").strip()
+        plan_ref = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
+        if not plan_ref:
+            send(phone, "No tengo tu plan. Escribe reset para crear uno 💪")
+            s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
+            return
         lista = main.generar_lista_compra_respuesta(client, perfil, plan_ref)
         memoria["lista_compra_actual"] = lista
         memoria["ultimo_plan"] = (plan_ref + "\n\n" + lista).strip()
@@ -123,27 +130,24 @@ def generar_lista_async(phone, perfil, memoria):
             send(phone, parte)
         send(phone, f"¿Qué quieres hacer?\n1️⃣ Pagar en {ns(perfil)}\n2️⃣ Comparar precios")
     except Exception as e:
-        send(phone, f"Error: {e}")
+        send(phone, "Error generando lista. Inténtalo de nuevo.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
 
 def generar_comparativa_async(phone, memoria, perfil):
     try:
         client = main.crear_cliente()
         ref = (memoria.get("ultimo_plan") or "").strip()
-        prompt = f"Lista:\n{ref[:10000]}\n\n{main.texto_factores_precio_supermercados()}\n\nMuestra SOLO estas 5 líneas:\n🏪 Mercadona → XX.XX€\n🏪 Lidl → XX.XX€\n🏪 Aldi → XX.XX€\n🏪 Carrefour → XX.XX€\n🏪 Consum → XX.XX€\nAñade ⭐ MÁS ECONÓMICO al más barato."
+        prompt = f"Lista:\n{ref[:10000]}\n\n{main.texto_factores_precio_supermercados()}\n\nMuestra SOLO estas 5 líneas con numero:\n1️⃣ Mercadona → XX.XX€\n2️⃣ Lidl → XX.XX€\n3️⃣ Aldi → XX.XX€\n4️⃣ Carrefour → XX.XX€\n5️⃣ Consum → XX.XX€\nAñade ⭐ MÁS ECONÓMICO al más barato."
         totales = main.completar(client, [
-            {"role":"system","content":"Solo las líneas pedidas."},
+            {"role":"system","content":"Solo las líneas pedidas, sin texto extra."},
             {"role":"user","content":prompt}
         ], temperature=0.2, max_tokens=300)
         s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
         send(phone, totales)
-        ids = main.ids_supermercados_detectados(perfil.get("supermercado",""))
-        cid_hab = ids[0] if ids else "mercadona"
-        todos = [("1","mercadona","Mercadona"),("2","lidl","Lidl"),("3","aldi","Aldi"),("4","carrefour","Carrefour"),("5","consum","Consum")]
-        opciones = [f"{n}️⃣ {nombre}" for n,cid,nombre in todos if cid != cid_hab]
-        send(phone, "¿Con cuál te quedas? Elige un número o escribe el nombre:\n" + "\n".join(opciones))
+        send(phone, "¿Con cuál te quedas? Escribe el número.")
     except Exception as e:
-        send(phone, f"Error: {e}")
+        send(phone, "Error calculando precios. Inténtalo de nuevo.")
+        s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -178,6 +182,7 @@ def webhook():
         tipo = sesion.get("tipo_plan","individual")
         preguntas = PREGUNTAS_INDIVIDUAL if tipo == "individual" else PREGUNTAS_FAMILIAR
         step = sesion.get("onboarding_step", 0)
+        if step >= len(preguntas): step = len(preguntas) - 1
         campo_actual = preguntas[step][0]
         if campo_actual == "objetivo" and any(x in message.lower() for x in (" y ",","," también")):
             return enviar("Elige solo tu objetivo PRINCIPAL:\n1️⃣ Perder grasa\n2️⃣ Ganar músculo\n3️⃣ Mantenimiento\n4️⃣ Comer más sano\n5️⃣ Más energía")
@@ -210,41 +215,45 @@ def webhook():
         plato = sesion.get("plato_actual", "")
         if tl in ("si", "sí", "s", "yes", "ok", "vale", "perfecto", "tengo todo"):
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-            return enviar("A por ello 💪 Que aproveche.\n\n¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒")
-        if tl in ("no", "n", "nop", "me falta", "falta"):
+            return enviar(f"A por ello 💪 Que aproveche.\n\n{MENU}")
+        if tl in ("no", "n", "nop", "me falta", "falta", "me falta algo"):
             sesion["estado"] = "esperando_faltante"; guardar_sesion(phone, sesion)
-            return enviar(f"¿Qué te falta? Dímelo y te lo añado a tu lista 🛒")
-        if tl in ("cambialo", "cámbialo", "cambiar", "otro", "cambia"):
-            client = main.crear_cliente()
-            nuevo = main.completar(client, [
-                {"role":"system","content":"Eres ZIA. Cambia este plato por otro similar manteniendo los mismos macros. Solo el nuevo plato con ingredientes y macros. Max 100 palabras."},
-                {"role":"user","content":f"Plato actual:\n{plato}\nDame una alternativa con macros similares."}
-            ], max_tokens=300)
-            sesion["plato_actual"] = nuevo; guardar_sesion(phone, sesion)
-            return enviar(f"Te cambio el plato 🔄\n\n{nuevo}\n\n¿Este te va mejor? (sí/no)")
-        if tl in ("foto", "nevera", "foto nevera"):
+            return enviar("¿Qué te falta? Dímelo y te lo busco 🛒")
+        if tl in ("cambialo", "cámbialo", "cambiar", "otro", "cambia", "cambia el plato"):
+            try:
+                client = main.crear_cliente()
+                nuevo = main.completar(client, [
+                    {"role":"system","content":"Eres ZIA. Cambia este plato por otro similar manteniendo los mismos macros. Solo el nuevo plato con ingredientes y macros. Max 100 palabras. Sin preguntas."},
+                    {"role":"user","content":f"Plato actual:\n{plato}\nDame una alternativa con macros similares."}
+                ], max_tokens=300)
+                sesion["plato_actual"] = nuevo; guardar_sesion(phone, sesion)
+                return enviar(f"Te cambio el plato 🔄\n\n{nuevo}\n\n¿Este te va mejor? (sí/no)")
+            except:
+                sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+                return enviar(MENU)
+        if tl in ("foto", "nevera", "foto nevera", "miro mi nevera"):
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
             return enviar("Mándame la foto de tu nevera 📸 y te preparo algo rico con lo que tienes.")
-        sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+        return enviar("Responde: sí / no / cámbialo / foto nevera")
 
     if estado == "esperando_faltante":
         producto = message.strip()
-        if producto:
+        if producto and len(producto) > 1:
             super_url = main.url_super_principal_o_default(perfil)
             super_nombre = main.nombre_supermercado_perfil(perfil)
             memoria.setdefault("mini_lista_faltantes", []).append({"ingredient": producto, "line": producto, "price": "0"})
             main.guardar_memoria_usuario(phone, memoria)
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-            return enviar(f"Anotado ✅\n\n🛒 Cómpralo en {super_nombre} → {super_url}\n\n¿Necesitas algo más?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒")
-        return enviar("¿Qué te falta? Escríbelo y te lo busco.")
+            return enviar(f"Anotado ✅\n\n🛒 Cómpralo en {super_nombre} → {super_url}\n\n{MENU}")
+        return enviar("¿Qué te falta? Escríbelo.")
 
     if estado == "escuchando_cambios":
         try:
             client = main.crear_cliente()
-            system_cambio = "Eres ZIA nutricionista. Tu UNICA tarea: aplicar el cambio pedido y devolver el plan completo actualizado. PROHIBIDO preguntar nada, hacer comentarios, preguntar como se siente el usuario o si quiere continuar. Solo el plan con el cambio aplicado."
+            system_cambio = "Eres ZIA nutricionista. UNICA tarea: aplicar el cambio y devolver el plan completo actualizado. PROHIBIDO preguntar nada. Solo el plan. Termina con la cena del domingo."
             plan_nuevo = main.completar(client, [
                 {"role":"system","content":system_cambio},
-                {"role":"user","content":f"Plan actual:\n{memoria.get('plan_semanal_actual','')[:6000]}\n\nCAMBIO: {message}\n\nDevuelve el plan completo de 7 dias con el cambio aplicado. Sin preguntas ni comentarios al final. Termina con la cena del domingo."}
+                {"role":"user","content":f"Plan actual:\n{memoria.get('plan_semanal_actual','')[:6000]}\n\nCAMBIO: {message}\n\nDevuelve el plan completo actualizado."}
             ], max_tokens=6000)
             memoria["plan_semanal_actual"] = plan_nuevo
             memoria["ultimo_plan"] = plan_nuevo
@@ -256,7 +265,7 @@ def webhook():
             return str(resp), 200, {"Content-Type":"text/xml"}
         except Exception as e:
             sesion["estado"] = "esperando_cambios"; guardar_sesion(phone, sesion)
-            return enviar(f"Error: {e}")
+            return enviar("Error al actualizar. Dime de nuevo qué cambiar.")
 
     if estado == "esperando_si_lista":
         if tl in ("si","sí","s","yes","ok","vale","claro"):
@@ -266,15 +275,15 @@ def webhook():
             return enviar("⏳ Preparando tu lista...")
         if tl in ("no","n","nop"):
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-            return enviar("De acuerdo. Cuando quieras la lista dímelo 😊")
-        return enviar(f"Escribe sí para la lista de {ns(perfil)} o no para continuar.")
+            return enviar(f"De acuerdo.\n\n{MENU}")
+        return enviar(f"Escribe sí o no.")
 
     if estado == "esperando_pago_o_comparar":
         if tl in ("1","pagar","confirmar","si","sí","ok","vale"):
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-        send(phone, f"✅ Aquí tienes el enlace:\n\n🛒 {ns(perfil)} → {us(perfil)}")
-        import time; time.sleep(1)
-        return enviar("¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒")
+            send(phone, f"✅ Aquí tienes el enlace:\n\n🛒 {ns(perfil)} → {us(perfil)}")
+            time.sleep(1)
+            return enviar(MENU)
         if tl in ("2","comparar","comparar precios"):
             sesion["estado"] = "generando_comparativa"; guardar_sesion(phone, sesion)
             t = threading.Thread(target=generar_comparativa_async, args=(phone, memoria, perfil))
@@ -288,9 +297,10 @@ def webhook():
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_c, url_c = main.SUPER_TIENDA_URL[cid]
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-        send(phone, f"✅ Tu compra en {nombre_c}.\n\n🛒 {nombre_c} → {url_c}")
-        return enviar("¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒")
-        return enviar("Elige:\n1️⃣ Mercadona\n2️⃣ Lidl\n3️⃣ Aldi\n4️⃣ Carrefour\n5️⃣ Consum")
+            send(phone, f"✅ Tu compra en {nombre_c}.\n\n🛒 {nombre_c} → {url_c}")
+            time.sleep(1)
+            return enviar(MENU)
+        return enviar("Elige un número:\n1️⃣ Mercadona\n2️⃣ Lidl\n3️⃣ Aldi\n4️⃣ Carrefour\n5️⃣ Consum")
 
     if media_url:
         try:
@@ -298,78 +308,84 @@ def webhook():
             img_b64 = base64.b64encode(r.content).decode("utf-8")
             client = main.crear_cliente()
             respuesta = main.completar(client, [
-                {"role":"system","content":"Eres ZIA, nutricionista personal experta. PUEDES VER Y ANALIZAR FOTOS perfectamente. Si es nevera o despensa: identifica todos los alimentos visibles y propón 2 recetas saludables con formato simple: NOMBRE, ingredientes en una línea, pasos numerados muy cortos. Sin markdown, sin asteriscos, sin ###. Si no es nevera: da consejo nutricional breve. Máximo 300 palabras. Español, motivador."},
+                {"role":"system","content":"Eres ZIA, nutricionista experta. PUEDES VER FOTOS. Si es nevera: identifica alimentos y propón 2 recetas simples. Si no es nevera: consejo nutricional breve. Sin markdown. Max 300 palabras. Español, motivador."},
                 {"role":"user","content":[
                     {"type":"image_url","image_url":{"url":f"data:{media_type};base64,{img_b64}"}},
                     {"type":"text","text":message or "Analiza esta imagen"}
                 ]}
             ], max_tokens=2048)
-            return enviar(respuesta[:1500])
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar(respuesta[:1400] + f"\n\n{MENU}")
         except Exception as e:
-            return enviar(f"Error: {e}")
+            return enviar("Error analizando la imagen. Inténtalo de nuevo.")
 
-    # MENU PRINCIPAL - respuestas numericas
-    if tl in ("1", "ver plan", "mi plan", "ver mi plan", "que como", "que ceno", "que desayuno", "que meriendo"):
-        import datetime, pytz
+    if tl in ("1", "que como hoy", "que ceno hoy", "que desayuno hoy", "que meriendo hoy"):
         spain = pytz.timezone("Europe/Madrid")
         ahora = datetime.datetime.now(spain)
         hora = ahora.hour
         dias = ["LUNES","MARTES","MIÉRCOLES","JUEVES","VIERNES","SÁBADO","DOMINGO"]
         hoy = dias[ahora.weekday()]
-        if 6 <= hora < 11:
-            momento = "DESAYUNO"; emoji = "☀️"
-        elif 11 <= hora < 16:
-            momento = "COMIDA"; emoji = "🥗"
-        elif 16 <= hora < 18:
-            momento = "MERIENDA"; emoji = "🍎"
-        elif 18 <= hora < 24:
-            momento = "CENA"; emoji = "🍽️"
-        else:
-            momento = "CENA"; emoji = "🌙"
+        if 6 <= hora < 11: momento = "DESAYUNO"; emoji = "☀️"
+        elif 11 <= hora < 16: momento = "COMIDA"; emoji = "🥗"
+        elif 16 <= hora < 18: momento = "MERIENDA"; emoji = "🍎"
+        elif 18 <= hora < 24: momento = "CENA"; emoji = "🍽️"
+        else: momento = "CENA"; emoji = "🌙"
         plan = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
         if plan:
-            client = main.crear_cliente()
-            resumen = main.completar(client, [
-                {"role":"system","content":f"Extrae SOLO el {momento} del {hoy}. Nombre del plato, ingredientes con gramos y macros (P/C/G/kcal). Max 120 palabras."},
-                {"role":"user","content":f"Plan:\n{plan[:6000]}\n\nDame solo el {momento} del {hoy}."}
-            ], max_tokens=400)
-            sesion["estado"] = "esperando_respuesta_comida"
-            sesion["momento_actual"] = momento
-            sesion["plato_actual"] = resumen
-            guardar_sesion(phone, sesion)
-            return enviar(f"{emoji} Tu {momento.lower()} de hoy ({hoy}):\n\n{resumen}\n\n¿Todo listo?\n1️⃣ Tengo todo ✅\n2️⃣ Me falta algo 🛒\n3️⃣ Cámbiame este plato 🔄\n4️⃣ Foto de mi nevera 📸")
-        return enviar("Aún no tienes un plan 💪 Escribe reset para crear uno.")
+            try:
+                client = main.crear_cliente()
+                resumen = main.completar(client, [
+                    {"role":"system","content":f"Extrae SOLO el {momento} del {hoy}. Nombre, ingredientes con gramos y macros. Max 120 palabras."},
+                    {"role":"user","content":f"Plan:\n{plan[:6000]}\n\nDame solo el {momento} del {hoy}."}
+                ], max_tokens=400)
+                sesion["estado"] = "esperando_respuesta_comida"
+                sesion["momento_actual"] = momento
+                sesion["plato_actual"] = resumen
+                guardar_sesion(phone, sesion)
+                return enviar(f"{emoji} Tu {momento.lower()} de hoy ({hoy}):\n\n{resumen}\n\n¿Tienes todo?\nResponde: sí / no / cámbialo / foto nevera")
+            except:
+                return enviar("Error leyendo el plan. Escribe reset.")
+        return enviar("No tienes plan aún. Escribe reset para crear uno 💪")
 
-    if tl in ("2", "cambiar plan", "cambiar algo"):
-        sesion["estado"] = "escuchando_cambios"
-        guardar_sesion(phone, sesion)
+    if tl in ("2", "ajustar plan", "cambiar plan"):
+        sesion["estado"] = "escuchando_cambios"; guardar_sesion(phone, sesion)
         return enviar("Dime qué quieres cambiar del plan.")
 
-    if tl in ("3", "ideas para hoy", "receta rapida", "receta rápida"):
-        sesion["estado"] = "chat"
-        guardar_sesion(phone, sesion)
-        # Cae al chat general con contexto
-        message = "Dame una idea de receta rápida para hoy según mi plan y objetivo"
+    if tl in ("3", "receta", "sorprendeme", "sorpréndeme"):
+        spain = pytz.timezone("Europe/Madrid")
+        hora = datetime.datetime.now(spain).hour
+        tipo = "desayuno" if hora < 11 else "comida" if hora < 16 else "merienda" if hora < 18 else "cena"
+        try:
+            client = main.crear_cliente()
+            r = main.completar(client, [
+                {"role":"system","content":"Eres ZIA. Propón UNA receta rápida (max 20 min). Nombre, ingredientes con gramos, pasos cortos, macros. Max 150 palabras."},
+                {"role":"user","content":f"Receta rápida para {tipo}. Perfil: {json.dumps(perfil)}"}
+            ], max_tokens=400)
+            sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
+            return enviar(f"⚡\n\n{r}\n\n¿Tienes los ingredientes? (sí/no)")
+        except:
+            return enviar(MENU)
 
-    if tl in ("4", "foto nevera", "foto de mi nevera"):
-        return enviar("Mándame la foto de tu nevera o despensa 📸 y te preparo recetas con lo que tienes.")
+    if tl in ("4", "nevera", "miro mi nevera", "foto nevera"):
+        return enviar("Mándame la foto de tu nevera 📸 y te preparo recetas con lo que tienes.")
 
-    if tl in ("5", "nueva lista", "nueva lista de la compra", "hacer la compra"):
+    if tl in ("5", "compra", "hacer la compra", "nueva lista"):
         plan = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
         if not plan:
-            return enviar("Primero necesito generarte un plan. Escribe reset para empezar 💪")
-        sesion["estado"] = "generando_lista"
-        guardar_sesion(phone, sesion)
+            return enviar("Necesito tu plan primero. Escribe reset 💪")
+        sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
         t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
         t.daemon = True; t.start()
-        return enviar("⏳ Generando tu lista de la compra...")
+        return enviar("⏳ Generando tu lista...")
 
     client = main.crear_cliente()
     historial = sesion.get("historial", [])
     historial.append({"role":"user","content":message})
     try:
+        system_chat = main.system_chat_con_memoria(perfil, memoria)
+        system_chat += f"\n\nIMPORTANTE: WhatsApp. Max 250 palabras. ZIA SÍ puede ver fotos. NUNCA digas que no puedes ver fotos. Cuando el usuario diga gracias o cierre la conversación, responde con una frase amable y muestra:\n\n{MENU}\n\nMODO CRISIS: si el usuario está desmotivado, 2 frases de apoyo con su nombre y objetivo, luego el menú."
         respuesta = main.completar(client, [
-            {"role":"system","content":main.system_chat_con_memoria(perfil, memoria)+"\n\nCUANDO EL USUARIO DIGA gracias, de nada, ok, perfecto, genial o cualquier cierre de conversacion, responde con UNA frase corta y amable y luego muestra SIEMPRE este menu exacto:\n\n¿Qué necesitas ahora?\n1️⃣ Dime qué como hoy 🍽️\n2️⃣ Ajustar mi plan 💪\n3️⃣ Sorpréndeme con una receta ⚡\n4️⃣ Miro mi nevera 📸\n5️⃣ Hacer la compra 🛒\n\nIMPORTANTE: WhatsApp. Máximo 300 palabras."},
+            {"role":"system","content":system_chat},
             *historial[-20:]
         ], max_tokens=1024)
         historial.append({"role":"assistant","content":respuesta})
@@ -378,7 +394,7 @@ def webhook():
         main.guardar_memoria_usuario(phone, memoria)
         return enviar(respuesta[:1500])
     except Exception as e:
-        return enviar(f"Error: {e}")
+        return enviar("Error. Inténtalo de nuevo o escribe reset.")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5001))
