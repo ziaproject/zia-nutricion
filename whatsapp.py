@@ -272,6 +272,36 @@ def webhook():
         except Exception as e:
             return enviar(f"Error: {e}")
 
+    # MENU PRINCIPAL - respuestas numericas
+    if tl in ("1", "ver plan", "mi plan", "ver mi plan"):
+        plan = memoria.get("plan_semanal_actual", "").strip()
+        if plan:
+            for parte in [plan[i:i+1400] for i in range(0, len(plan), 1400)]:
+                send(phone, parte)
+            return enviar("Este es tu plan actual. ¿Quieres cambiar algo?")
+        return enviar("Aún no tienes un plan generado. Escribe reset para crear uno.")
+
+    if tl in ("2", "cambiar plan", "cambiar algo"):
+        sesion["estado"] = "escuchando_cambios"
+        guardar_sesion(phone, sesion)
+        return enviar("Dime qué quieres cambiar del plan.")
+
+    if tl in ("3", "ideas para hoy", "receta rapida", "receta rápida"):
+        sesion["estado"] = "chat"
+        guardar_sesion(phone, sesion)
+        # Cae al chat general con contexto
+        message = "Dame una idea de receta rápida para hoy según mi plan y objetivo"
+
+    if tl in ("4", "foto nevera", "foto de mi nevera"):
+        return enviar("Mándame la foto de tu nevera o despensa 📸 y te preparo recetas con lo que tienes.")
+
+    if tl in ("5", "nueva lista", "nueva lista de la compra"):
+        sesion["estado"] = "generando_lista"
+        guardar_sesion(phone, sesion)
+        t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria))
+        t.daemon = True; t.start()
+        return enviar("⏳ Generando tu nueva lista de la compra...")
+
     client = main.crear_cliente()
     historial = sesion.get("historial", [])
     historial.append({"role":"user","content":message})
