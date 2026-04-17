@@ -143,13 +143,15 @@ Lista: {lista_ref[:2000]}
 
 Devuelve EXACTAMENTE este formato, con precios reales calculados, marcando el mas barato:
 
-Con cual te quedas?
+🛒 Comparativa de precios:
 
-1 Mercadona → XX.XX euros
-2 Lidl → XX.XX euros
-3 Aldi → XX.XX euros (MAS BARATO)
-4 Carrefour → XX.XX euros
-5 Consum → XX.XX euros
+1️⃣ Mercadona → XX.XX euros
+2️⃣ Lidl → XX.XX euros
+3️⃣ Aldi → XX.XX euros (MAS BARATO ✅)
+4️⃣ Carrefour → XX.XX euros
+5️⃣ Consum → XX.XX euros
+
+¿Con cuál te quedas? 👆
 
 Mantén siempre esa numeración fija. Solo ese bloque, sin texto extra."""
         totales = main.completar(client, [
