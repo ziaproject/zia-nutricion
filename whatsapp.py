@@ -102,9 +102,7 @@ def generar_plan_async(phone, perfil, memoria):
         guardar_sesion(phone, s)
         for parte in [plan[i:i+1400] for i in range(0, len(plan), 1400)]:
             send(phone, parte)
-        send(phone, "¿Quieres cambiar algo al plan?
-1️⃣ Sí
-2️⃣ No, generar lista de la compra")
+        send(phone, "¿Quieres cambiar o añadir algo al plan? (sí/no)")
     except Exception as e:
         send(phone, f"Error: {e}\nEscribe reset para empezar.")
         s = cargar_sesion(phone); s["estado"] = "chat"; guardar_sesion(phone, s)
@@ -198,7 +196,7 @@ def webhook():
     if estado == "esperando_cambios":
         if tl in ("no","n","nop","no gracias"):
             sesion["estado"] = "esperando_si_lista"; guardar_sesion(phone, sesion)
-            sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion); t = threading.Thread(target=generar_lista_async, args=(phone, perfil, memoria)); t.daemon = True; t.start(); return enviar("⏳ Perfecto, preparando tu lista de la compra...")
+            return enviar(f"¿Quieres que prepare tu lista de la compra en {ns(perfil)}? (sí/no)")
         sesion["estado"] = "escuchando_cambios"; guardar_sesion(phone, sesion)
         return enviar("Dime qué quieres cambiar.")
 
