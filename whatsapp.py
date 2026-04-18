@@ -83,7 +83,7 @@ def procesar_campo(campo, valor):
 def ns(perfil): return main.nombre_supermercado_perfil(perfil)
 def us(perfil):
     ids = main.ids_supermercados_detectados(perfil.get("supermercado",""))
-    return main.SUPER_TIENDA_URL[ids[0]][1] if ids and ids[0] in main.SUPER_TIENDA_URL else "https://www.1️⃣ 1️⃣ Mercadona.es"
+    return main.SUPER_TIENDA_URL[ids[0]][1] if ids and ids[0] in main.SUPER_TIENDA_URL else "https://www.mercadona.es"
 
 def generar_plan_async(phone, perfil, memoria):
     try:
@@ -137,27 +137,30 @@ def generar_comparativa_async(phone, memoria, perfil):
         client = main.crear_cliente()
         presupuesto = perfil.get("presupuesto", "no especificado")
         lista_ref = memoria.get("lista_compra_actual") or memoria.get("ultimo_plan") or ""
-        prompt = f"""El usuario tiene un presupuesto de {presupuesto}. Usa ese total como base y ajusta a cada supermercado: Aldi y Lidl 10-15% mas baratos, Carrefour similar a Mercadona, Consum algo mas caro.
+        prompt = f"""El usuario tiene un presupuesto de {presupuesto}. Usa ese total como base y ajusta el precio a cada supermercado usando diferencias reales de precio en Espana. Mercadona es el precio base. Lidl y Aldi son 10-15% mas baratos. Carrefour similar a Mercadona. Consum 3-5% mas caro. Herbolario Navarro es especialista en productos eco y naturales, 15-25% mas caro. Supercor (El Corte Ingles) es el mas caro, 20-30% mas que Mercadona. Marca claramente cual es el MAS BARATO.
 
-Lista: {lista_ref[:2000]}
+Lista de la compra: {lista_ref[:2000]}
 
-Devuelve EXACTAMENTE este formato, con precios reales calculados, marcando el mas barato:
+Devuelve EXACTAMENTE este formato, sin texto extra:
 
-¿Con cual te quedas?
+🛒 Comparativa de precios:
 
 1️⃣ Mercadona → XX.XX euros
 2️⃣ Lidl → XX.XX euros
-3️⃣ Aldi → XX.XX euros (MAS BARATO)
+3️⃣ Aldi → XX.XX euros
 4️⃣ Carrefour → XX.XX euros
 5️⃣ Consum → XX.XX euros
+6️⃣ Herbolario Navarro → XX.XX euros
+7️⃣ Supercor → XX.XX euros
 
-Mantén siempre esa numeración fija. Solo ese bloque, sin texto extra."""
+💚 MAS BARATO: [nombre] → XX.XX euros
+
+¿Con cuál te quedas? 👆"""
         totales = main.completar(client, [
-            {"role":"system","content":"Experto en precios de supermercados espanoles. Devuelve solo el formato pedido."},
+            {"role":"system","content":"Experto en precios de supermercados espanoles. Devuelve solo el formato pedido, sin texto extra."},
             {"role":"user","content":prompt}
-        ], max_tokens=250)
+        ], max_tokens=350)
         s = cargar_sesion(phone); s["estado"] = "elegir_super_comparativa"; guardar_sesion(phone, s)
-        guardar_sesion(phone, s)
         send(phone, totales)
     except Exception as e:
         send(phone, "❌ Error calculando precios. Inténtalo de nuevo.")
@@ -267,7 +270,7 @@ def webhook():
         return enviar(f"¿Qué quieres hacer?\n\n1️⃣ Pagar en {ns(perfil)}\n2️⃣ Comparar precios")
 
     if estado == "elegir_super_comparativa":
-        mapa = {"1":"1️⃣ 1️⃣ Mercadona","2":"2️⃣ Lidl","3":"3️⃣ 3️⃣ 3️⃣ Aldi","4":"4️⃣ Carrefour","5":"5️⃣ Consum"}
+        mapa = {"1":"mercadona","2":"lidl","3":"aldi","4":"carrefour","5":"consum","6":"herbolarionavarro","7":"supercor"}
         cid = mapa.get(tl) or main.detectar_id_supermercado_en_texto(message)
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_s, url_s = main.SUPER_TIENDA_URL[cid]
