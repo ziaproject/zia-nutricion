@@ -366,7 +366,7 @@ def webhook():
         try:
             client = main.crear_cliente()
             r = main.completar(client, [
-                {"role":"system","content":"Eres ZIA. Propón UNA receta rapida max 20 min. Nombre, ingredientes, pasos cortos, macros. Max 150 palabras."},
+                {"role":"system","content":"Eres ZIA. Propón UNA receta rapida max 20 min. Nombre, ingredientes, pasos cortos, macros. Max 150 palabras. IMPORTANTE: NO uses asteriscos ni markdown. Usa texto plano con MAYUSCULAS para titulos."},
                 {"role":"user","content":f"⚡ Receta rápida para {tipo}. Perfil: {json.dumps(perfil)}"}
             ], max_tokens=400)
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
