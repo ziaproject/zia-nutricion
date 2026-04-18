@@ -2432,9 +2432,7 @@ def mensaje_lista_compra_para_super(
         if ACUERDO_COMERCIAL_ENLACES
         else "NO incluyas enlaces, URLs ni líneas «Comprar en …» (la app no muestra tiendas hasta acuerdo comercial).\n"
     )
-    return f"""The user wants shopping list prices AS IF they bought EVERYTHING at ONE chain only.
-
-The user's habitual supermarket is: {nombre} (internal price factor vs Mercadona reference: ×{factor:.2f}).
+    return f"""The user wants a shopping list. Do NOT mention any supermarket name in the title. Use title: "LISTA DE LA COMPRA SEMANAL". The user's habitual supermarket is: {nombre} (internal price factor vs Mercadona reference: ×{factor:.2f}).
 City / context from profile: use {perfil.get("ciudad", "") or perfil.get("ubicacion", "") or "España"} only as locale context, NOT to mix other chains' prices.
 
 Con este PLAN SEMANAL, genera ÚNICAMENTE la LISTA DE LA COMPRA para cubrir esa semana.
