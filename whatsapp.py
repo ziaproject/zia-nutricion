@@ -303,21 +303,23 @@ def webhook():
                 return enviar("❌ No pude descargar la imagen. Inténtalo de nuevo.")
             img_b64 = base64.b64encode(r.content).decode("utf-8")
             detected_type = media_type if media_type.startswith("image/") else "image/jpeg"
-            import anthropic
+            from openai import OpenAI as OpenAIClient
             nombre = perfil.get("nombre", "")
             objetivo = perfil.get("objetivo", "")
-            system_img = f"Eres ZIA, nutricionista personal experta. Analiza la imagen de la nevera o comida. Da consejos nutricionales personalizados basados en el perfil del usuario. Nombre: {nombre}, Objetivo: {objetivo}. Max 300 palabras. Responde en español."
-            anthropic_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-            msg = anthropic_client.messages.create(
-                model="claude-opus-4-5",
+            system_img = f"Eres ZIA, nutricionista personal experta. Analiza la imagen de la nevera o comida. Da consejos nutricionales personalizados. Perfil: nombre={nombre}, objetivo={objetivo}. Max 300 palabras. Responde en español."
+            oa_client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY"))
+            resp_img = oa_client.chat.completions.create(
+                model="gpt-4o",
                 max_tokens=1024,
-                system=system_img,
-                messages=[{"role":"user","content":[
-                    {"type":"image","source":{"type":"base64","media_type":detected_type,"data":img_b64}},
-                    {"type":"text","text":"Analiza esta imagen y dame consejos nutricionales personalizados"}
-                ]}]
+                messages=[
+                    {"role":"system","content":system_img},
+                    {"role":"user","content":[
+                        {"type":"image_url","image_url":{"url":f"data:{detected_type};base64,{img_b64}"}},
+                        {"type":"text","text":"Analiza esta imagen y dame consejos nutricionales personalizados"}
+                    ]}
+                ]
             )
-            respuesta = msg.content[0].text
+            respuesta = resp_img.choices[0].message.content or ""
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
             return enviar(respuesta[:1400] + f"\n\n{MENU}")
         except Exception as e:
