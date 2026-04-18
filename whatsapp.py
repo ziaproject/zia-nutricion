@@ -423,7 +423,7 @@ def webhook():
     historial.append({"role":"user","content":message})
     try:
         system_chat = main.system_chat_con_memoria(perfil, memoria)
-        system_chat += f"\n\nIMPORTANTE: Max 250 palabras. Solo hablas de nutricion y alimentacion. Si el usuario menciona cambios en su supermercado, presupuesto, alergias u objetivo, actualiza su perfil internamente y confirmaselo. Responde siempre en base a su perfil actualizado.\n\n{MENU}"
+        system_chat += f"\n\nIMPORTANTE: Max 250 palabras. Solo hablas de nutricion y alimentacion. Si el usuario menciona cambios en su supermercado, presupuesto, alergias u objetivo, actualiza su perfil internamente y confirmaselo. Responde siempre en base a su perfil actualizado. NUNCA digas que no puedes ver fotos o imagenes - SI PUEDES verlas perfectamente cuando el usuario las mande. Si el usuario dice que va a mandar una foto, animale a mandarla directamente.\n\n{MENU}"
         # Detectar cambios de perfil en el mensaje
         tl_msg = message.lower()
         import re as _re
