@@ -426,6 +426,8 @@ def webhook():
         system_chat += f"\n\nIMPORTANTE: Max 250 palabras. Solo hablas de nutricion y alimentacion. Si el usuario menciona cambios en su supermercado, presupuesto, alergias u objetivo, actualiza su perfil internamente y confirmaselo. Responde siempre en base a su perfil actualizado.\n\n{MENU}"
         # Detectar cambios de perfil en el mensaje
         tl_msg = message.lower()
+        import re as _re
+        # Cambio supermercado
         if any(s in tl_msg for s in ["mercadona","lidl","aldi","carrefour","consum","herbolario","supercor"]):
             for sid, (sname, surl) in main.SUPER_TIENDA_URL.items():
                 if sid in tl_msg or sname.lower() in tl_msg:
@@ -433,6 +435,27 @@ def webhook():
                     memoria["perfil"] = perfil
                     main.guardar_memoria_usuario(phone, memoria)
                     break
+        # Cambio presupuesto
+        m_pres = _re.search(r"(\d+)\s*(?:euros?|€)?\s*(?:de\s+)?presupuesto|presupuesto\s+(?:de\s+)?(\d+)|gasto\s+(\d+)|me\s+quedo\s+con\s+(\d+)", tl_msg)
+        if m_pres:
+            cantidad = next(x for x in m_pres.groups() if x)
+            perfil["presupuesto"] = f"{cantidad}€"
+            memoria["perfil"] = perfil
+            main.guardar_memoria_usuario(phone, memoria)
+        # Cambio objetivo
+        if any(x in tl_msg for x in ["quiero perder","quiero ganar","quiero mantener","mi objetivo es","cambio mi objetivo"]):
+            if "grasa" in tl_msg or "peso" in tl_msg or "adelgazar" in tl_msg:
+                perfil["objetivo"] = "Perder grasa"
+            elif "musculo" in tl_msg or "músculo" in tl_msg or "masa" in tl_msg:
+                perfil["objetivo"] = "Ganar musculo"
+            elif "mantener" in tl_msg or "mantenimiento" in tl_msg:
+                perfil["objetivo"] = "Mantenimiento"
+            elif "sano" in tl_msg or "salud" in tl_msg:
+                perfil["objetivo"] = "Comer mas sano"
+            elif "energia" in tl_msg or "energía" in tl_msg:
+                perfil["objetivo"] = "Mas energia"
+            memoria["perfil"] = perfil
+            main.guardar_memoria_usuario(phone, memoria)
         respuesta = main.completar(client, [
             {"role":"system","content":system_chat},
             *historial[-20:],
