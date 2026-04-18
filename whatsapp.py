@@ -298,19 +298,26 @@ def webhook():
 
     if media_url:
         try:
-            r = requests.get(media_url, auth=(TWILIO_SID, TWILIO_TOKEN))
+            r = requests.get(media_url, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=15)
+            if r.status_code != 200:
+                return enviar("❌ No pude descargar la imagen. Inténtalo de nuevo.")
             img_b64 = base64.b64encode(r.content).decode("utf-8")
+            detected_type = media_type if media_type.startswith("image/") else "image/jpeg"
             client = main.crear_cliente()
+            nombre = perfil.get("nombre", "")
+            objetivo = perfil.get("objetivo", "")
+            system_img = f"Eres ZIA, nutricionista personal experta. Analiza la imagen de la nevera o comida. Da consejos nutricionales personalizados. Perfil usuario: nombre={nombre}, objetivo={objetivo}. Max 300 palabras. Responde en español."
             respuesta = main.completar(client, [
-                {"role":"system","content":"Eres ZIA, nutricionista. Analiza la imagen y da consejos nutricionales. Max 300 palabras."},
+                {"role":"system","content":system_img},
                 {"role":"user","content":[
-                    {"type":"image","source":{"type":"base64","media_type":media_type,"data":img_b64}},
-                    {"type":"text","text":"Analiza esta imagen"}
+                    {"type":"image","source":{"type":"base64","media_type":detected_type,"data":img_b64}},
+                    {"type":"text","text":"Analiza esta imagen y dame consejos nutricionales personalizados"}
                 ]}
             ], max_tokens=2048)
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
             return enviar(respuesta[:1400] + f"\n\n{MENU}")
         except Exception as e:
+            print(f"Error imagen: {e}")
             return enviar("❌ Error analizando la imagen. Inténtalo de nuevo.")
 
     if tl in ("1","que como hoy","que desayuno hoy","que ceno hoy","que meriendo hoy"):
