@@ -195,7 +195,7 @@ def webhook():
     if tl in ("reset","reiniciar","nuevo perfil","empezar de nuevo","volver a empezar","comenzar de nuevo","empezar","inicio"):
         main.reset_memoria_tras_nuevo(memoria)
         guardar_sesion(phone, {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0})
-        return enviar("¡Hola! Soy ZIA, tu nutricionista personal 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
+        return enviar("¡Hola! Soy ZIA, tu nutricionista personal 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n\n1️⃣ Plan individual\n2️⃣ Plan familiar")
 
     if estado == "inicio":
         if tl in ("1","para mi","para mi solo","solo","individual","yo"):
@@ -206,7 +206,7 @@ def webhook():
             sesion.update({"tipo_plan":"familiar","estado":"onboarding","onboarding_step":0,"perfil_tmp":{"tipo_plan":"familiar"}})
             guardar_sesion(phone, sesion)
             return enviar(f"¡Perfecto! 👨‍👩‍👧‍👦 Vamos a crear el plan para toda la familia\n\n{PREGUNTAS_FAMILIAR[0][1]}")
-        return enviar("¡Hola! Soy ZIA, tu nutricionista personal 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
+        return enviar("¡Hola! Soy ZIA, tu nutricionista personal 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n\n1️⃣ Plan individual\n2️⃣ Plan familiar")
 
     if estado == "onboarding":
         tipo = sesion.get("tipo_plan","individual")
