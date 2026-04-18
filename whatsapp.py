@@ -193,7 +193,9 @@ def webhook():
     perfil = memoria.get("perfil",{})
 
     if tl in ("hola","buenas","hey","ey","buenos dias","buenas tardes","buenas noches","q tal","que tal","hi","hello"):
-        return enviar(f"¡Hola, {perfil.get('nombre', '')}! 👋\n\n{MENU}")
+        nombre_saludo = perfil.get('nombre', '').strip()
+        saludo = f"¡Hola, {nombre_saludo}! 👋" if nombre_saludo else "¡Hola! 👋"
+        return enviar(f"{saludo}\n\n{MENU}")
 
     if tl in ("reset","reiniciar","nuevo perfil","empezar de nuevo","volver a empezar","comenzar de nuevo","empezar","inicio"):
         main.reset_memoria_tras_nuevo(memoria)
@@ -383,7 +385,7 @@ def webhook():
     if tl in ("5","compra","hacer la compra","nueva lista"):
         plan = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
         if not plan:
-            return enviar("¡Necesito tu plan primero! Escribe reset 🚀")
+            return enviar("Aún no tengo tu plan semanal 😅\n\nPara hacer la lista necesito saber qué vas a comer esta semana. ¿Lo creamos ahora?\n\nEscribe reset y en 2 minutos tienes tu plan personalizado listo 🚀")
         sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
         memoria_fresca = main.cargar_memoria_usuario(phone)
         perfil_fresco = memoria_fresca.get("perfil", perfil)
