@@ -321,7 +321,9 @@ def webhook():
             )
             respuesta = resp_img.choices[0].message.content or ""
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
-            return enviar(respuesta[:1400] + f"\n\n{MENU}")
+            send(phone, respuesta[:1400])
+            time.sleep(2)
+            return enviar(MENU)
         except Exception as e:
             print(f"Error imagen: {e}")
             return enviar("❌ Error analizando la imagen. Inténtalo de nuevo.")
