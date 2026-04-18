@@ -192,6 +192,9 @@ def webhook():
     memoria = main.cargar_memoria_usuario(phone)
     perfil = memoria.get("perfil",{})
 
+    if tl in ("hola","buenas","hey","ey","buenos dias","buenas tardes","buenas noches","q tal","que tal","hi","hello"):
+        return enviar(f"¡Hola, {perfil.get('nombre', '')}! 👋\n\n{MENU}")
+
     if tl in ("reset","reiniciar","nuevo perfil","empezar de nuevo","volver a empezar","comenzar de nuevo","empezar","inicio"):
         main.reset_memoria_tras_nuevo(memoria)
         guardar_sesion(phone, {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0})
