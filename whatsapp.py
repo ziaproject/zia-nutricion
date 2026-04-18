@@ -385,7 +385,12 @@ def webhook():
     if tl in ("5","compra","hacer la compra","nueva lista"):
         plan = (memoria.get("plan_semanal_actual") or memoria.get("ultimo_plan") or "").strip()
         if not plan:
-            return enviar("Aún no tengo tu plan semanal 😅\n\nPara hacer la lista necesito saber qué vas a comer esta semana. ¿Lo creamos ahora?\n\nEscribe reset y en 2 minutos tienes tu plan personalizado listo 🚀")
+            sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
+            memoria_fresca = main.cargar_memoria_usuario(phone)
+            perfil_fresco = memoria_fresca.get("perfil", perfil)
+            t = threading.Thread(target=generar_lista_async, args=(phone, perfil_fresco, memoria_fresca))
+            t.daemon = True; t.start()
+            return enviar("🛒 Generando tu lista de la compra...")
         sesion["estado"] = "generando_lista"; guardar_sesion(phone, sesion)
         memoria_fresca = main.cargar_memoria_usuario(phone)
         perfil_fresco = memoria_fresca.get("perfil", perfil)
