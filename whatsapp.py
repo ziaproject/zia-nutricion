@@ -192,7 +192,7 @@ def webhook():
     memoria = main.cargar_memoria_usuario(phone)
     perfil = memoria.get("perfil",{})
 
-    if tl in ("reset","reiniciar","nuevo perfil","empezar de nuevo"):
+    if tl in ("reset","reiniciar","nuevo perfil","empezar de nuevo","volver a empezar","comenzar de nuevo","empezar","inicio"):
         main.reset_memoria_tras_nuevo(memoria)
         guardar_sesion(phone, {"estado":"inicio","perfil_tmp":{},"tipo_plan":None,"onboarding_step":0})
         return enviar("¡Hola! Soy ZIA, tu nutricionista personal 🥗\n\n¿El plan es para ti solo o para toda tu familia?\n\n1️⃣ Para mí solo\n2️⃣ Para mi familia")
@@ -287,6 +287,8 @@ def webhook():
         cid = mapa.get(tl) or main.detectar_id_supermercado_en_texto(message)
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_s, url_s = main.SUPER_TIENDA_URL[cid]
+            memoria["perfil"]["supermercado"] = nombre_s
+            main.guardar_memoria_usuario(phone, memoria)
             send(phone, f"Tu compra en {nombre_s}: {url_s}")
             sesion["estado"] = "chat"; guardar_sesion(phone, sesion)
             time.sleep(1)
@@ -408,7 +410,16 @@ def webhook():
     historial.append({"role":"user","content":message})
     try:
         system_chat = main.system_chat_con_memoria(perfil, memoria)
-        system_chat += f"\n\nIMPORTANTE: Max 250 palabras. Solo hablas de nutricion y alimentacion.\n\n{MENU}"
+        system_chat += f"\n\nIMPORTANTE: Max 250 palabras. Solo hablas de nutricion y alimentacion. Si el usuario menciona cambios en su supermercado, presupuesto, alergias u objetivo, actualiza su perfil internamente y confirmaselo. Responde siempre en base a su perfil actualizado.\n\n{MENU}"
+        # Detectar cambios de perfil en el mensaje
+        tl_msg = message.lower()
+        if any(s in tl_msg for s in ["mercadona","lidl","aldi","carrefour","consum","herbolario","supercor"]):
+            for sid, (sname, surl) in main.SUPER_TIENDA_URL.items():
+                if sid in tl_msg or sname.lower() in tl_msg:
+                    perfil["supermercado"] = sname
+                    memoria["perfil"] = perfil
+                    main.guardar_memoria_usuario(phone, memoria)
+                    break
         respuesta = main.completar(client, [
             {"role":"system","content":system_chat},
             *historial[-20:],
