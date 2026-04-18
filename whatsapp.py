@@ -311,7 +311,7 @@ def webhook():
             from openai import OpenAI as OpenAIClient
             nombre = perfil.get("nombre", "")
             objetivo = perfil.get("objetivo", "")
-            system_img = f"Eres ZIA, nutricionista personal experta. Analiza la imagen de la nevera o comida. Da consejos nutricionales personalizados. Perfil: nombre={nombre}, objetivo={objetivo}. Max 300 palabras. Responde en español."
+            system_img = f"Eres ZIA, nutricionista personal. El usuario te manda foto de su nevera. HAZ ESTO: 1) Una linea diciendo que ves. 2) Propón EXACTAMENTE 2 recetas rapidas menos de 20 min con esos ingredientes, con nombre en MAYUSCULAS, ingredientes y pasos cortos. 3) Termina con una frase motivadora e ingeniosa con humor. PROHIBIDO: asteriscos, markdown, ###, negrita, consejos genericos. Solo texto plano. Max 350 palabras. Español. Perfil: nombre={nombre}, objetivo={objetivo}."
             oa_client = OpenAIClient(api_key=os.getenv("OPENAI_API_KEY"))
             resp_img = oa_client.chat.completions.create(
                 model="gpt-4o",
