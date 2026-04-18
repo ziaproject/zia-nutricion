@@ -80,10 +80,23 @@ def procesar_campo(campo, valor):
     if campo == "tiempo_cocina": return MAPA_TIEMPO.get(valor.strip(), valor)
     return valor
 
-def ns(perfil): return main.nombre_supermercado_perfil(perfil)
+def ns(perfil):
+    super_texto = perfil.get("supermercado","")
+    if "herbolario" in super_texto.lower() or "navarro" in super_texto.lower():
+        return "Herbolario Navarro"
+    if "supercor" in super_texto.lower() or "corte" in super_texto.lower():
+        return "Supercor"
+    return main.nombre_supermercado_perfil(perfil)
 def us(perfil):
-    ids = main.ids_supermercados_detectados(perfil.get("supermercado",""))
-    return main.SUPER_TIENDA_URL[ids[0]][1] if ids and ids[0] in main.SUPER_TIENDA_URL else "https://www.mercadona.es"
+    super_texto = perfil.get("supermercado","")
+    ids = main.ids_supermercados_detectados(super_texto)
+    if ids and ids[0] in main.SUPER_TIENDA_URL:
+        return main.SUPER_TIENDA_URL[ids[0]][1]
+    if "herbolario" in super_texto.lower() or "navarro" in super_texto.lower():
+        return "https://www.herbolarionavarro.es"
+    if "supercor" in super_texto.lower() or "corte" in super_texto.lower():
+        return "https://www.supercor.es"
+    return "https://www.mercadona.es"
 
 def generar_plan_async(phone, perfil, memoria):
     try:
