@@ -240,8 +240,12 @@ ONBOARDING_QUESTIONS_INDIVIDUAL: list[tuple[str, str]] = [
         "¿Tienes alguna alergia, intolerancia o preferencia alimentaria? (ej.: sin gluten, vegetariano…)\nSi no hay ninguna, escribe «ninguna».",
     ),
     (
+        "comidas_dia",
+        "🍽️ ¿Cuántas veces comes al día?\n1️⃣ 2 veces (poco tiempo o estrés)\n2️⃣ 3 veces (desayuno, comida y cena)\n3️⃣ 4-5 veces (incluyo merienda y snacks)",
+    ),
+    (
         "tiempo_cocina",
-        "¿Cuánto tiempo tienes para cocinar al día?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar",
+        "⏱️ ¿Cuánto tiempo tienes para cocinar al día?\n1️⃣ Menos de 20 minutos\n2️⃣ Entre 20 y 40 minutos\n3️⃣ Tengo tiempo, me gusta cocinar",
     ),
 ]
 
@@ -317,7 +321,7 @@ PROTEÍNA EN POLVO (sin gluten, sin lactosa)
 • 🛒 Comprar → https://www.amazon.es/s?k=proteina+en+polvo+sin+gluten&i=amazonfresh&tag=zia-nutricion-21
 
 OMEGA-3
-• Cuándo: Con una comida que contenga grasa, en el almuerzo o cena
+• Cuándo: Con una comida que contenga grasa, en el comida o cena
 • Dosis: 1-2 cápsulas al día
 • 🛒 Comprar → https://www.amazon.es/s?k=omega+3&tag=zia-nutricion-21
 
