@@ -2123,6 +2123,7 @@ SUPER_TIENDA_URL: dict[str, tuple[str, str]] = {
     "gadis": ("Gadis", "https://www.gadis.es"),
     "coviran": ("Covirán", "https://www.coviran.es"),
     "herbolarionavarro": ("Herbolario Navarro", "https://www.herbolarionavarro.es"),
+    "supercor": ("Supercor", "https://www.supercor.es"),
     "mercadona": ("Mercadona", "https://tienda.mercadona.es"),
     "lidl": ("Lidl", "https://www.lidl.es"),
     "aldi": ("Aldi", "https://www.aldi.es"),

@@ -283,7 +283,7 @@ def webhook():
         return enviar(f"¿Qué quieres hacer?\n\n1️⃣ Pagar en {ns(perfil)}\n2️⃣ Comparar precios")
 
     if estado == "elegir_super_comparativa":
-        mapa = {"1":"mercadona","2":"lidl","3":"aldi","4":"carrefour","5":"consum","6":"herbolarionavarro","7":"supercor","herbolario":"herbolarionavarro","navarro":"herbolarionavarro","supercor":"supercor","corte":"supercor"}
+        mapa = {"1":"mercadona","2":"lidl","3":"aldi","4":"carrefour","5":"consum","6":"herbolarionavarro","7":"supercor"}
         cid = mapa.get(tl) or main.detectar_id_supermercado_en_texto(message)
         if cid and cid in main.SUPER_TIENDA_URL:
             nombre_s, url_s = main.SUPER_TIENDA_URL[cid]
