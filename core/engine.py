@@ -81,12 +81,14 @@ class ZiaEngine:
         u = self._get_user(user_id)
         m = message.strip()
         company = self.config['branding']['company_name']
+        checkout = self.config.get('integrations', {}).get('cart', {}).get('checkout_url', self.config['branding']['website'])
         nombre = u['data'].get('nombre', '')
         nombre_str = ', ' + nombre if nombre else ''
         if is_reset(m):
             self.reset_user(user_id)
             u = self._get_user(user_id)
         s = u['state']
+
         if s == 'welcome':
             u['state'] = 'datos'
             return ('Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\n'
@@ -94,6 +96,7 @@ class ZiaEngine:
                     'Para empezar necesito conocerte:\n\n'
                     '*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n'
                     '_Ejemplo: Maria, mujer, 34, 65kg, 165cm_')
+
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
@@ -108,61 +111,84 @@ class ZiaEngine:
                     '  1️⃣ Solo para mi\n'
                     '  2️⃣ Para 2 personas\n'
                     '  3️⃣ Familiar (3 o mas personas)')
+
         elif s == 'personas':
             ml = m.strip()
             if ml == '2' or any(w in ml.lower() for w in ['dos','pareja','amigo']): u['data']['personas'] = '2 personas'
             elif ml == '3' or any(w in ml.lower() for w in ['familia','familiar','tres']): u['data']['personas'] = 'familia (3 o mas personas)'
             else: u['data']['personas'] = '1 persona'
             u['state'] = 'objetivo'
-            return ('Cual es vuestro objetivo principal? 🎯\n\n'
+            return ('Cual es tu objetivo principal? 🎯\n\n'
                     '  1️⃣ Perder grasa\n'
                     '  2️⃣ Ganar musculo\n'
                     '  3️⃣ Mas energia y vitalidad\n'
                     '  4️⃣ Comer mas sano y natural\n'
                     '  5️⃣ Mejorar la digestion')
+
         elif s == 'objetivo':
             opts = {'1':'Perder grasa','2':'Ganar musculo','3':'Mas energia y vitalidad','4':'Comer mas sano','5':'Mejorar la digestion'}
             u['data']['objetivo'] = opts.get(m.strip(), m)
             u['state'] = 'cocina'
-            return ('Como es vuestra relacion con la cocina? 🍳\n\n'
+            return ('Como es tu relacion con la cocina? 🍳\n\n'
                     '  1️⃣ Poco tiempo, recetas rapidas\n'
                     '  2️⃣ Me gusta cocinar\n'
                     '  3️⃣ Solo platos sencillos\n'
                     '  4️⃣ Batch cooking (preparar el domingo)')
+
         elif s == 'cocina':
             opts = {'1':'Poco tiempo, recetas rapidas','2':'Me gusta cocinar','3':'Solo platos sencillos','4':'Batch cooking'}
             u['data']['cocina'] = opts.get(m.strip(), m)
             u['state'] = 'restricciones'
-            return ('Teneis alguna restriccion alimentaria? 🚫\n\n'
+            return ('Tienes alguna restriccion alimentaria? 🚫\n\n'
                     '  1️⃣ Ninguna\n'
                     '  2️⃣ Vegano/Vegetariano\n'
                     '  3️⃣ Sin gluten\n'
                     '  4️⃣ Sin lactosa\n'
                     '  5️⃣ Sin pescado\n'
                     '  6️⃣ Otra (escribela)')
+
         elif s == 'restricciones':
             opts = {'1':'Ninguna','2':'Vegano/Vegetariano','3':'Sin gluten','4':'Sin lactosa','5':'Sin pescado'}
             u['data']['restricciones'] = opts.get(m.strip(), m)
             u['state'] = 'presupuesto'
             return ('Ultimo paso' + nombre_str + '! 💰\n\n'
-                    'Cuanto quereis gastar esta semana?\n\n'
+                    'Cuanto quieres gastar esta semana?\n\n'
                     '  1️⃣ 30-50 euros\n'
                     '  2️⃣ 50-80 euros\n'
                     '  3️⃣ 80-120 euros\n'
                     '  4️⃣ Mas de 120 euros')
+
         elif s == 'presupuesto':
             opts = {'1':'40','2':'65','3':'100','4':'130'}
-            presupuesto_num = opts.get(m.strip(), '65')
-            u['data']['presupuesto'] = presupuesto_num
-            u['data']['presupuesto_texto'] = m.strip()
+            u['data']['presupuesto'] = opts.get(m.strip(), '65')
             u['state'] = 'plan_listo'
             partes = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(partes)
             u['plan_count'] = u.get('plan_count', 0) + 1
             intro = '🔍 Analizando tu perfil...\n🌿 Seleccionando productos de ' + company + '...\n✨ Aqui va tu plan' + nombre_str + '!'
             return [intro] + partes
+
         elif s == 'plan_listo':
+            ml = m.strip().lower()
+            if ml in ['1','carrito','anadir al carrito','añadir al carrito']:
+                return ('🛒 Aqui tienes tu carrito con todos los productos' + nombre_str + '!\n\n'
+                        + checkout + '\n\n'
+                        '_Pulsa el link para anadir todo directamente_ ✅')
+            elif ml in ['2','cambiar','cambiar algo']:
+                u['state'] = 'cambiar'
+                return '✏️ Que quieres cambiar' + nombre_str + '? Dime el dia o el plato y te preparo una alternativa 🍽️'
+            elif ml in ['3','guardar','guardar lista']:
+                lista = u.get('plan','')
+                partes = lista.split('\n\n')
+                lista_limpia = partes[-1] if partes else lista
+                return '💾 Aqui tienes tu lista de la compra' + nombre_str + ':\n\n' + lista_limpia
+            else:
+                return self._gpt_libre(m, u)
+
+        elif s == 'cambiar':
+            u['state'] = 'plan_listo'
             return self._gpt_libre(m, u)
+
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
@@ -190,23 +216,31 @@ class ZiaEngine:
                   'Plan para: ' + personas + '. Objetivo: ' + data.get('objetivo','') + '. '
                   'Cocina: ' + data.get('cocina','') + '. '
                   'Restricciones: ' + data.get('restricciones','Ninguna') + '. '
-                  'Presupuesto semanal: ' + presupuesto + ' euros.')
+                  'Presupuesto semanal EXACTO: ' + presupuesto + ' euros.')
+
         prompt1 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA SOLO el menu de LUNES, MARTES y MIERCOLES. '
-                   'Cada dia: Desayuno, Comida y Cena (sin merienda) con cantidades en gramos. SIN tiempos de preparacion. '
-                   'Usa emojis. Maximo 220 palabras.')
+                   '\nGENERA SOLO el menu de *LUNES*, *MARTES* y *MIERCOLES*. '
+                   'Cada dia: Desayuno, Comida y Cena con cantidades en gramos. '
+                   'SIN tiempos de preparacion. SIN frases motivadoras al final. '
+                   'Termina en la ultima cena del miercoles. Usa emojis. Maximo 220 palabras.')
+
         prompt2 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA SOLO el menu de JUEVES, VIERNES, SABADO y DOMINGO. '
-                   'Cada dia: Desayuno, Comida y Cena (sin merienda) con cantidades en gramos. SIN tiempos de preparacion. '
-                   'Usa emojis. Maximo 220 palabras.')
+                   '\nGENERA SOLO el menu de *JUEVES*, *VIERNES*, *SABADO* y *DOMINGO*. '
+                   'Empieza DIRECTAMENTE con *Jueves:* sin ningun saludo ni introduccion. '
+                   'Cada dia: Desayuno, Comida y Cena con cantidades en gramos. '
+                   'SIN tiempos de preparacion. SIN frases motivadoras al final. '
+                   'Termina en la ultima cena del domingo. Usa emojis. Maximo 220 palabras.')
+
         prompt3 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA una LISTA DE LA COMPRA COMPLETA con TODOS los ingredientes necesarios para el menu semanal completo (Lunes a Domingo). '
-                   'IMPORTANTE: el total de la lista debe estar entre ' + str(int(presupuesto)-10) + ' y ' + presupuesto + ' euros, NO menos. '
-                   'Organiza por categorias (Verduras, Proteinas, Lacteos, Cereales, etc) con cantidad exacta y precio de cada producto. '
-                   'Muestra el total al final. '
-                   'Luego recomienda 2 productos ESTRELLA de ' + company + ' con motivo. '
-                   'Al final escribe: 🛒 Anadir al carrito: ' + checkout +
-                   '\nUsa emojis. Maximo 250 palabras.')
+                   '\nGENERA la LISTA DE LA COMPRA COMPLETA con TODOS los ingredientes del menu semanal (Lunes a Domingo). '
+                   'OBLIGATORIO: incluye CADA ingrediente mencionado en el menu. '
+                   'OBLIGATORIO: el total debe ser entre ' + str(int(presupuesto)-15) + ' y ' + presupuesto + ' euros. '
+                   'Organiza por categorias con cantidad y precio por producto. '
+                   'Muestra el TOTAL al final. '
+                   'Luego pon 2 productos ESTRELLA de ' + company + ' recomendados. '
+                   'NO incluyas ningun link ni texto de carrito. '
+                   'Usa emojis. Maximo 250 palabras.')
+
         model = self.config.get('ai',{}).get('model','gpt-4o-mini')
         system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
         partes = []
@@ -219,10 +253,12 @@ class ZiaEngine:
                 partes.append(r.choices[0].message.content)
             except Exception as e:
                 partes.append('Error generando esta parte: ' + str(e)[:60])
+
         nombre = data.get('nombre','')
-        partes[-1] += ('\n\n---\n¿Que quieres hacer' + (', ' + nombre if nombre else '') + '?\n\n'
-                       '  1️⃣ Cambiar algo del menu\n'
-                       '  2️⃣ Anadir o quitar productos\n'
+        nombre_str = ', ' + nombre if nombre else ''
+        partes[-1] += ('\n\n---\n¿Que quieres hacer' + nombre_str + '?\n\n'
+                       '  1️⃣ Anadir al carrito\n'
+                       '  2️⃣ Cambiar algo del menu\n'
                        '  3️⃣ Guardar lista\n\n'
                        '_O escribeme cualquier duda_ 💬')
         return partes
@@ -231,12 +267,16 @@ class ZiaEngine:
         company = self.config['branding']['company_name']
         checkout = self.config.get('integrations',{}).get('cart',{}).get('checkout_url', self.config['branding']['website'])
         data = u['data']
-        plan = u.get('plan','')[:400] if u.get('plan') else ''
-        system = ('Eres ZIA de ' + company + '. Perfil: ' + data.get('nombre','')
-                  + ', objetivo: ' + data.get('objetivo','')
-                  + ', restricciones: ' + data.get('restricciones','Ninguna')
-                  + '. Plan: ' + plan + '. Carrito: ' + checkout
-                  + '. Ayuda con modificaciones y preguntas. Usa emojis. Maximo 200 palabras. Espanol.')
+        plan = u.get('plan','')[:600] if u.get('plan') else ''
+        system = ('Eres ZIA de ' + company + '. '
+                  'Perfil: ' + data.get('nombre','') + ', objetivo: ' + data.get('objetivo','')
+                  + ', restricciones: ' + data.get('restricciones','Ninguna') + '. '
+                  'Plan actual: ' + plan + '. '
+                  'Carrito: ' + checkout + '. '
+                  'Ayuda con modificaciones y preguntas sobre el menu o la lista. '
+                  'Si el usuario pide cambiar algo, genera la alternativa directamente. '
+                  'Al terminar siempre pregunta: ¿Algo mas en lo que pueda ayudarte? '
+                  'Usa emojis. Maximo 200 palabras. Espanol.')
         history = u.get('history', [])
         history.append({'role':'user','content':message})
         if len(history) > 10: history = history[-10:]
