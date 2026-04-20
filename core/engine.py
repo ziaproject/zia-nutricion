@@ -89,7 +89,11 @@ class ZiaEngine:
         s = u['state']
         if s == 'welcome':
             u['state'] = 'datos'
-            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado + lista de la compra lista para el carrito 🛒\n\nPara empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
+            return ('Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\n'
+                    'En 2 minutos te preparo tu menu semanal personalizado + lista de la compra lista para el carrito 🛒\n\n'
+                    'Para empezar necesito conocerte:\n\n'
+                    '*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n'
+                    '_Ejemplo: Maria, mujer, 34, 65kg, 165cm_')
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
@@ -99,28 +103,58 @@ class ZiaEngine:
                 u['data'][k] = v
             nombre = u['data'].get('nombre', '')
             u['state'] = 'personas'
-            return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
+            return ('Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\n'
+                    'El plan nutricional es para...\n\n'
+                    '  1️⃣ Solo para mi\n'
+                    '  2️⃣ Para 2 personas\n'
+                    '  3️⃣ Familiar (3 o mas personas)')
         elif s == 'personas':
-            ml = m.lower()
-            if any(w in ml for w in ['2','dos','pareja','amigo']): u['data']['personas'] = '2 personas'
-            elif any(w in ml for w in ['3','familia','familiar','mas','tres']): u['data']['personas'] = 'familia (3 o mas personas)'
+            ml = m.strip()
+            if ml == '2' or any(w in ml.lower() for w in ['dos','pareja','amigo']): u['data']['personas'] = '2 personas'
+            elif ml == '3' or any(w in ml.lower() for w in ['familia','familiar','tres']): u['data']['personas'] = 'familia (3 o mas personas)'
             else: u['data']['personas'] = '1 persona'
             u['state'] = 'objetivo'
-            return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder grasa\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
+            return ('Cual es vuestro objetivo principal? 🎯\n\n'
+                    '  1️⃣ Perder grasa\n'
+                    '  2️⃣ Ganar musculo\n'
+                    '  3️⃣ Mas energia y vitalidad\n'
+                    '  4️⃣ Comer mas sano y natural\n'
+                    '  5️⃣ Mejorar la digestion')
         elif s == 'objetivo':
-            u['data']['objetivo'] = m
+            opts = {'1':'Perder grasa','2':'Ganar musculo','3':'Mas energia y vitalidad','4':'Comer mas sano','5':'Mejorar la digestion'}
+            u['data']['objetivo'] = opts.get(m.strip(), m)
             u['state'] = 'cocina'
-            return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨‍🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking'
+            return ('Como es vuestra relacion con la cocina? 🍳\n\n'
+                    '  1️⃣ Poco tiempo, recetas rapidas\n'
+                    '  2️⃣ Me gusta cocinar\n'
+                    '  3️⃣ Solo platos sencillos\n'
+                    '  4️⃣ Batch cooking (preparar el domingo)')
         elif s == 'cocina':
-            u['data']['cocina'] = m
+            opts = {'1':'Poco tiempo, recetas rapidas','2':'Me gusta cocinar','3':'Solo platos sencillos','4':'Batch cooking'}
+            u['data']['cocina'] = opts.get(m.strip(), m)
             u['state'] = 'restricciones'
-            return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra'
+            return ('Teneis alguna restriccion alimentaria? 🚫\n\n'
+                    '  1️⃣ Ninguna\n'
+                    '  2️⃣ Vegano/Vegetariano\n'
+                    '  3️⃣ Sin gluten\n'
+                    '  4️⃣ Sin lactosa\n'
+                    '  5️⃣ Sin pescado\n'
+                    '  6️⃣ Otra (escribela)')
         elif s == 'restricciones':
-            u['data']['restricciones'] = m
+            opts = {'1':'Ninguna','2':'Vegano/Vegetariano','3':'Sin gluten','4':'Sin lactosa','5':'Sin pescado'}
+            u['data']['restricciones'] = opts.get(m.strip(), m)
             u['state'] = 'presupuesto'
-            return 'Ultimo paso' + nombre_str + '! 💰\n\nCuanto quereis gastar esta semana?\n\n  💚 30-50 euros\n  💛 50-80 euros\n  🧡 80-120 euros\n  💜 Mas de 120 euros'
+            return ('Ultimo paso' + nombre_str + '! 💰\n\n'
+                    'Cuanto quereis gastar esta semana?\n\n'
+                    '  1️⃣ 30-50 euros\n'
+                    '  2️⃣ 50-80 euros\n'
+                    '  3️⃣ 80-120 euros\n'
+                    '  4️⃣ Mas de 120 euros')
         elif s == 'presupuesto':
-            u['data']['presupuesto'] = m
+            opts = {'1':'40','2':'65','3':'100','4':'130'}
+            presupuesto_num = opts.get(m.strip(), '65')
+            u['data']['presupuesto'] = presupuesto_num
+            u['data']['presupuesto_texto'] = m.strip()
             u['state'] = 'plan_listo'
             partes = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(partes)
@@ -138,6 +172,7 @@ class ZiaEngine:
         checkout = self.config.get('integrations', {}).get('cart', {}).get('checkout_url', self.config['branding']['website'])
         cal = calorias(data)
         personas = data.get('personas', '1 persona')
+        presupuesto = data.get('presupuesto', '65')
         cats = self.config.get('catalog', {}).get('categories', [])
         catalogo = ''
         if cats:
@@ -154,21 +189,24 @@ class ZiaEngine:
                   + data.get('altura','') + 'cm, ' + str(cal) + ' kcal/dia. '
                   'Plan para: ' + personas + '. Objetivo: ' + data.get('objetivo','') + '. '
                   'Cocina: ' + data.get('cocina','') + '. '
-                  'Restricciones: ' + data.get('restricciones','Ninguna') + '.')
+                  'Restricciones: ' + data.get('restricciones','Ninguna') + '. '
+                  'Presupuesto semanal: ' + presupuesto + ' euros.')
         prompt1 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA SOLO menu de LUNES, MARTES y MIERCOLES. '
-                   'Cada dia: Desayuno, Comida, Merienda, Cena con cantidades en gramos y tiempo preparacion. '
+                   '\nGENERA SOLO el menu de LUNES, MARTES y MIERCOLES. '
+                   'Cada dia: Desayuno, Comida y Cena (sin merienda) con cantidades en gramos. SIN tiempos de preparacion. '
                    'Usa emojis. Maximo 220 palabras.')
         prompt2 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA SOLO menu de JUEVES, VIERNES, SABADO y DOMINGO. '
-                   'Cada dia: Desayuno, Comida, Merienda, Cena con cantidades en gramos y tiempo preparacion. '
+                   '\nGENERA SOLO el menu de JUEVES, VIERNES, SABADO y DOMINGO. '
+                   'Cada dia: Desayuno, Comida y Cena (sin merienda) con cantidades en gramos. SIN tiempos de preparacion. '
                    'Usa emojis. Maximo 220 palabras.')
         prompt3 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA:'
-                   '\n1. LISTA DE LA COMPRA completa por categorias con precios y cantidades. Total dentro del presupuesto de ' + data.get('presupuesto','') + ' euros.'
-                   '\n2. Recomienda 2 productos ESTRELLA de ' + company + ' con motivo.'
-                   '\n3. Al final escribe: 🛒 Anadir al carrito: ' + checkout +
-                   '\nUsa emojis. Maximo 220 palabras.')
+                   '\nGENERA una LISTA DE LA COMPRA COMPLETA con TODOS los ingredientes necesarios para el menu semanal completo (Lunes a Domingo). '
+                   'IMPORTANTE: el total de la lista debe estar entre ' + str(int(presupuesto)-10) + ' y ' + presupuesto + ' euros, NO menos. '
+                   'Organiza por categorias (Verduras, Proteinas, Lacteos, Cereales, etc) con cantidad exacta y precio de cada producto. '
+                   'Muestra el total al final. '
+                   'Luego recomienda 2 productos ESTRELLA de ' + company + ' con motivo. '
+                   'Al final escribe: 🛒 Anadir al carrito: ' + checkout +
+                   '\nUsa emojis. Maximo 250 palabras.')
         model = self.config.get('ai',{}).get('model','gpt-4o-mini')
         system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
         partes = []
@@ -183,7 +221,9 @@ class ZiaEngine:
                 partes.append('Error generando esta parte: ' + str(e)[:60])
         nombre = data.get('nombre','')
         partes[-1] += ('\n\n---\n¿Que quieres hacer' + (', ' + nombre if nombre else '') + '?\n\n'
-                       '  ✏️ Cambiar algo\n  ➕ Anadir o quitar productos\n  💾 Guardar lista\n\n'
+                       '  1️⃣ Cambiar algo del menu\n'
+                       '  2️⃣ Anadir o quitar productos\n'
+                       '  3️⃣ Guardar lista\n\n'
                        '_O escribeme cualquier duda_ 💬')
         return partes
 
