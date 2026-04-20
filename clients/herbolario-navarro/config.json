@@ -27,5 +27,24 @@
   },
   "limits": {
     "active": true
+  },
+  "bot": {
+    "name": "ZIA",
+    "personality": "Experta en productos naturales y ecologicos de Herbolario Navarro",
+    "mission": "Crear planes nutricionales con productos de Herbolario Navarro",
+    "tone": "cercano y experto",
+    "welcome_message": "Hola! Soy ZIA de Herbolario Navarro. Te preparo tu menu semanal con productos naturales. Empezamos?"
+  },
+  "flow": {
+    "steps": [],
+    "limits": {
+      "free": "1 plan",
+      "individual": "ilimitado",
+      "pro": "todo"
+    }
+  },
+  "_meta": {
+    "version": "2.0",
+    "type": "B2B"
   }
 }
