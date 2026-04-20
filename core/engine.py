@@ -1,274 +1,174 @@
-"""
-ZIA PLATFORM — Core Conversation Engine
-========================================
-Motor central de ZIA. NUNCA se toca para cambiar de cliente.
-Todo lo que varía entre clientes va en su config JSON.
-
-Archivo: core/engine.py
-"""
-
 import json
 import os
 import re
 from openai import OpenAI
-from typing import Optional
 
-# ══════════════════════════════════════════════════════════
-# CLIENT LOADER — Carga el config del cliente activo
-# ══════════════════════════════════════════════════════════
-
-def load_client_config(client_id: str) -> dict:
-    """
-    Carga la configuración completa de un cliente.
-    Para cambiar de cliente solo cambia CLIENT_ID en .env
-    
-    Estructura:
-    clients/
-      ├── herbolario-navarro/config.json
-      ├── fitlife-gym/config.json
-      ├── mercadona/config.json
-      └── zia-nutricion/config.json  ← el B2C base
-    """
-    config_path = os.path.join(
-        os.path.dirname(__file__), 
-        '..', 'clients', client_id, 'config.json'
-    )
-    with open(config_path, 'r', encoding='utf-8') as f:
+def load_client_config(client_id):
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'clients', client_id, 'config.json')
+    with open(p, 'r', encoding='utf-8') as f:
         return json.load(f)
 
+_cache = {}
 
-# ══════════════════════════════════════════════════════════
-# SYSTEM PROMPT BUILDER — Construye el prompt del cliente
-# ══════════════════════════════════════════════════════════
-
-def build_system_prompt(config: dict) -> str:
-    """
-    Genera el system prompt dinámicamente desde el config del cliente.
-    Cada cliente tiene su tono, sus productos y su flujo.
-    """
-    c = config
-    brand = c['branding']
-    bot = c['bot']
-    catalog = c.get('catalog', {})
-    flow = c['flow']
-
-    # Productos del catálogo (para que ZIA los conozca)
-    products_text = ""
-    if catalog.get('categories'):
-        products_text = "\n\nCATÁLOGO DE PRODUCTOS DISPONIBLES:\n"
-        for cat in catalog['categories']:
-            products_text += f"\n{cat['name']}:\n"
-            for p in cat.get('products', [])[:10]:  # max 10 por categoría
-                products_text += f"  - {p['name']}: {p.get('price','')}"
-                if p.get('unit'): products_text += f" ({p['unit']})"
-                products_text += "\n"
-
-    prompt = f"""Eres {bot['name']}, el asistente nutricional inteligente de {brand['company_name']}.
-
-PERSONALIDAD Y TONO:
-{bot['personality']}
-
-TU MISIÓN:
-{bot['mission']}
-
-FLUJO DE CONVERSACIÓN:
-{json.dumps(flow['steps'], ensure_ascii=False, indent=2)}
-
-RESTRICCIONES IMPORTANTES:
-- Solo recomienda productos del catálogo de {brand['company_name']}
-- Siempre genera planes con cantidades exactas en gramos
-- Incluye tiempo de preparación en cada receta
-- La lista de la compra debe incluir precio estimado de cada producto
-- Cuando generes la lista, formatea con separadores claros para que sea fácil de leer
-- Responde SIEMPRE en español
-- Mantén el tono: {bot['tone']}
-- Nunca menciones competidores
-- Si el usuario pregunta algo fuera de nutrición, redirige amablemente
-
-MENSAJE DE BIENVENIDA:
-{bot['welcome_message']}
-
-LÍMITES DEL PLAN SEGÚN SUSCRIPCIÓN:
-- FREE: {flow.get('limits', {}).get('free', '1 plan semanal, sin lista')}
-- INDIVIDUAL: {flow.get('limits', {}).get('individual', 'Planes ilimitados, lista incluida')}
-- PRO: {flow.get('limits', {}).get('pro', 'Todo ilimitado, multiusuario')}
-{products_text}
-"""
-    return prompt
-
-
-# ══════════════════════════════════════════════════════════
-# CONVERSATION MANAGER — Gestiona el historial por usuario
-# ══════════════════════════════════════════════════════════
-
-class ConversationManager:
-    """
-    Gestiona el historial de conversación de cada usuario.
-    En producción esto va a Supabase, en dev va a memoria.
-    """
-    
-    def __init__(self, storage_backend='memory'):
-        self.storage_backend = storage_backend
-        self._memory = {}  # dev only
-    
-    def get_history(self, user_id: str, client_id: str) -> list:
-        key = f"{client_id}:{user_id}"
-        return self._memory.get(key, [])
-    
-    def add_message(self, user_id: str, client_id: str, role: str, content: str):
-        key = f"{client_id}:{user_id}"
-        if key not in self._memory:
-            self._memory[key] = []
-        self._memory[key].append({"role": role, "content": content})
-        
-        # Mantener solo los últimos 20 mensajes para no saturar tokens
-        if len(self._memory[key]) > 20:
-            self._memory[key] = self._memory[key][-20:]
-    
-    def clear_history(self, user_id: str, client_id: str):
-        key = f"{client_id}:{user_id}"
-        self._memory[key] = []
-    
-    def get_user_data(self, user_id: str, client_id: str) -> dict:
-        """Extrae datos del usuario del historial (objetivo, alergias, etc.)"""
-        history = self.get_history(user_id, client_id)
-        # En producción esto vendría de Supabase
-        return {}
-
-
-# ══════════════════════════════════════════════════════════
-# ZIA ENGINE — El motor principal
-# ══════════════════════════════════════════════════════════
-
-class ZiaEngine:
-    """
-    Motor principal de ZIA. Funciona igual para todos los clientes.
-    Solo cambia el config que se le pasa al inicializar.
-    """
-    
-    def __init__(self, client_id: str):
-        self.client_id = client_id
-        self.config = load_client_config(client_id)
-        self.system_prompt = build_system_prompt(self.config)
-        self.conversation = ConversationManager()
-        self.openai = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
-    
-    def process_message(self, user_id: str, message: str, 
-                       plan_type: str = 'free') -> str:
-        """
-        Procesa un mensaje del usuario y devuelve la respuesta de ZIA.
-        
-        Args:
-            user_id: Número de WhatsApp u otro ID único del usuario
-            message: Mensaje del usuario
-            plan_type: 'free' | 'individual' | 'pro'
-        
-        Returns:
-            Respuesta de ZIA como string
-        """
-        
-        # Añadir contexto del plan al mensaje si es relevante
-        enhanced_message = message
-        if plan_type == 'free' and self._is_requesting_premium(message):
-            return self._get_upgrade_message(plan_type)
-        
-        # Guardar mensaje del usuario
-        self.conversation.add_message(user_id, self.client_id, 'user', enhanced_message)
-        
-        # Obtener historial
-        history = self.conversation.get_history(user_id, self.client_id)
-        
-        # Llamar a OpenAI
-        try:
-            response = self.openai.chat.completions.create(
-                model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
-                messages=[
-                    {"role": "system", "content": self.system_prompt},
-                    *history
-                ],
-                max_tokens=self.config.get('ai', {}).get('max_tokens', 1500),
-                temperature=self.config.get('ai', {}).get('temperature', 0.7)
-            )
-            
-            reply = response.choices[0].message.content
-            
-            # Guardar respuesta
-            self.conversation.add_message(user_id, self.client_id, 'assistant', reply)
-            
-            # Post-procesar (añadir links de carrito si aplica)
-            reply = self._post_process(reply, user_id)
-            
-            return reply
-            
-        except Exception as e:
-            return f"Lo siento, hay un problema técnico. Por favor inténtalo de nuevo. ({str(e)[:50]})"
-    
-    def _is_requesting_premium(self, message: str) -> bool:
-        """Detecta si el usuario free está pidiendo features de pago"""
-        premium_keywords = [
-            'lista de la compra', 'lista compra', 'supermercado',
-            'comparar precios', 'foto nevera', 'plan familiar',
-            'otro plan', 'nueva semana'
-        ]
-        msg_lower = message.lower()
-        return any(kw in msg_lower for kw in premium_keywords)
-    
-    def _get_upgrade_message(self, current_plan: str) -> str:
-        """Mensaje de upgrade personalizado según el cliente"""
-        brand = self.config['branding']['company_name']
-        upgrade_url = self.config.get('payments', {}).get('upgrade_url', 'https://zianutricion.com/#precios')
-        
-        return (
-            f"Esta función está disponible en el plan Individual 🌟\n\n"
-            f"Por solo 4,99€/mes tienes acceso a listas de la compra ilimitadas, "
-            f"comparativa de supermercados, análisis de nevera y mucho más.\n\n"
-            f"👉 {upgrade_url}"
-        )
-    
-    def _post_process(self, reply: str, user_id: str) -> str:
-        """
-        Post-procesa la respuesta:
-        - Añade links de carrito si hay lista de productos
-        - Formatea para WhatsApp
-        - Añade CTA según el contexto
-        """
-        config = self.config
-        
-        # Si hay integración de carrito y la respuesta contiene una lista
-        cart_config = config.get('integrations', {}).get('cart', {})
-        if cart_config.get('enabled') and '€' in reply and ('lista' in reply.lower() or 'compra' in reply.lower()):
-            cart_url = cart_config.get('base_url', '')
-            if cart_url:
-                reply += f"\n\n🛒 *Añadir al carrito de {config['branding']['company_name']}:*\n{cart_url}"
-        
-        return reply
-    
-    def get_welcome_message(self) -> str:
-        """Devuelve el mensaje de bienvenida configurado para este cliente"""
-        return self.config['bot']['welcome_message']
-    
-    def reset_user(self, user_id: str):
-        """Resetea la conversación de un usuario"""
-        self.conversation.clear_history(user_id, self.client_id)
-
-
-# ══════════════════════════════════════════════════════════
-# FACTORY — Crea instancias de ZIA por cliente
-# ══════════════════════════════════════════════════════════
-
-_engine_cache = {}
-
-def get_engine(client_id: str = None) -> ZiaEngine:
-    """
-    Factory que devuelve el engine del cliente correcto.
-    Usa caché para no recargar el config en cada mensaje.
-    
-    Si no se pasa client_id, usa el CLIENT_ID del .env
-    """
+def get_engine(client_id=None):
     if client_id is None:
         client_id = os.environ.get('CLIENT_ID', 'zia-nutricion')
-    
-    if client_id not in _engine_cache:
-        _engine_cache[client_id] = ZiaEngine(client_id)
-    
-    return _engine_cache[client_id]
+    if client_id not in _cache:
+        _cache[client_id] = ZiaEngine(client_id)
+    return _cache[client_id]
+
+RESET_WORDS = ['hola','inicio','reset','empezar','reiniciar','start','menu','nuevo']
+
+def is_reset(m):
+    return m.strip().lower() in RESET_WORDS
+
+def parse_datos(text):
+    d = {}
+    t = text.lower()
+    if any(w in t for w in ['hombre','masculino','chico']): d['genero'] = 'Hombre'
+    elif any(w in t for w in ['mujer','femenino','chica']): d['genero'] = 'Mujer'
+    else: d['genero'] = 'No especificado'
+    m = re.match(r'^([A-Za-zÀ-ÿ][a-zÀ-ÿ]+)', text)
+    if m and m.group(1).lower() not in ['hombre','mujer','soy','tengo']:
+        d['nombre'] = m.group(1).capitalize()
+    else:
+        d['nombre'] = ''
+    nums = [int(n) for n in re.findall(r'\d+', text)]
+    for n in nums:
+        if 10 <= n <= 100 and 'edad' not in d: d['edad'] = str(n)
+        elif 40 <= n <= 200 and 'peso' not in d and str(n) != d.get('edad',''): d['peso'] = str(n)
+        elif 130 <= n <= 230 and 'altura' not in d: d['altura'] = str(n)
+    return d
+
+def faltan_datos(d):
+    missing = []
+    if 'edad' not in d: missing.append('edad')
+    if 'peso' not in d: missing.append('peso en kg')
+    if 'altura' not in d: missing.append('altura en cm')
+    return missing
+
+def calorias(d):
+    try:
+        w = float(d.get('peso', 70))
+        h = float(d.get('altura', 170))
+        a = float(d.get('edad', 30))
+        if d.get('genero') == 'Hombre': bmr = 10*w + 6.25*h - 5*a + 5
+        else: bmr = 10*w + 6.25*h - 5*a - 161
+        return int(bmr * 1.55)
+    except:
+        return 2000
+
+class ZiaEngine:
+    def __init__(self, client_id):
+        self.client_id = client_id
+        self.config = load_client_config(client_id)
+        self.openai = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
+        self._users = {}
+
+    def _get_user(self, uid):
+        if uid not in self._users:
+            self._users[uid] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': 0}
+        return self._users[uid]
+
+    def reset_user(self, uid):
+        count = self._users.get(uid, {}).get('plan_count', 0)
+        self._users[uid] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': count}
+
+    def get_welcome_message(self):
+        return self.config['bot']['welcome_message']
+
+    def process_message(self, user_id, message, plan_type='pro'):
+        u = self._get_user(user_id)
+        m = message.strip()
+        company = self.config['branding']['company_name']
+        nombre = u['data'].get('nombre', '')
+        nombre_str = ', ' + nombre if nombre else ''
+        if is_reset(m):
+            self.reset_user(user_id)
+            u = self._get_user(user_id)
+        s = u['state']
+        if s == 'welcome':
+            u['state'] = 'datos'
+            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
+        elif s == 'datos':
+            parsed = parse_datos(m)
+            missing = faltan_datos(parsed)
+            if missing:
+                return 'Solo me falta: *' + ', '.join(missing) + '*\n\n_Ejemplo: Carlos, hombre, 38, 82kg, 178cm_'
+            for k, v in parsed.items():
+                u['data'][k] = v
+            nombre = u['data'].get('nombre', '')
+            u['state'] = 'personas'
+            return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨\u200d👩\u200d👧\u200d👦 Familiar (3 o mas personas)'
+        elif s == 'personas':
+            ml = m.lower()
+            if any(w in ml for w in ['2','dos','pareja','amigo']): u['data']['personas'] = '2 personas'
+            elif any(w in ml for w in ['3','familia','familiar','mas','tres']): u['data']['personas'] = 'familia (3 o mas personas)'
+            else: u['data']['personas'] = '1 persona'
+            u['state'] = 'objetivo'
+            return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder grasa\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
+        elif s == 'objetivo':
+            u['data']['objetivo'] = m
+            u['state'] = 'cocina'
+            return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨\u200d🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking (preparar el domingo)'
+        elif s == 'cocina':
+            u['data']['cocina'] = m
+            u['state'] = 'restricciones'
+            return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
+        elif s == 'restricciones':
+            u['data']['restricciones'] = m
+            u['state'] = 'presupuesto'
+            return 'Ultimo paso' + nombre_str + '! 💰\n\nCuanto quereis gastar esta semana?\n\n  💚 30-50 euros\n  💛 50-80 euros\n  🧡 80-120 euros\n  💜 Mas de 120 euros'
+        elif s == 'presupuesto':
+            u['data']['presupuesto'] = m
+            u['state'] = 'plan_listo'
+            plan_texto = self._generar_plan(u['data'])
+            u['plan'] = plan_texto
+            u['plan_count'] = u.get('plan_count', 0) + 1
+            return 'Analizando tu perfil... 🔍\nSeleccionando productos de ' + company + '... 🌿\nCreando tu menu... ✨\n\n' + plan_texto + '\n\n---\nQue quieres hacer' + nombre_str + '?\n\n  🛒 Anadir al carrito\n  ✏️ Cambiar algo\n  ➕ Anadir o quitar productos\n  💾 Guardar lista\n\n_O escribeme cualquier pregunta_ 💬'
+        elif s == 'plan_listo':
+            return self._gpt_libre(m, u)
+        else:
+            u['state'] = 'welcome'
+            return 'Escribe *Hola* para empezar 👋'
+
+    def _generar_plan(self, data):
+        company = self.config['branding']['company_name']
+        checkout = self.config.get('integrations', {}).get('cart', {}).get('checkout_url', self.config['branding']['website'])
+        cal = calorias(data)
+        personas = data.get('personas', '1 persona')
+        cats = self.config.get('catalog', {}).get('categories', [])
+        catalogo = ''
+        if cats:
+            catalogo = 'PRODUCTOS DE ' + company.upper() + ':\n'
+            for cat in cats[:5]:
+                catalogo += '\n' + cat['name'] + ':\n'
+                for p in cat.get('products', [])[:5]:
+                    line = '  - ' + p['name']
+                    if p.get('price'): line += ' (' + p['price'] + ')'
+                    if p.get('bestseller'): line += ' ESTRELLA'
+                    catalogo += line + '\n'
+        prompt = 'Eres ZIA nutricionista de ' + company + '.\n\nPERFIL: ' + data.get('nombre','') + ', ' + data.get('genero','') + ', ' + data.get('edad','') + ' anos, ' + data.get('peso','') + 'kg, ' + data.get('altura','') + 'cm, ' + str(cal) + ' kcal/dia\nPlan para: ' + personas + '\nObjetivo: ' + data.get('objetivo','') + '\nCocina: ' + data.get('cocina','') + '\nRestricciones: ' + data.get('restricciones','Ninguna') + '\nPresupuesto: ' + data.get('presupuesto','') + ' euros/semana\n\n' + catalogo + '\nGENERA:\n1. MENU SEMANAL Lunes-Domingo con Desayuno Comida Merienda Cena. Cantidades en gramos. Tiempos de preparacion.\n2. LISTA DE LA COMPRA por categorias con precios. Total dentro del presupuesto.\n3. Recomienda 2 productos ESTRELLA.\n4. Escribe al final: Anadir al carrito: ' + checkout + '\n\nUsa emojis. Tono motivador. Maximo 600 palabras.'
+        try:
+            r = self.openai.chat.completions.create(model=self.config.get('ai',{}).get('model','gpt-4o-mini'), messages=[{'role':'system','content':'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'},{'role':'user','content':prompt}], max_tokens=1800, temperature=0.7, timeout=55)
+            return r.choices[0].message.content
+        except Exception as e:
+            return 'Error generando plan: ' + str(e)[:60] + '. Escribe *Hola* para reintentar.'
+
+    def _gpt_libre(self, message, u):
+        company = self.config['branding']['company_name']
+        checkout = self.config.get('integrations',{}).get('cart',{}).get('checkout_url', self.config['branding']['website'])
+        data = u['data']
+        plan = u.get('plan','')[:400] if u.get('plan') else ''
+        system = 'Eres ZIA de ' + company + '. Perfil: ' + data.get('nombre','') + ', objetivo: ' + data.get('objetivo','') + ', restricciones: ' + data.get('restricciones','Ninguna') + '. Plan actual: ' + plan + '. Carrito: ' + checkout + '. Ayuda con modificaciones, preguntas y recomendaciones. Usa emojis. Maximo 400 palabras. Espanol.'
+        history = u.get('history', [])
+        history.append({'role':'user','content':message})
+        if len(history) > 10: history = history[-10:]
+        try:
+            r = self.openai.chat.completions.create(model=self.config.get('ai',{}).get('model','gpt-4o-mini'), messages=[{'role':'system','content':system}]+history, max_tokens=800, temperature=0.7, timeout=30)
+            reply = r.choices[0].message.content
+            history.append({'role':'assistant','content':reply})
+            u['history'] = history
+            return reply
+        except Exception as e:
+            return 'Error: ' + str(e)[:50]
