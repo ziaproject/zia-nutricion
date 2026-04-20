@@ -171,23 +171,22 @@ class ZiaEngine:
         elif s == 'plan_listo':
             ml = m.strip().lower()
             if ml in ['1','carrito','anadir al carrito','añadir al carrito']:
-                return ('🛒 Aqui tienes tu carrito con todos los productos' + nombre_str + '!\n\n'
+                return ('🛒 Aqui tienes tu carrito' + nombre_str + '!\n\n'
                         + checkout + '\n\n'
                         '_Pulsa el link para anadir todo directamente_ ✅')
             elif ml in ['2','cambiar','cambiar algo']:
                 u['state'] = 'cambiar'
-                return '✏️ Que quieres cambiar' + nombre_str + '? Dime el dia o el plato y te preparo una alternativa 🍽️'
+                return '✏️ Que quieres cambiar' + nombre_str + '? Dime el dia o el plato y te propongo una alternativa directamente 🍽️'
             elif ml in ['3','guardar','guardar lista']:
-                lista = u.get('plan','')
-                partes = lista.split('\n\n')
-                lista_limpia = partes[-1] if partes else lista
+                partes = u.get('plan','').split('\n\n')
+                lista_limpia = partes[-1] if partes else u.get('plan','')
                 return '💾 Aqui tienes tu lista de la compra' + nombre_str + ':\n\n' + lista_limpia
             else:
                 return self._gpt_libre(m, u)
 
         elif s == 'cambiar':
             u['state'] = 'plan_listo'
-            return self._gpt_libre(m, u)
+            return self._cambiar_plato(m, u)
 
         else:
             u['state'] = 'welcome'
@@ -216,43 +215,45 @@ class ZiaEngine:
                   'Plan para: ' + personas + '. Objetivo: ' + data.get('objetivo','') + '. '
                   'Cocina: ' + data.get('cocina','') + '. '
                   'Restricciones: ' + data.get('restricciones','Ninguna') + '. '
-                  'Presupuesto semanal EXACTO: ' + presupuesto + ' euros.')
+                  'Presupuesto semanal: ' + presupuesto + ' euros.')
 
-        prompt1 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA SOLO el menu de *LUNES*, *MARTES* y *MIERCOLES*. '
+        prompt1 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo + '\n'
+                   'INSTRUCCION ESTRICTA: Genera UNICAMENTE el menu de LUNES, MARTES y MIERCOLES. '
+                   'La primera palabra de tu respuesta debe ser *Lunes:* '
                    'Cada dia: Desayuno, Comida y Cena con cantidades en gramos. '
-                   'SIN tiempos de preparacion. SIN frases motivadoras al final. '
-                   'Termina en la ultima cena del miercoles. Usa emojis. Maximo 220 palabras.')
+                   'SIN tiempos de preparacion. SIN saludos. SIN frases al final. '
+                   'Termina exactamente en la Cena del Miercoles. Usa emojis. Maximo 220 palabras.')
 
-        prompt2 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA SOLO el menu de *JUEVES*, *VIERNES*, *SABADO* y *DOMINGO*. '
-                   'Empieza DIRECTAMENTE con *Jueves:* sin ningun saludo ni introduccion. '
+        prompt2 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo + '\n'
+                   'INSTRUCCION ESTRICTA: Genera UNICAMENTE el menu de JUEVES, VIERNES, SABADO y DOMINGO. '
+                   'La primera palabra de tu respuesta debe ser *Jueves:* '
                    'Cada dia: Desayuno, Comida y Cena con cantidades en gramos. '
-                   'SIN tiempos de preparacion. SIN frases motivadoras al final. '
-                   'Termina en la ultima cena del domingo. Usa emojis. Maximo 220 palabras.')
+                   'SIN tiempos de preparacion. SIN saludos. SIN frases al final. '
+                   'Termina exactamente en la Cena del Domingo. Usa emojis. Maximo 220 palabras.')
 
-        prompt3 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
-                   '\nGENERA la LISTA DE LA COMPRA COMPLETA con TODOS los ingredientes del menu semanal (Lunes a Domingo). '
-                   'OBLIGATORIO: incluye CADA ingrediente mencionado en el menu. '
-                   'OBLIGATORIO: el total debe ser entre ' + str(int(presupuesto)-15) + ' y ' + presupuesto + ' euros. '
-                   'Organiza por categorias con cantidad y precio por producto. '
-                   'Muestra el TOTAL al final. '
-                   'Luego pon 2 productos ESTRELLA de ' + company + ' recomendados. '
-                   'NO incluyas ningun link ni texto de carrito. '
-                   'Usa emojis. Maximo 250 palabras.')
+        prompt3 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo + '\n'
+                   'INSTRUCCION ESTRICTA: Genera la LISTA DE LA COMPRA COMPLETA con TODOS los ingredientes '
+                   'necesarios para el menu de Lunes a Domingo. '
+                   'NO omitas ningun ingrediente del menu. '
+                   'El total DEBE estar entre ' + str(int(presupuesto)-15) + ' y ' + presupuesto + ' euros. '
+                   'Organiza por categorias (Verduras, Proteinas, Lacteos, Cereales, Otros). '
+                   'Cada producto con cantidad y precio. Total al final. '
+                   'Luego 2 productos ESTRELLA de ' + company + ' recomendados con motivo. '
+                   'SIN links ni texto de carrito. SIN frases al final. '
+                   'Usa emojis. Maximo 260 palabras.')
 
         model = self.config.get('ai',{}).get('model','gpt-4o-mini')
-        system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
+        system = 'Eres ZIA nutricionista de ' + company + '. Responde SOLO en espanol con emojis. Sigue las instrucciones al pie de la letra.'
         partes = []
         for prompt in [prompt1, prompt2, prompt3]:
             try:
                 r = self.openai.chat.completions.create(
                     model=model,
                     messages=[{'role':'system','content':system},{'role':'user','content':prompt}],
-                    max_tokens=500, temperature=0.7, timeout=25)
+                    max_tokens=500, temperature=0.5, timeout=25)
                 partes.append(r.choices[0].message.content)
             except Exception as e:
-                partes.append('Error generando esta parte: ' + str(e)[:60])
+                partes.append('Error: ' + str(e)[:60])
 
         nombre = data.get('nombre','')
         nombre_str = ', ' + nombre if nombre else ''
@@ -263,19 +264,48 @@ class ZiaEngine:
                        '_O escribeme cualquier duda_ 💬')
         return partes
 
+    def _cambiar_plato(self, message, u):
+        company = self.config['branding']['company_name']
+        data = u['data']
+        plan = u.get('plan','')[:800] if u.get('plan') else ''
+        nombre = data.get('nombre','')
+        nombre_str = ', ' + nombre if nombre else ''
+        system = ('Eres ZIA nutricionista de ' + company + '. '
+                  'El usuario quiere cambiar un plato de su menu. '
+                  'Plan actual: ' + plan + '. '
+                  'INSTRUCCION: Da DIRECTAMENTE la alternativa para lo que pide. '
+                  'Formato: "Para la [comida] del [dia] te propongo: [alternativa con gramos]" '
+                  'Luego pregunta: "¿Te parece bien o prefieres otra opcion?" '
+                  'Usa emojis. Maximo 100 palabras. Espanol.')
+        try:
+            r = self.openai.chat.completions.create(
+                model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
+                messages=[{'role':'system','content':system},{'role':'user','content':message}],
+                max_tokens=200, temperature=0.7, timeout=25)
+            reply = r.choices[0].message.content
+            reply += ('\n\n---\n¿Que quieres hacer' + nombre_str + '?\n\n'
+                      '  1️⃣ Anadir al carrito\n'
+                      '  2️⃣ Cambiar otro plato\n'
+                      '  3️⃣ Guardar lista\n\n'
+                      '_O escribeme cualquier duda_ 💬')
+            return reply
+        except Exception as e:
+            return 'Error: ' + str(e)[:50]
+
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
         checkout = self.config.get('integrations',{}).get('cart',{}).get('checkout_url', self.config['branding']['website'])
         data = u['data']
         plan = u.get('plan','')[:600] if u.get('plan') else ''
+        nombre = data.get('nombre','')
+        nombre_str = ', ' + nombre if nombre else ''
         system = ('Eres ZIA de ' + company + '. '
                   'Perfil: ' + data.get('nombre','') + ', objetivo: ' + data.get('objetivo','')
                   + ', restricciones: ' + data.get('restricciones','Ninguna') + '. '
-                  'Plan actual: ' + plan + '. '
-                  'Carrito: ' + checkout + '. '
-                  'Ayuda con modificaciones y preguntas sobre el menu o la lista. '
-                  'Si el usuario pide cambiar algo, genera la alternativa directamente. '
-                  'Al terminar siempre pregunta: ¿Algo mas en lo que pueda ayudarte? '
+                  'Plan: ' + plan + '. Carrito: ' + checkout + '. '
+                  'Responde de forma util y concisa. '
+                  'Al terminar siempre ofrece las opciones:\n'
+                  '1️⃣ Anadir al carrito\n2️⃣ Cambiar algo\n3️⃣ Guardar lista\n'
                   'Usa emojis. Maximo 200 palabras. Espanol.')
         history = u.get('history', [])
         history.append({'role':'user','content':message})
