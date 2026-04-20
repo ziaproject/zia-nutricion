@@ -141,16 +141,41 @@ class ZiaEngine:
         catalogo = ''
         if cats:
             catalogo = 'PRODUCTOS DE ' + company.upper() + ':\n'
-            for cat in cats[:5]:
+            for cat in cats[:3]:
                 catalogo += '\n' + cat['name'] + ':\n'
-                for p in cat.get('products', [])[:5]:
+                for p in cat.get('products', [])[:3]:
                     line = '  - ' + p['name']
                     if p.get('price'): line += ' (' + p['price'] + ')'
                     if p.get('bestseller'): line += ' ESTRELLA'
                     catalogo += line + '\n'
-        prompt = 'Eres ZIA nutricionista de ' + company + '.\n\nPERFIL: ' + data.get('nombre','') + ', ' + data.get('genero','') + ', ' + data.get('edad','') + ' anos, ' + data.get('peso','') + 'kg, ' + data.get('altura','') + 'cm, ' + str(cal) + ' kcal/dia\nPlan para: ' + personas + '\nObjetivo: ' + data.get('objetivo','') + '\nCocina: ' + data.get('cocina','') + '\nRestricciones: ' + data.get('restricciones','Ninguna') + '\nPresupuesto: ' + data.get('presupuesto','') + ' euros/semana\n\n' + catalogo + '\nGENERA:\n1. MENU SEMANAL Lunes-Domingo con Desayuno Comida Merienda Cena. Cantidades en gramos. Tiempos de preparacion.\n2. LISTA DE LA COMPRA por categorias con precios. Total dentro del presupuesto.\n3. Recomienda 2 productos ESTRELLA.\n4. Escribe al final: Anadir al carrito: ' + checkout + '\n\nUsa emojis. Tono motivador. Maximo 300 palabras. Menu resumido, lista de compra corta..'
+
+        prompt = ('Eres ZIA nutricionista de ' + company + '.\n\n'
+                  'PERFIL: ' + data.get('nombre','') + ', ' + data.get('genero','') + ', '
+                  + data.get('edad','') + ' anos, ' + data.get('peso','') + 'kg, '
+                  + data.get('altura','') + 'cm, ' + str(cal) + ' kcal/dia\n'
+                  'Plan para: ' + personas + '\n'
+                  'Objetivo: ' + data.get('objetivo','') + '\n'
+                  'Restricciones: ' + data.get('restricciones','Ninguna') + '\n'
+                  'Presupuesto: ' + data.get('presupuesto','') + ' euros/semana\n\n'
+                  + catalogo +
+                  '\nGENERA (MUY CORTO, maximo 180 palabras):\n'
+                  '1. MENU: solo Lunes Mie Vie con Desayuno Comida Cena. Sin gramos.\n'
+                  '2. LISTA COMPRA: 6-8 productos con precio. Total estimado.\n'
+                  '3. Un producto ESTRELLA recomendado.\n'
+                  '4. Anadir al carrito: ' + checkout + '\n\n'
+                  'Usa emojis. Tono motivador. MAXIMO 180 PALABRAS.')
+
         try:
-            r = self.openai.chat.completions.create(model=self.config.get('ai',{}).get('model','gpt-4o-mini'), messages=[{'role':'system','content':'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'},{'role':'user','content':prompt}], max_tokens=800, temperature=0.7, timeout=55)
+            r = self.openai.chat.completions.create(
+                model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
+                messages=[
+                    {'role': 'system', 'content': 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis. Maximo 180 palabras.'},
+                    {'role': 'user', 'content': prompt}
+                ],
+                max_tokens=400,
+                temperature=0.7,
+                timeout=20
+            )
             return r.choices[0].message.content
         except Exception as e:
             return 'Error generando plan: ' + str(e)[:60] + '. Escribe *Hola* para reintentar.'
@@ -159,13 +184,24 @@ class ZiaEngine:
         company = self.config['branding']['company_name']
         checkout = self.config.get('integrations',{}).get('cart',{}).get('checkout_url', self.config['branding']['website'])
         data = u['data']
-        plan = u.get('plan','')[:400] if u.get('plan') else ''
-        system = 'Eres ZIA de ' + company + '. Perfil: ' + data.get('nombre','') + ', objetivo: ' + data.get('objetivo','') + ', restricciones: ' + data.get('restricciones','Ninguna') + '. Plan actual: ' + plan + '. Carrito: ' + checkout + '. Ayuda con modificaciones, preguntas y recomendaciones. Usa emojis. Maximo 400 palabras. Espanol.'
+        plan = u.get('plan','')[:200] if u.get('plan') else ''
+        system = ('Eres ZIA de ' + company + '. Perfil: ' + data.get('nombre','')
+                  + ', objetivo: ' + data.get('objetivo','')
+                  + ', restricciones: ' + data.get('restricciones','Ninguna')
+                  + '. Plan actual: ' + plan
+                  + '. Carrito: ' + checkout
+                  + '. Ayuda con modificaciones y preguntas. Usa emojis. MAXIMO 100 palabras. Espanol.')
         history = u.get('history', [])
         history.append({'role':'user','content':message})
-        if len(history) > 10: history = history[-10:]
+        if len(history) > 6: history = history[-6:]
         try:
-            r = self.openai.chat.completions.create(model=self.config.get('ai',{}).get('model','gpt-4o-mini'), messages=[{'role':'system','content':system}]+history, max_tokens=800, temperature=0.7, timeout=30)
+            r = self.openai.chat.completions.create(
+                model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
+                messages=[{'role':'system','content':system}]+history,
+                max_tokens=250,
+                temperature=0.7,
+                timeout=20
+            )
             reply = r.choices[0].message.content
             history.append({'role':'assistant','content':reply})
             u['history'] = history
