@@ -89,7 +89,7 @@ class ZiaEngine:
         s = u['state']
         if s == 'welcome':
             u['state'] = 'datos'
-            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
+            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado + lista de la compra lista para el carrito 🛒\n\nPara empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
@@ -99,7 +99,7 @@ class ZiaEngine:
                 u['data'][k] = v
             nombre = u['data'].get('nombre', '')
             u['state'] = 'personas'
-            return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨\u200d👩\u200d👧\u200d👦 Familiar (3 o mas personas)'
+            return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'personas':
             ml = m.lower()
             if any(w in ml for w in ['2','dos','pareja','amigo']): u['data']['personas'] = '2 personas'
@@ -110,11 +110,11 @@ class ZiaEngine:
         elif s == 'objetivo':
             u['data']['objetivo'] = m
             u['state'] = 'cocina'
-            return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨\u200d🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking (preparar el domingo)'
+            return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨‍🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking'
         elif s == 'cocina':
             u['data']['cocina'] = m
             u['state'] = 'restricciones'
-            return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
+            return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra'
         elif s == 'restricciones':
             u['data']['restricciones'] = m
             u['state'] = 'presupuesto'
@@ -122,17 +122,18 @@ class ZiaEngine:
         elif s == 'presupuesto':
             u['data']['presupuesto'] = m
             u['state'] = 'plan_listo'
-            plan_texto = self._generar_plan(u['data'])
-            u['plan'] = plan_texto
+            partes = self._generar_plan_partes(u['data'])
+            u['plan'] = '\n\n'.join(partes)
             u['plan_count'] = u.get('plan_count', 0) + 1
-            return 'Analizando tu perfil... 🔍\nSeleccionando productos de ' + company + '... 🌿\nCreando tu menu... ✨\n\n' + plan_texto + '\n\n---\nQue quieres hacer' + nombre_str + '?\n\n  🛒 Anadir al carrito\n  ✏️ Cambiar algo\n  ➕ Anadir o quitar productos\n  💾 Guardar lista\n\n_O escribeme cualquier pregunta_ 💬'
+            intro = '🔍 Analizando tu perfil...\n🌿 Seleccionando productos de ' + company + '...\n✨ Aqui va tu plan' + nombre_str + '!'
+            return [intro] + partes
         elif s == 'plan_listo':
             return self._gpt_libre(m, u)
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
 
-    def _generar_plan(self, data):
+    def _generar_plan_partes(self, data):
         company = self.config['branding']['company_name']
         checkout = self.config.get('integrations', {}).get('cart', {}).get('checkout_url', self.config['branding']['website'])
         cal = calorias(data)
@@ -141,67 +142,69 @@ class ZiaEngine:
         catalogo = ''
         if cats:
             catalogo = 'PRODUCTOS DE ' + company.upper() + ':\n'
-            for cat in cats[:3]:
+            for cat in cats[:5]:
                 catalogo += '\n' + cat['name'] + ':\n'
-                for p in cat.get('products', [])[:3]:
+                for p in cat.get('products', [])[:5]:
                     line = '  - ' + p['name']
                     if p.get('price'): line += ' (' + p['price'] + ')'
                     if p.get('bestseller'): line += ' ESTRELLA'
                     catalogo += line + '\n'
-
-        prompt = ('Eres ZIA nutricionista de ' + company + '.\n\n'
-                  'PERFIL: ' + data.get('nombre','') + ', ' + data.get('genero','') + ', '
+        perfil = ('PERFIL: ' + data.get('nombre','') + ', ' + data.get('genero','') + ', '
                   + data.get('edad','') + ' anos, ' + data.get('peso','') + 'kg, '
-                  + data.get('altura','') + 'cm, ' + str(cal) + ' kcal/dia\n'
-                  'Plan para: ' + personas + '\n'
-                  'Objetivo: ' + data.get('objetivo','') + '\n'
-                  'Restricciones: ' + data.get('restricciones','Ninguna') + '\n'
-                  'Presupuesto: ' + data.get('presupuesto','') + ' euros/semana\n\n'
-                  + catalogo +
-                  '\nGENERA (MUY CORTO, maximo 180 palabras):\n'
-                  '1. MENU: solo Lunes Mie Vie con Desayuno Comida Cena. Sin gramos.\n'
-                  '2. LISTA COMPRA: 6-8 productos con precio. Total estimado.\n'
-                  '3. Un producto ESTRELLA recomendado.\n'
-                  '4. Anadir al carrito: ' + checkout + '\n\n'
-                  'Usa emojis. Tono motivador. MAXIMO 180 PALABRAS.')
-
-        try:
-            r = self.openai.chat.completions.create(
-                model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
-                messages=[
-                    {'role': 'system', 'content': 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis. Maximo 180 palabras.'},
-                    {'role': 'user', 'content': prompt}
-                ],
-                max_tokens=400,
-                temperature=0.7,
-                timeout=20
-            )
-            return r.choices[0].message.content
-        except Exception as e:
-            return 'Error generando plan: ' + str(e)[:60] + '. Escribe *Hola* para reintentar.'
+                  + data.get('altura','') + 'cm, ' + str(cal) + ' kcal/dia. '
+                  'Plan para: ' + personas + '. Objetivo: ' + data.get('objetivo','') + '. '
+                  'Cocina: ' + data.get('cocina','') + '. '
+                  'Restricciones: ' + data.get('restricciones','Ninguna') + '.')
+        prompt1 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
+                   '\nGENERA SOLO menu de LUNES, MARTES y MIERCOLES. '
+                   'Cada dia: Desayuno, Comida, Merienda, Cena con cantidades en gramos y tiempo preparacion. '
+                   'Usa emojis. Maximo 220 palabras.')
+        prompt2 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
+                   '\nGENERA SOLO menu de JUEVES, VIERNES, SABADO y DOMINGO. '
+                   'Cada dia: Desayuno, Comida, Merienda, Cena con cantidades en gramos y tiempo preparacion. '
+                   'Usa emojis. Maximo 220 palabras.')
+        prompt3 = ('Eres ZIA nutricionista de ' + company + '. ' + perfil + '\n\n' + catalogo +
+                   '\nGENERA:'
+                   '\n1. LISTA DE LA COMPRA completa por categorias con precios y cantidades. Total dentro del presupuesto de ' + data.get('presupuesto','') + ' euros.'
+                   '\n2. Recomienda 2 productos ESTRELLA de ' + company + ' con motivo.'
+                   '\n3. Al final escribe: 🛒 Anadir al carrito: ' + checkout +
+                   '\nUsa emojis. Maximo 220 palabras.')
+        model = self.config.get('ai',{}).get('model','gpt-4o-mini')
+        system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
+        partes = []
+        for prompt in [prompt1, prompt2, prompt3]:
+            try:
+                r = self.openai.chat.completions.create(
+                    model=model,
+                    messages=[{'role':'system','content':system},{'role':'user','content':prompt}],
+                    max_tokens=500, temperature=0.7, timeout=25)
+                partes.append(r.choices[0].message.content)
+            except Exception as e:
+                partes.append('Error generando esta parte: ' + str(e)[:60])
+        nombre = data.get('nombre','')
+        partes[-1] += ('\n\n---\n¿Que quieres hacer' + (', ' + nombre if nombre else '') + '?\n\n'
+                       '  ✏️ Cambiar algo\n  ➕ Anadir o quitar productos\n  💾 Guardar lista\n\n'
+                       '_O escribeme cualquier duda_ 💬')
+        return partes
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
         checkout = self.config.get('integrations',{}).get('cart',{}).get('checkout_url', self.config['branding']['website'])
         data = u['data']
-        plan = u.get('plan','')[:200] if u.get('plan') else ''
+        plan = u.get('plan','')[:400] if u.get('plan') else ''
         system = ('Eres ZIA de ' + company + '. Perfil: ' + data.get('nombre','')
                   + ', objetivo: ' + data.get('objetivo','')
                   + ', restricciones: ' + data.get('restricciones','Ninguna')
-                  + '. Plan actual: ' + plan
-                  + '. Carrito: ' + checkout
-                  + '. Ayuda con modificaciones y preguntas. Usa emojis. MAXIMO 100 palabras. Espanol.')
+                  + '. Plan: ' + plan + '. Carrito: ' + checkout
+                  + '. Ayuda con modificaciones y preguntas. Usa emojis. Maximo 200 palabras. Espanol.')
         history = u.get('history', [])
         history.append({'role':'user','content':message})
-        if len(history) > 6: history = history[-6:]
+        if len(history) > 10: history = history[-10:]
         try:
             r = self.openai.chat.completions.create(
                 model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
                 messages=[{'role':'system','content':system}]+history,
-                max_tokens=250,
-                temperature=0.7,
-                timeout=20
-            )
+                max_tokens=400, temperature=0.7, timeout=25)
             reply = r.choices[0].message.content
             history.append({'role':'assistant','content':reply})
             u['history'] = history
