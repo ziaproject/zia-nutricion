@@ -1,0 +1,172 @@
+{
+  "_meta": {
+    "client_id": "herbolario-navarro",
+    "type": "B2B",
+    "sector": "herbolario",
+    "version": "1.0",
+    "contact": "Raúl March — Marketing & Comunicación",
+    "description": "Asistente de compra inteligente para la web y app de Herbolario Navarro"
+  },
+
+  "branding": {
+    "company_name": "Herbolario Navarro",
+    "bot_display_name": "ZIA · Herbolario Navarro",
+    "primary_color": "#2E7D32",
+    "secondary_color": "#1B5E20",
+    "accent_color": "#81C784",
+    "logo_url": "https://www.herbolarionavarro.es/logo.png",
+    "whatsapp_number": "+34XXXXXXXXX",
+    "website": "https://www.herbolarionavarro.es",
+    "app_store_url": "",
+    "google_play_url": ""
+  },
+
+  "bot": {
+    "name": "ZIA",
+    "personality": "Eres el asistente nutricional de Herbolario Navarro. Eres experto en productos naturales, ecológicos y de herboristería. Hablas con conocimiento profundo de dietética natural, suplementación, productos bio y alimentación consciente. Tu tono es cálido, cercano y especializado.",
+    "tone": "especializado en productos naturales, cercano, informativo",
+    "mission": "Ayudar a los clientes de Herbolario Navarro a encontrar los productos naturales más adecuados para su estilo de vida y objetivos de salud, facilitando una compra planificada y consciente desde la web o la app.",
+    "welcome_message": "¡Hola! 🌿 Soy ZIA, tu asistente de nutrición natural de Herbolario Navarro.\n\nTe ayudo a crear tu plan de alimentación semanal con productos naturales y ecológicos de nuestro catálogo. ¿Empezamos?",
+    "language": "es",
+    "emoji_usage": "moderate",
+    "powered_by_visible": true
+  },
+
+  "ai": {
+    "model": "gpt-4o-mini",
+    "max_tokens": 1800,
+    "temperature": 0.65,
+    "context_window": 20,
+    "extra_context": "Prioriza siempre productos ecológicos certificados, productos de marca propia de Herbolario Navarro (especialmente colágeno, magnesio, omega3) y productos de temporada. Cuando recomiendes suplementos, explica brevemente sus beneficios."
+  },
+
+  "flow": {
+    "onboarding_questions": [
+      {
+        "id": "personas",
+        "question": "¿Para cuántas personas es el plan?",
+        "options": ["Solo para mí", "2 personas", "Familia (3 o más)"],
+        "required": true
+      },
+      {
+        "id": "objetivo",
+        "question": "¿Cuál es tu objetivo principal?",
+        "options": ["🥗 Alimentación más natural", "🌱 Estilo de vida ecológico", "💪 Más energía y vitalidad", "⚖️ Control de peso natural"],
+        "required": true
+      },
+      {
+        "id": "restricciones",
+        "question": "¿Tienes alguna preferencia o restricción?",
+        "options": ["Ninguna", "Vegetariano/Vegano", "Sin gluten", "Sin lactosa"],
+        "required": false
+      }
+    ],
+    "steps": [
+      "1. Saludo con branding de Herbolario Navarro",
+      "2. Recoger perfil: personas, objetivo, restricciones",
+      "3. Generar menú semanal usando productos del catálogo de Herbolario Navarro",
+      "4. Generar lista de la compra con productos reales, cantidades y precios de herbolarionavarro.es",
+      "5. Ofrecer añadir al carrito de herbolarionavarro.es",
+      "6. Sugerir suplementos complementarios al objetivo",
+      "7. Preguntar si quiere las recetas de la semana"
+    ],
+    "limits": {
+      "all_users": "Acceso completo — los usuarios de Herbolario Navarro tienen acceso total sin restricciones de plan"
+    }
+  },
+
+  "catalog": {
+    "type": "herbolario",
+    "source_url": "https://www.herbolarionavarro.es",
+    "last_updated": "2026-04-19",
+    "categories": [
+      {
+        "name": "🌾 Alimentación Ecológica",
+        "products": [
+          {"name": "Quinoa ecológica El Granero", "price": "4,95€", "unit": "500g", "sku": "QE001", "url": "https://herbolarionavarro.es/quinoa-eco"},
+          {"name": "Arroz integral ecológico", "price": "3,50€", "unit": "1kg", "sku": "AE001"},
+          {"name": "Lentejas ecológicas", "price": "3,20€", "unit": "500g", "sku": "LE001"},
+          {"name": "Avena integral BIO", "price": "2,95€", "unit": "500g", "sku": "AV001"},
+          {"name": "Harina de espelta ecológica", "price": "2,80€", "unit": "1kg", "sku": "HE001"},
+          {"name": "Aceite de oliva virgen extra eco", "price": "8,50€", "unit": "750ml", "sku": "AO001"}
+        ]
+      },
+      {
+        "name": "🥤 Bebidas Vegetales",
+        "products": [
+          {"name": "Leche de avena BIO", "price": "1,80€", "unit": "1L", "sku": "LA001"},
+          {"name": "Leche de almendras ecológica", "price": "2,20€", "unit": "1L", "sku": "LAL001"},
+          {"name": "Leche de arroz BIO", "price": "1,95€", "unit": "1L", "sku": "LAR001"},
+          {"name": "Bebida de coco ecológica", "price": "2,50€", "unit": "1L", "sku": "BC001"}
+        ]
+      },
+      {
+        "name": "💊 Suplementos y Dietética",
+        "products": [
+          {"name": "Colágeno marino HN (marca propia)", "price": "24,90€", "unit": "300g", "sku": "COL001", "bestseller": true},
+          {"name": "Magnesio bisglicinato HN", "price": "18,50€", "unit": "90 comp.", "sku": "MAG001", "bestseller": true},
+          {"name": "Omega 3 HN (marca propia)", "price": "19,90€", "unit": "60 perlas", "sku": "OM3001", "bestseller": true},
+          {"name": "Vitamina C liposomal", "price": "22,90€", "unit": "60 caps.", "sku": "VC001"},
+          {"name": "Espirulina comprimidos", "price": "12,50€", "unit": "150 comp.", "sku": "ESP001"},
+          {"name": "Maca ecológica en polvo", "price": "9,95€", "unit": "250g", "sku": "MAC001"},
+          {"name": "Chlorella comprimidos", "price": "14,90€", "unit": "200 comp.", "sku": "CHL001"},
+          {"name": "Glucomanano cápsulas", "price": "11,90€", "unit": "90 caps.", "sku": "GLU001"}
+        ]
+      },
+      {
+        "name": "🌿 Infusiones y Tés",
+        "products": [
+          {"name": "Té verde japonés matcha", "price": "7,95€", "unit": "50g", "sku": "MAT001"},
+          {"name": "Infusión digestiva", "price": "3,50€", "unit": "20 bolsitas", "sku": "DIG001"},
+          {"name": "Rooibos ecológico", "price": "4,20€", "unit": "100g", "sku": "ROO001"},
+          {"name": "Cúrcuma + jengibre infusión", "price": "3,80€", "unit": "20 bolsitas", "sku": "CUR001"}
+        ]
+      },
+      {
+        "name": "🥜 Frutos Secos y Semillas",
+        "products": [
+          {"name": "Almendras crudas ecológicas", "price": "4,20€", "unit": "200g", "sku": "ALM001"},
+          {"name": "Nueces ecológicas", "price": "5,50€", "unit": "200g", "sku": "NUE001"},
+          {"name": "Semillas de chía ecológicas", "price": "3,90€", "unit": "250g", "sku": "CHI001"},
+          {"name": "Semillas de lino dorado", "price": "2,80€", "unit": "250g", "sku": "LIN001"},
+          {"name": "Mix de semillas BIO", "price": "4,50€", "unit": "200g", "sku": "MIX001"}
+        ]
+      },
+      {
+        "name": "🫙 Aceites y Vinagres",
+        "products": [
+          {"name": "Aceite de coco virgen ecológico", "price": "7,95€", "unit": "400ml", "sku": "ACO001"},
+          {"name": "Vinagre de manzana ecológico", "price": "4,95€", "unit": "500ml", "sku": "VIN001"},
+          {"name": "Aceite de sésamo tostado", "price": "5,80€", "unit": "250ml", "sku": "SES001"}
+        ]
+      }
+    ]
+  },
+
+  "integrations": {
+    "cart": {
+      "enabled": true,
+      "type": "url_template",
+      "base_url": "https://www.herbolarionavarro.es/carrito",
+      "search_url": "https://www.herbolarionavarro.es/buscar?q={product}",
+      "add_to_cart_url": "https://www.herbolarionavarro.es/cart/add?sku={sku}&qty={qty}",
+      "checkout_url": "https://www.herbolarionavarro.es/checkout"
+    },
+    "analytics": {
+      "enabled": false,
+      "google_analytics_id": "G-XXXXXXXXXX",
+      "facebook_pixel_id": ""
+    },
+    "crm": {
+      "enabled": false,
+      "type": "salesforce",
+      "webhook_url": ""
+    }
+  },
+
+  "payments": {
+    "model": "B2B_LICENSE",
+    "billing_contact": "info@whatsdrop.ai",
+    "notes": "Facturación mensual por licencia. Sin restricciones de plan para usuarios finales."
+  }
+}

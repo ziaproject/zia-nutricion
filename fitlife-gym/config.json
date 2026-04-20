@@ -1,0 +1,139 @@
+{
+  "_meta": {
+    "client_id": "fitlife-gym",
+    "type": "B2B",
+    "sector": "gimnasio",
+    "version": "1.0",
+    "description": "Asistente de nutrición deportiva para socios de FitLife Gym"
+  },
+
+  "branding": {
+    "company_name": "FitLife Gym",
+    "bot_display_name": "ZIA · FitLife",
+    "primary_color": "#E53935",
+    "secondary_color": "#1a1a1a",
+    "accent_color": "#FF8A80",
+    "logo_url": "https://fitlifegym.es/logo.png",
+    "whatsapp_number": "+34XXXXXXXXX",
+    "website": "https://fitlifegym.es"
+  },
+
+  "bot": {
+    "name": "ZIA",
+    "personality": "Eres el asistente de nutrición deportiva de FitLife Gym. Eres experto en nutrición para el rendimiento: masa muscular, pérdida de grasa, recuperación y energía para el entrenamiento. Tu tono es motivador, directo y orientado a resultados.",
+    "tone": "motivador, directo, orientado al rendimiento deportivo",
+    "mission": "Complementar el entrenamiento de los socios con una nutrición precisa que maximice sus resultados. Cada plan se adapta al tipo de entrenamiento, el objetivo y el nivel del socio.",
+    "welcome_message": "¡Hola! 💪 Soy ZIA, tu asistente de nutrición deportiva de FitLife Gym.\n\nVoy a crear tu plan nutricional personalizado según tu entrenamiento y objetivos. ¡Vamos a por ello! 🔥",
+    "language": "es",
+    "emoji_usage": "high"
+  },
+
+  "ai": {
+    "model": "gpt-4o-mini",
+    "max_tokens": 1800,
+    "temperature": 0.7,
+    "context_window": 20,
+    "extra_context": "Prioriza macros exactos (proteínas/carbohidratos/grasas en gramos). Diferencia entre días de entreno y días de descanso. Incluye siempre ventana anabólica post-entreno. Menciona suplementación básica cuando sea relevante: proteína, creatina, BCAA."
+  },
+
+  "flow": {
+    "onboarding_questions": [
+      {
+        "id": "objetivo",
+        "question": "¿Cuál es tu objetivo en FitLife?",
+        "options": ["💪 Ganar músculo", "🔥 Perder grasa", "⚡ Más energía", "🏃 Mejorar rendimiento"],
+        "required": true
+      },
+      {
+        "id": "entrenos",
+        "question": "¿Cuántos días entrenas a la semana?",
+        "options": ["2-3 días", "4-5 días", "6+ días"],
+        "required": true
+      },
+      {
+        "id": "tipo_entreno",
+        "question": "¿Qué tipo de entrenamiento haces principalmente?",
+        "options": ["Musculación", "Cardio + pesas", "Crossfit / funcional", "Solo cardio"],
+        "required": true
+      },
+      {
+        "id": "peso",
+        "question": "¿Cuánto pesas aproximadamente? (para calcular tus macros exactos)",
+        "type": "free_text",
+        "placeholder": "Ej: 75kg",
+        "required": false
+      }
+    ],
+    "steps": [
+      "1. Saludo motivador con branding FitLife",
+      "2. Recoger objetivo, días de entreno, tipo de entrenamiento y peso",
+      "3. Calcular macros diarios: proteínas, carbohidratos y grasas",
+      "4. Generar plan semanal diferenciando días de entreno vs descanso",
+      "5. Incluir nutrición pre y post entrenamiento",
+      "6. Lista de la compra con productos de supermercado",
+      "7. Suplementación recomendada según objetivo"
+    ],
+    "limits": {
+      "all_users": "Acceso completo para todos los socios de FitLife Gym"
+    }
+  },
+
+  "catalog": {
+    "type": "supermercado_general",
+    "description": "Productos de alimentación para deportistas en supermercados estándar",
+    "categories": [
+      {
+        "name": "🥩 Proteínas",
+        "products": [
+          {"name": "Pechuga de pollo", "price": "5,90€", "unit": "1kg"},
+          {"name": "Pechuga de pavo", "price": "4,80€", "unit": "500g"},
+          {"name": "Atún al natural", "price": "3,20€", "unit": "Pack 3 latas"},
+          {"name": "Huevos M", "price": "2,90€", "unit": "12 uds"},
+          {"name": "Claras de huevo líquidas", "price": "3,50€", "unit": "500ml"},
+          {"name": "Salmón fresco", "price": "8,90€", "unit": "500g"},
+          {"name": "Tofu firme", "price": "2,80€", "unit": "400g"}
+        ]
+      },
+      {
+        "name": "🌾 Carbohidratos",
+        "products": [
+          {"name": "Arroz basmati", "price": "2,50€", "unit": "1kg"},
+          {"name": "Avena integral", "price": "2,20€", "unit": "1kg"},
+          {"name": "Pasta integral", "price": "1,80€", "unit": "500g"},
+          {"name": "Boniato", "price": "2,10€", "unit": "1kg"},
+          {"name": "Pan integral", "price": "2,40€", "unit": "500g"}
+        ]
+      },
+      {
+        "name": "🥑 Grasas saludables",
+        "products": [
+          {"name": "Aguacate", "price": "1,90€", "unit": "ud"},
+          {"name": "Aceite de oliva virgen", "price": "4,95€", "unit": "1L"},
+          {"name": "Almendras crudas", "price": "3,80€", "unit": "200g"},
+          {"name": "Nueces", "price": "4,50€", "unit": "200g"}
+        ]
+      }
+    ]
+  },
+
+  "integrations": {
+    "cart": {
+      "enabled": false,
+      "notes": "FitLife no tiene tienda online propia. Usamos links a supermercados."
+    },
+    "supermarkets": {
+      "enabled": true,
+      "compare": true,
+      "providers": [
+        {"id": "mercadona", "name": "Mercadona", "url": "https://tienda.mercadona.es/search?query={product}"},
+        {"id": "lidl", "name": "Lidl", "url": "https://www.lidl.es/search?query={product}"},
+        {"id": "carrefour", "name": "Carrefour", "url": "https://www.carrefour.es/search?query={product}"}
+      ]
+    }
+  },
+
+  "payments": {
+    "model": "B2B_LICENSE",
+    "billing_contact": "info@whatsdrop.ai"
+  }
+}

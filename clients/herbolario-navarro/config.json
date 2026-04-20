@@ -1,0 +1,31 @@
+{
+  "branding": {
+    "company_name": "Herbolario Navarro",
+    "website": "https://www.herbolarionavarro.es"
+  },
+  "whatsapp": {
+    "phone_number": "+34600000000"
+  },
+  "ai": {
+    "model": "gpt-4o-mini",
+    "max_tokens": 1500,
+    "temperature": 0.7
+  },
+  "conversation": {
+    "tone": "cercano",
+    "skip_states": []
+  },
+  "catalog": {
+    "source": "static",
+    "categories": []
+  },
+  "integrations": {
+    "cart": {
+      "enabled": true,
+      "checkout_url": "https://www.herbolarionavarro.es/carrito"
+    }
+  },
+  "limits": {
+    "active": true
+  }
+}

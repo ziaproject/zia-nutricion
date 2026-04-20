@@ -1,0 +1,128 @@
+{
+  "_meta": {
+    "client_id": "zia-nutricion",
+    "type": "B2C",
+    "version": "1.0",
+    "description": "Producto B2C base de ZIA Nutrición para usuarios finales"
+  },
+
+  "branding": {
+    "company_name": "ZIA Nutrición",
+    "bot_display_name": "ZIA",
+    "primary_color": "#7BBC9E",
+    "secondary_color": "#050a05",
+    "logo_url": "https://zianutricion.com/logo.png",
+    "whatsapp_number": "+14155238886",
+    "website": "https://zianutricion.com"
+  },
+
+  "bot": {
+    "name": "ZIA",
+    "personality": "Eres una nutricionista experta, cercana y motivadora. Hablas con calidez pero con rigor científico. Nunca juzgas. Siempre animas. Eres como la amiga nutricionista que todos quisieran tener.",
+    "tone": "cercano, motivador, experto pero accesible",
+    "mission": "Ayudar a personas reales a comer mejor, gastar menos en la compra y llevar una vida más sana. Todo desde WhatsApp, sin apps, sin complicaciones.",
+    "welcome_message": "¡Hola! 👋 Soy ZIA, tu nutricionista inteligente.\n\nEn 2 minutos te creo un plan de alimentación personalizado para toda la semana. Sin apps, sin registros, solo dime cómo puedo ayudarte.\n\n¿Empezamos? 🥗",
+    "language": "es",
+    "emoji_usage": "moderate"
+  },
+
+  "ai": {
+    "model": "gpt-4o-mini",
+    "max_tokens": 1500,
+    "temperature": 0.7,
+    "context_window": 20
+  },
+
+  "flow": {
+    "onboarding_questions": [
+      {
+        "id": "plan_type",
+        "question": "¿Es solo para ti o para más personas?",
+        "options": ["Solo para mí", "Para mi pareja", "Para mi familia"],
+        "required": true
+      },
+      {
+        "id": "goal",
+        "question": "¿Cuál es tu objetivo principal?",
+        "options": ["Perder grasa", "Ganar músculo", "Comer más sano", "Ahorrar en la compra"],
+        "required": true
+      },
+      {
+        "id": "budget",
+        "question": "¿Cuánto quieres gastar en la compra esta semana?",
+        "type": "free_text",
+        "placeholder": "Ej: 60€, 80€...",
+        "required": false
+      },
+      {
+        "id": "restrictions",
+        "question": "¿Tienes alguna alergia o restricción alimentaria?",
+        "type": "free_text",
+        "placeholder": "Ej: sin gluten, vegetariano, sin lactosa...",
+        "required": false
+      }
+    ],
+    "steps": [
+      "1. Saludo y presentación",
+      "2. Recoger perfil: objetivo, personas, presupuesto, restricciones",
+      "3. Generar plan semanal con desayuno, comida, merienda y cena",
+      "4. Generar lista de la compra con cantidades exactas y precios",
+      "5. Comparar precios en supermercados (Individual+)",
+      "6. Ofrecer análisis de nevera si manda foto (Individual+)",
+      "7. Ajustes del plan según feedback del usuario"
+    ],
+    "limits": {
+      "free": "1 plan semanal único, 1 ajuste de alimentos, sin lista de compra",
+      "individual": "Planes ilimitados, lista ilimitada, comparativa 7 supermercados, 4 fotos nevera/mes, 1 persona",
+      "pro": "Todo ilimitado, hasta 3 perfiles, lista unificada familiar, nutrición deportiva, dietas especiales"
+    }
+  },
+
+  "catalog": {
+    "type": "general",
+    "description": "Productos de alimentación general sin catálogo específico",
+    "categories": []
+  },
+
+  "integrations": {
+    "cart": {
+      "enabled": false
+    },
+    "supermarkets": {
+      "enabled": true,
+      "compare": true,
+      "providers": [
+        {"id": "mercadona", "name": "Mercadona", "url": "https://tienda.mercadona.es/search?query={product}"},
+        {"id": "lidl", "name": "Lidl", "url": "https://www.lidl.es/search?query={product}"},
+        {"id": "aldi", "name": "Aldi", "url": "https://www.aldi.es/search?query={product}"},
+        {"id": "carrefour", "name": "Carrefour", "url": "https://www.carrefour.es/search?query={product}"},
+        {"id": "alcampo", "name": "Alcampo", "url": "https://www.alcampo.es/search?query={product}"},
+        {"id": "dia", "name": "Dia", "url": "https://www.dia.es/search?query={product}"},
+        {"id": "eroski", "name": "Eroski", "url": "https://www.eroski.es/search?query={product}"}
+      ]
+    },
+    "stripe": {
+      "enabled": false,
+      "products": {
+        "individual": "price_XXXX",
+        "pro": "price_XXXX"
+      },
+      "upgrade_url": "https://zianutricion.com/#precios"
+    },
+    "supabase": {
+      "enabled": false,
+      "table_users": "users",
+      "table_conversations": "conversations"
+    }
+  },
+
+  "payments": {
+    "currency": "EUR",
+    "upgrade_url": "https://zianutricion.com/#precios",
+    "plans": {
+      "free": {"price": 0, "label": "Freemium"},
+      "individual": {"price": 7.99, "launch_price": 4.99, "label": "Individual"},
+      "pro": {"price": 17.99, "launch_price": 9.99, "label": "Pro"}
+    }
+  }
+}
