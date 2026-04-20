@@ -1,15 +1,31 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=0.75, maximum-scale=1.0, user-scalable=yes" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>Pastebin.com - Not Found (#404)</title>
-</head>
-<body>
+import json
+import os
+import re
+from openai import OpenAI
 
+def load_client_config(client_id):
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "clients", client_id, "config.json")
+    with open(p, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-<h1>Not Found (#404)</h1>
-<p>This page is no longer available. It has either expired, been removed by its creator, or removed by one of the Pastebin staff.</p>
+def get_engine(client_id=None):
+    if client_id is None:
+        client_id = os.environ.get("CLIENT_ID", "zia-nutricion")
+    if client_id not in _cache:
+        _cache[client_id] = ZiaEngine(client_id)
+    return _cache[client_id]
 
-</body>
-</html>
+_cache = {}
+
+class ZiaEngine:
+    def __init__(self, client_id):
+        self.client_id = client_id
+        self.config = load_client_config(client_id)
+        self.openai = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self._users = {}
+    def process_message(self, user_id, message, plan_type="pro"):
+        return "Hola! Soy ZIA. Escribe hola para empezar."
+    def get_welcome_message(self):
+        return self.config["bot"]["welcome_message"]
+    def reset_user(self, user_id):
+        self._users.pop(user_id, None)
