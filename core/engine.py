@@ -78,6 +78,10 @@ class ZiaEngine:
         return self.config['bot']['welcome_message']
 
     def process_message(self, user_id, message, plan_type='pro'):
+        meta = self.config.get('_meta')
+        if isinstance(meta, dict) and meta.get('type') == 'retail-asesor':
+            return self._process_retail_asesor(user_id, message)
+
         u = self._get_user(user_id)
         m = message.strip()
         company = self.config['branding']['company_name']
@@ -191,6 +195,61 @@ class ZiaEngine:
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
+
+    def _process_retail_asesor(self, user_id, message):
+        u = self._get_user(user_id)
+        history = u.get('history', [])
+
+        if isinstance(message, str):
+            reset = is_reset(message)
+        elif isinstance(message, dict):
+            reset = is_reset((message.get('text') or '').strip())
+        else:
+            reset = False
+
+        if reset:
+            u['history'] = []
+            return self.get_welcome_message()
+
+        if isinstance(message, dict):
+            text = (message.get('text') or '').strip()
+            image_url = message.get('image_url')
+            if image_url:
+                user_msg = {
+                    'role': 'user',
+                    'content': [
+                        {'type': 'text', 'text': text or '.'},
+                        {'type': 'image_url', 'image_url': {'url': image_url}},
+                    ],
+                }
+            else:
+                user_msg = {'role': 'user', 'content': text}
+        else:
+            user_msg = {'role': 'user', 'content': str(message).strip()}
+
+        ai = self.config.get('ai', {})
+        model = ai.get('model', 'gpt-4o-mini')
+        max_tokens = ai.get('max_tokens', 800)
+        temperature = ai.get('temperature', 0.7)
+        system_prompt = self.config.get('system_prompt', '')
+
+        messages = [{'role': 'system', 'content': system_prompt}] + history + [user_msg]
+        try:
+            r = self.openai.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                timeout=60,
+            )
+            reply = r.choices[0].message.content
+            new_history = history + [user_msg, {'role': 'assistant', 'content': reply}]
+            if len(new_history) > 10:
+                new_history = new_history[-10:]
+            u['history'] = new_history
+            return reply
+        except Exception as e:
+            return 'Error: ' + str(e)[:80]
 
     def _generar_plan_partes(self, data):
         company = self.config['branding']['company_name']
