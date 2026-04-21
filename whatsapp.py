@@ -196,8 +196,6 @@ def webhook():
     # Retail-asesor (asesor-compra-demo): motor conversacional + visión vía data URL
     client_id = os.getenv("CLIENT_ID", "zia-nutricion")
     if client_id == "asesor-compra-demo":
-        from core.engine import get_engine
-        eng = get_engine(client_id)
         if media_url:
             try:
                 r = requests.get(media_url, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=15)
@@ -214,13 +212,25 @@ def webhook():
                 return enviar("❌ No pude procesar la imagen. Inténtalo de nuevo.")
         else:
             msg_payload = message
-        reply = eng.process_message(phone, msg_payload)
-        if isinstance(reply, list):
-            resp = MessagingResponse()
-            for parte in reply:
-                resp.message(parte)
-            return str(resp), 200, {"Content-Type": "text/xml"}
-        return enviar(reply)
+
+        def asesor_engine_async():
+            try:
+                from core.engine import get_engine
+                eng = get_engine(client_id)
+                reply = eng.process_message(phone, msg_payload)
+                if isinstance(reply, list):
+                    for parte in reply:
+                        send(phone, parte)
+                        time.sleep(1)
+                else:
+                    send(phone, reply)
+            except Exception as e:
+                print(f"Error asesor engine async: {e}")
+                send(phone, "❌ Ha ocurrido un error. Inténtalo de nuevo.")
+
+        t = threading.Thread(target=asesor_engine_async, daemon=True)
+        t.start()
+        return enviar("Dame un momento 🛒")
 
     sesion = cargar_sesion(phone)
     estado = sesion.get("estado","inicio")
