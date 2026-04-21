@@ -5,6 +5,9 @@ ZIA PLATFORM — Multi-Client WhatsApp Webhook
 import os
 import sys
 import threading
+import base64
+
+import requests
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
 from twilio.rest import Client as TwilioClient
@@ -54,18 +57,51 @@ def webhook():
     try:
         incoming_msg = request.values.get('Body', '').strip()
         sender = request.values.get('From', '')
+        media_url = (request.values.get('MediaUrl0') or '').strip()
 
         logger.info(f"📨 Mensaje de {sender}: {incoming_msg[:50]}...")
 
-        if not incoming_msg or not sender:
-            logger.warning("Mensaje vacío o sin remitente")
+        if not sender:
+            logger.warning("Webhook sin remitente")
+            return Response('', status=200)
+        if not incoming_msg and not media_url:
+            logger.warning("Mensaje vacío sin texto ni MediaUrl0")
             return Response('', status=200)
 
         plan_type = get_user_plan(sender)
 
+        message_arg = incoming_msg
+        meta = engine.config.get('_meta') or {}
+        if (
+            media_url
+            and isinstance(meta, dict)
+            and meta.get('type') == 'retail-asesor'
+        ):
+            try:
+                r = requests.get(
+                    media_url,
+                    auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+                    timeout=15,
+                )
+                if r.status_code != 200:
+                    logger.warning("No se pudo descargar MediaUrl0 (status %s)", r.status_code)
+                    return Response('', status=200)
+                img_b64 = base64.b64encode(r.content).decode("utf-8")
+                media_type = request.values.get('MediaContentType0', 'image/jpeg')
+                detected_type = (
+                    media_type if media_type.startswith("image/") else "image/jpeg"
+                )
+                message_arg = {
+                    "text": incoming_msg,
+                    "image_url": f"data:{detected_type};base64,{img_b64}",
+                }
+            except Exception as e:
+                logger.error("Error descargando imagen para retail-asesor: %s", e, exc_info=True)
+                return Response('', status=200)
+
         reply = engine.process_message(
             user_id=sender,
-            message=incoming_msg,
+            message=message_arg,
             plan_type=plan_type
         )
 
