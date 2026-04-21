@@ -187,6 +187,12 @@ def webhook():
     media_type = request.form.get("MediaContentType0","image/jpeg")
     tl = message.lower().strip()
 
+    if not phone:
+        return str(MessagingResponse()), 200, {"Content-Type": "text/xml"}
+    # Body puede ir vacío en MMS con imagen; no cortar si hay MediaUrl0
+    if not message and not (media_url and media_url.strip()):
+        return str(MessagingResponse()), 200, {"Content-Type": "text/xml"}
+
     # Retail-asesor (asesor-compra-demo): motor conversacional + visión vía data URL
     client_id = os.getenv("CLIENT_ID", "zia-nutricion")
     if client_id == "asesor-compra-demo":
