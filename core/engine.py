@@ -77,6 +77,11 @@ class ZiaEngine:
     def get_welcome_message(self):
         return self.config['bot']['welcome_message']
 
+    def _system_prompt_or(self, internal_prompt):
+        if 'system_prompt' in self.config:
+            return self.config['system_prompt']
+        return internal_prompt
+
     def process_message(self, user_id, message, plan_type='pro'):
         meta = self.config.get('_meta')
         if isinstance(meta, dict) and meta.get('type') == 'retail-asesor':
@@ -231,7 +236,7 @@ class ZiaEngine:
         model = ai.get('model', 'gpt-4o-mini')
         max_tokens = ai.get('max_tokens', 800)
         temperature = ai.get('temperature', 0.7)
-        system_prompt = self.config.get('system_prompt', '')
+        system_prompt = self._system_prompt_or('')
 
         messages = [{'role': 'system', 'content': system_prompt}] + history + [user_msg]
         try:
@@ -302,7 +307,8 @@ class ZiaEngine:
                    'Usa emojis. Maximo 260 palabras.')
 
         model = self.config.get('ai',{}).get('model','gpt-4o-mini')
-        system = 'Eres ZIA nutricionista de ' + company + '. Responde SOLO en espanol con emojis. Sigue las instrucciones al pie de la letra.'
+        system = self._system_prompt_or(
+            'Eres ZIA nutricionista de ' + company + '. Responde SOLO en espanol con emojis. Sigue las instrucciones al pie de la letra.')
         partes = []
         for prompt in [prompt1, prompt2, prompt3]:
             try:
@@ -329,13 +335,14 @@ class ZiaEngine:
         plan = u.get('plan','')[:800] if u.get('plan') else ''
         nombre = data.get('nombre','')
         nombre_str = ', ' + nombre if nombre else ''
-        system = ('Eres ZIA nutricionista de ' + company + '. '
-                  'El usuario quiere cambiar un plato de su menu. '
-                  'Plan actual: ' + plan + '. '
-                  'INSTRUCCION: Da DIRECTAMENTE la alternativa para lo que pide. '
-                  'Formato: "Para la [comida] del [dia] te propongo: [alternativa con gramos]" '
-                  'Luego pregunta: "¿Te parece bien o prefieres otra opcion?" '
-                  'Usa emojis. Maximo 100 palabras. Espanol.')
+        system = self._system_prompt_or(
+            'Eres ZIA nutricionista de ' + company + '. '
+            'El usuario quiere cambiar un plato de su menu. '
+            'Plan actual: ' + plan + '. '
+            'INSTRUCCION: Da DIRECTAMENTE la alternativa para lo que pide. '
+            'Formato: "Para la [comida] del [dia] te propongo: [alternativa con gramos]" '
+            'Luego pregunta: "¿Te parece bien o prefieres otra opcion?" '
+            'Usa emojis. Maximo 100 palabras. Espanol.')
         try:
             r = self.openai.chat.completions.create(
                 model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
@@ -358,14 +365,15 @@ class ZiaEngine:
         plan = u.get('plan','')[:600] if u.get('plan') else ''
         nombre = data.get('nombre','')
         nombre_str = ', ' + nombre if nombre else ''
-        system = ('Eres ZIA de ' + company + '. '
-                  'Perfil: ' + data.get('nombre','') + ', objetivo: ' + data.get('objetivo','')
-                  + ', restricciones: ' + data.get('restricciones','Ninguna') + '. '
-                  'Plan: ' + plan + '. Carrito: ' + checkout + '. '
-                  'Responde de forma util y concisa. '
-                  'Al terminar siempre ofrece las opciones:\n'
-                  '1️⃣ Anadir al carrito\n2️⃣ Cambiar algo\n3️⃣ Guardar lista\n'
-                  'Usa emojis. Maximo 200 palabras. Espanol.')
+        system = self._system_prompt_or(
+            'Eres ZIA de ' + company + '. '
+            'Perfil: ' + data.get('nombre','') + ', objetivo: ' + data.get('objetivo','')
+            + ', restricciones: ' + data.get('restricciones','Ninguna') + '. '
+            'Plan: ' + plan + '. Carrito: ' + checkout + '. '
+            'Responde de forma util y concisa. '
+            'Al terminar siempre ofrece las opciones:\n'
+            '1️⃣ Anadir al carrito\n2️⃣ Cambiar algo\n3️⃣ Guardar lista\n'
+            'Usa emojis. Maximo 200 palabras. Espanol.')
         history = u.get('history', [])
         history.append({'role':'user','content':message})
         if len(history) > 10: history = history[-10:]
