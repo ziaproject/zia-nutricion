@@ -16,6 +16,7 @@
     "bot": {
         "name": "ZIA",
         "welcome_message": "Hola 👋 Soy ZIA, tu asistente de Herbolario Navarro.\n\n¿Qué quieres hacer hoy?\n\n1️⃣ Hacer la lista de la compra semanal\n2️⃣ Estoy en el súper, guíame paso a paso\n3️⃣ Tengo presupuesto justo, ayúdame a ahorrar\n4️⃣ Tengo una duda de un producto"
+
     },
     "catalog": {
         "source": "static",
