@@ -187,6 +187,35 @@ def webhook():
     media_type = request.form.get("MediaContentType0","image/jpeg")
     tl = message.lower().strip()
 
+    # Retail-asesor (asesor-compra-demo): motor conversacional + visión vía data URL
+    client_id = os.getenv("CLIENT_ID", "zia-nutricion")
+    if client_id == "asesor-compra-demo":
+        from core.engine import get_engine
+        eng = get_engine(client_id)
+        if media_url:
+            try:
+                r = requests.get(media_url, auth=(TWILIO_SID, TWILIO_TOKEN), timeout=15)
+                if r.status_code != 200:
+                    return enviar("❌ No pude descargar la imagen. Inténtalo de nuevo.")
+                img_b64 = base64.b64encode(r.content).decode("utf-8")
+                detected_type = media_type if media_type.startswith("image/") else "image/jpeg"
+                msg_payload = {
+                    "text": message,
+                    "image_url": f"data:{detected_type};base64,{img_b64}",
+                }
+            except Exception as e:
+                print(f"Error imagen retail: {e}")
+                return enviar("❌ No pude procesar la imagen. Inténtalo de nuevo.")
+        else:
+            msg_payload = message
+        reply = eng.process_message(phone, msg_payload)
+        if isinstance(reply, list):
+            resp = MessagingResponse()
+            for parte in reply:
+                resp.message(parte)
+            return str(resp), 200, {"Content-Type": "text/xml"}
+        return enviar(reply)
+
     sesion = cargar_sesion(phone)
     estado = sesion.get("estado","inicio")
     memoria = main.cargar_memoria_usuario(phone)

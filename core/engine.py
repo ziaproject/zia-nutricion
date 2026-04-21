@@ -82,6 +82,42 @@ class ZiaEngine:
             return self.config['system_prompt']
         return internal_prompt
 
+    def _retail_text_and_image_url(self, message):
+        """Extrae texto y URL de imagen para mensajes multimodales (OpenAI vision)."""
+        if isinstance(message, str):
+            return message.strip(), None
+        if not isinstance(message, dict):
+            return str(message).strip(), None
+        raw_text = (
+            message.get('text')
+            or message.get('body')
+            or message.get('caption')
+            or ''
+        )
+        text = raw_text.strip() if isinstance(raw_text, str) else ''
+        url = None
+        for key in ('image_url', 'media_url', 'imageUrl', 'mediaUrl', 'MediaUrl0'):
+            v = message.get(key)
+            if isinstance(v, str) and v.strip():
+                url = v.strip()
+                break
+            if isinstance(v, dict) and v.get('url'):
+                u = str(v['url']).strip()
+                if u:
+                    url = u
+                    break
+        if not url:
+            im = message.get('image')
+            if isinstance(im, str) and (
+                im.startswith('http://') or im.startswith('https://') or im.startswith('data:')
+            ):
+                url = im.strip()
+            elif isinstance(im, dict) and im.get('url'):
+                u = str(im['url']).strip()
+                if u:
+                    url = u
+        return text, url
+
     def process_message(self, user_id, message, plan_type='pro'):
         meta = self.config.get('_meta')
         if isinstance(meta, dict) and meta.get('type') == 'retail-asesor':
@@ -208,7 +244,13 @@ class ZiaEngine:
         if isinstance(message, str):
             reset = is_reset(message)
         elif isinstance(message, dict):
-            reset = is_reset((message.get('text') or '').strip())
+            t0 = (
+                message.get('text')
+                or message.get('body')
+                or message.get('caption')
+                or ''
+            )
+            reset = is_reset(t0.strip()) if isinstance(t0, str) else False
         else:
             reset = False
 
@@ -216,21 +258,17 @@ class ZiaEngine:
             u['history'] = []
             return self.get_welcome_message()
 
-        if isinstance(message, dict):
-            text = (message.get('text') or '').strip()
-            image_url = message.get('image_url')
-            if image_url:
-                user_msg = {
-                    'role': 'user',
-                    'content': [
-                        {'type': 'text', 'text': text or '.'},
-                        {'type': 'image_url', 'image_url': {'url': image_url}},
-                    ],
-                }
-            else:
-                user_msg = {'role': 'user', 'content': text}
+        text, image_url = self._retail_text_and_image_url(message)
+        if image_url:
+            user_msg = {
+                'role': 'user',
+                'content': [
+                    {'type': 'text', 'text': text or 'Analiza esta imagen.'},
+                    {'type': 'image_url', 'image_url': {'url': image_url}},
+                ],
+            }
         else:
-            user_msg = {'role': 'user', 'content': str(message).strip()}
+            user_msg = {'role': 'user', 'content': text}
 
         ai = self.config.get('ai', {})
         model = ai.get('model', 'gpt-4o-mini')
