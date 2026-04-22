@@ -127,11 +127,10 @@ class ZiaEngine:
         elif s == 'supermercado':
             u['data']['supermercado'] = m.strip() if m.strip() else 'Mercadona'
             u['state'] = 'plan_listo'
-            partes = self._generar_plan_partes(u['data'])
-            u['plan'] = '\n\n'.join(partes)
+            msgs = self._generar_plan_partes(u['data'])
+            u['plan'] = '\n\n'.join(msgs[1:])
             u['plan_count'] = u.get('plan_count', 0) + 1
-            intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
-            return [intro] + partes
+            return msgs
         elif s == 'plan_listo':
             return self._gpt_libre(m, u)
         else:
@@ -222,26 +221,45 @@ class ZiaEngine:
         prompt1 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
             + '\nGENERA el menu SOLO para Lunes, Martes y Miércoles. Cada dia incluye Desayuno, Comida y Cena. '
-            'Empieza la respuesta con *Lunes:* (luego *Martes:* y *Miércoles:*). Tono motivador.'
+            'Empieza la respuesta con *Lunes:* (luego *Martes:* y *Miércoles:*). '
+            'Sin frase final motivacional ni despedida; el texto termina al acabar la Cena del Miércoles.'
         )
         prompt2 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
             + '\nGENERA el menu SOLO para Jueves, Viernes y Sábado. Cada dia incluye Desayuno, Comida y Cena. '
-            'Empieza la respuesta con *Jueves:* (luego *Viernes:* y *Sábado:*). Tono motivador.'
+            'Sin frase introductoria al principio: empieza directamente con *Jueves:* (luego *Viernes:* y *Sábado:*). '
+            'Sin frase final motivacional. Termina en la Cena del Sábado; no anadas nada despues.'
         )
         prompt3 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
             + '\nGENERA SOLO el Domingo con Desayuno, Comida y Cena. '
-            'Despues incluye la LISTA DE LA COMPRA en una seccion separada con todos los ingredientes '
-            'necesarios para los 7 dias del menu, con cantidades y precios orientativos estimados '
-            'como si se compraran en ' + supermercado + ', y el total estimado. '
-            'Al final pregunta: ¿Confirmas la compra en ' + supermercado
-            + ' o quieres comparar precios con otros supermercados? '
-            'Con opciones: 1️⃣ Confirmar  2️⃣ Comparar precios'
+            'Sin frase introductoria al principio. Sin lista de la compra ni precios en esta parte. '
+            'Termina al acabar la Cena del Domingo; no anadas nada despues.'
+        )
+        prompt4 = (
+            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
+            + '\nGENERA SOLO la LISTA DE LA COMPRA completa para los 7 dias (Lunes a Domingo) '
+            'con cantidades y precios orientativos como si se compraran en ' + supermercado + ', '
+            'y el total estimado. Sin frase introductoria. Sin repetir el menu.'
         )
 
-        partes = []
-        for prompt, max_tok in ((prompt1, 650), (prompt2, 650), (prompt3, 1000)):
+        suffix2 = (
+            '\n---\n'
+            '¿Listo para el Domingo y la lista de la compra? Responde *si* para continuar'
+        )
+        suffix3 = (
+            '\n---\n'
+            '🛒 Ahora te preparo tu lista de la compra para ' + supermercado
+            + ' con todo lo que necesitas para la semana. Dame un momento...'
+        )
+        suffix4 = (
+            '\n---\n'
+            '¿Confirmamos la compra en ' + supermercado + ' o prefieres comparar precios?\n\n'
+            '1️⃣ Confirmar compra en ' + supermercado + '\n'
+            '2️⃣ Comparar precios con otros supermercados'
+        )
+
+        def _call(prompt, max_tok):
             try:
                 r = self.openai.chat.completions.create(
                     model=model,
@@ -253,10 +271,18 @@ class ZiaEngine:
                     temperature=0.7,
                     timeout=25,
                 )
-                partes.append(r.choices[0].message.content)
+                return r.choices[0].message.content
             except Exception as e:
-                partes.append('Error generando parte del plan: ' + str(e)[:60])
-        return partes
+                return 'Error generando parte del plan: ' + str(e)[:60]
+
+        partes = [
+            _call(prompt1, 650),
+            _call(prompt2, 650).rstrip() + suffix2,
+            _call(prompt3, 450).rstrip() + suffix3,
+            _call(prompt4, 1000).rstrip() + suffix4,
+        ]
+        intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
+        return [intro] + partes
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
