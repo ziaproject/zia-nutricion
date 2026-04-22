@@ -260,12 +260,20 @@ class ZiaEngine:
             }
             super_nombre = u['data'].get('supermercado', 'Mercadona')
             nombre = u['data'].get('nombre', '')
-            nombre_str = ', ' + nombre if nombre else ''
             ml = m.strip().lower()
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale']:
                 sk = str(super_nombre).strip().lower().replace('í', 'i').replace('é', 'e')
                 url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
                 u['state'] = 'menu_principal'
+                msg1 = (
+                    'Perfecto, '
+                    + nombre
+                    + '! Aqui tienes tu link para '
+                    + super_nombre
+                    + ':\n\n'
+                    + url
+                    + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
+                )
                 msg2 = (
                     'Que quieres hacer ahora, ' + nombre + '?\n\n'
                     '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
@@ -275,7 +283,7 @@ class ZiaEngine:
                     '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
                     '6️⃣ 🏋️ Nutricion deportiva'
                 )
-                return [url, msg2]
+                return [msg1, msg2]
             elif ml in ['2', 'comparar', 'comparar precios', 'otros']:
                 try:
                     presupuesto = float(u['data'].get('presupuesto', '65'))
@@ -378,21 +386,30 @@ class ZiaEngine:
                 'el corte inglés': 'https://www.elcorteingles.es/supermercado',
             }
             nombre = u['data'].get('nombre', '')
-            nombre_str = ', ' + nombre if nombre else ''
             super_key = m.strip().lower()
             url = SUPER_URLS.get(super_key, None)
             if url:
                 u['data']['supermercado'] = m.strip()
-                u['state'] = 'plan_listo'
-                return (
-                    'Perfecto'
-                    + nombre_str
+                u['state'] = 'menu_principal'
+                msg1 = (
+                    'Perfecto, '
+                    + nombre
                     + '! Aqui tienes tu link para '
                     + m.strip()
                     + ':\n\n'
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 )
+                msg2 = (
+                    'Que quieres hacer ahora, ' + nombre + '?\n\n'
+                    '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
+                    '2️⃣ 🛒 Hacer la compra inteligente\n'
+                    '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
+                    '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
+                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
+                    '6️⃣ 🏋️ Nutricion deportiva'
+                )
+                return [msg1, msg2]
             else:
                 return 'Escribe: Mercadona, Lidl, Aldi, Carrefour, Dia, Consum, Supercor o El Corte Inglés.'
         elif s == 'esperando_foto_nevera':
