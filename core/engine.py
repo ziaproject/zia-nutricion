@@ -459,7 +459,17 @@ class ZiaEngine:
                         timeout=45,
                     )
                     u['state'] = 'menu_principal'
-                    return r.choices[0].message.content
+                    nombre = data.get('nombre', '')
+                    menu = (
+                        '\n\n---\nQue quieres hacer ahora, ' + nombre + '?\n\n'
+                        '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
+                        '2️⃣ 🛒 Hacer la compra inteligente\n'
+                        '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
+                        '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
+                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
+                        '6️⃣ 🏋️ Nutricion deportiva'
+                    )
+                    return r.choices[0].message.content + menu
                 except Exception as e:
                     return 'No pude analizar la foto: ' + str(e)[:80]
             else:
@@ -702,6 +712,20 @@ class ZiaEngine:
             text = (message or '').strip() if isinstance(message, str) else str(message).strip()
             image_url = None
         tl = text.lower()
+        ml = tl
+        if any(w in ml for w in ['gracias', 'thank', 'perfecto', 'genial', 'ok', 'vale', 'listo']):
+            nombre = data.get('nombre', '')
+            u['state'] = 'menu_principal'
+            return (
+                'De nada, ' + nombre + '! 😊\n\n'
+                'Que quieres hacer ahora?\n\n'
+                '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
+                '2️⃣ 🛒 Hacer la compra inteligente\n'
+                '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
+                '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
+                '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
+                '6️⃣ 🏋️ Nutricion deportiva'
+            )
         nevera_foto = (image_url is not None) or any(
             w in tl for w in ('nevera', 'frigo', 'tengo en casa', 'foto')
         )
