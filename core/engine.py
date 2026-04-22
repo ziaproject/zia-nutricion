@@ -264,7 +264,6 @@ class ZiaEngine:
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
                 sk = str(super_nombre).strip().lower().replace('í', 'i').replace('é', 'e')
                 url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
-                u['state'] = 'menu_principal'
                 msg1 = (
                     'Perfecto, '
                     + nombre
@@ -283,6 +282,7 @@ class ZiaEngine:
                     '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
                     '6️⃣ 🏋️ Nutricion deportiva'
                 )
+                u['state'] = 'menu_principal'
                 return [msg1, msg2]
             elif ml in ['2', 'comparar', 'comparar precios', 'otros']:
                 try:
