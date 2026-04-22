@@ -132,6 +132,53 @@ class ZiaEngine:
             u['plan_count'] = u.get('plan_count', 0) + 1
             return msgs
         elif s == 'plan_listo':
+            ml = m.lower()
+            if m.strip() == '2' or re.search(r'\bcomparar\b', ml):
+                try:
+                    base = float(str(u['data'].get('presupuesto', '65')).replace(',', '.'))
+                except ValueError:
+                    base = 65.0
+                cadenas = [
+                    ('🟢 Mercadona', 1.0),
+                    ('🔵 Lidl', 0.88),
+                    ('🟡 Aldi', 0.85),
+                    ('🔴 Carrefour', 1.05),
+                    ('🟠 Dia', 1.0),
+                    ('⚪ Consum', 1.0),
+                    ('🟣 Supercor', 1.1),
+                    ('🏛️ El Corte Inglés', 1.2),
+                ]
+                totales = [(nombre, round(base * factor, 2)) for nombre, factor in cadenas]
+                i_min = min(range(len(totales)), key=lambda i: totales[i][1])
+                lineas = ['🛒 COMPARATIVA DE PRECIOS', '']
+                for i, (nombre, total) in enumerate(totales):
+                    extra = ' ⭐ MÁS BARATO' if i == i_min else ''
+                    lineas.append(nombre + ' → ' + str(total) + '€' + extra)
+                lineas.append('')
+                lineas.append('¿En cuál quieres hacer la compra?')
+                return '\n'.join(lineas)
+            if m.strip() == '1' or re.search(r'\bconfirmar\b', ml):
+                sup = (u['data'].get('supermercado', 'Mercadona') or 'Mercadona').strip()
+                clave = sup.lower().replace('í', 'i').replace('é', 'e')
+                urls = {
+                    'mercadona': 'https://tienda.mercadona.es',
+                    'lidl': 'https://www.lidl.es',
+                    'aldi': 'https://www.aldi.es',
+                    'carrefour': 'https://www.carrefour.es',
+                    'dia': 'https://www.dia.es',
+                    'consum': 'https://www.consum.es',
+                    'supercor': 'https://www.supercor.es',
+                    'el corte ingles': 'https://www.elcorteingles.es/supermercado',
+                }
+                link = urls.get(clave)
+                if not link:
+                    for k, v in urls.items():
+                        if k in clave or clave in k:
+                            link = v
+                            break
+                if not link:
+                    link = urls['mercadona']
+                return link
             return self._gpt_libre(m, u)
         else:
             u['state'] = 'welcome'
