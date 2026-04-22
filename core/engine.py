@@ -255,8 +255,11 @@ class ZiaEngine:
             reset = False
 
         if reset:
+            had_history = len(u.get('history', [])) > 0
             u['history'] = []
-            return self.get_welcome_message()
+            history = []
+            if not had_history:
+                return self.get_welcome_message()
 
         text, image_url = self._retail_text_and_image_url(message)
         if image_url:
