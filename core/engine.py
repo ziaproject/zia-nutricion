@@ -171,14 +171,13 @@ class ZiaEngine:
             return msgs
         elif s == 'plan_listo':
             ml = m.lower()
-            if m.strip() == '1' or re.search(r'\bconfirmar\b', ml):
+            if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
                 u['state'] = 'confirmando_compra'
-                sn = (u['data'].get('supermercado', 'Mercadona') or 'Mercadona').strip()
+                super_nombre = u['data'].get('supermercado', 'Mercadona')
                 return (
                     '¿Confirmas la compra en '
-                    + sn
-                    + '? Responde *si*, *confirmar*, *ok*... para abrir tu tienda, '
-                    'o *2* / *comparar* para ver precios en otras cadenas.'
+                    + super_nombre
+                    + '? Responde si para obtener el link directo 🛒'
                 )
             if m.strip() == '2' or re.search(r'\bcomparar\b', ml):
                 u['state'] = 'confirmando_compra'
@@ -680,12 +679,12 @@ class ZiaEngine:
                 return 'Error generando parte del plan: ' + str(e)[:60]
 
         partes = []
-        for prompt, max_tok, suffix in (
+        for prompt, max_tok, suffix in [
             (prompt1, 650, ''),
             (prompt2, 650, ''),
             (prompt3, 450, suffix3),
             (prompt4, 1000, suffix4),
-        ):
+        ]:
             cuerpo = _call(prompt, max_tok).rstrip()
             partes.append(cuerpo + suffix)
         intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
