@@ -157,28 +157,38 @@ class ZiaEngine:
                 lineas.append('')
                 lineas.append('¿En cuál quieres hacer la compra?')
                 return '\n'.join(lineas)
+            SUPER_URLS = {
+                'mercadona': 'https://tienda.mercadona.es',
+                'lidl': 'https://www.lidl.es',
+                'aldi': 'https://www.aldi.es',
+                'carrefour': 'https://www.carrefour.es',
+                'dia': 'https://www.dia.es',
+                'consum': 'https://www.consum.es',
+                'supercor': 'https://www.supercor.es',
+                'el corte ingles': 'https://www.elcorteingles.es/supermercado',
+                'el corte inglés': 'https://www.elcorteingles.es/supermercado',
+            }
+            super_key = m.strip().lower()
+            if super_key in SUPER_URLS:
+                url = SUPER_URLS.get(super_key, 'https://tienda.mercadona.es')
+                return (
+                    'Perfecto! Aqui tienes tu link directo para hacer la compra en '
+                    + m.strip()
+                    + ':\n\n'
+                    + url
+                    + '\n\nQue disfrutes de tu semana saludable! '
+                )
             if m.strip() == '1' or re.search(r'\bconfirmar\b', ml):
                 sup = (u['data'].get('supermercado', 'Mercadona') or 'Mercadona').strip()
-                clave = sup.lower().replace('í', 'i').replace('é', 'e')
-                urls = {
-                    'mercadona': 'https://tienda.mercadona.es',
-                    'lidl': 'https://www.lidl.es',
-                    'aldi': 'https://www.aldi.es',
-                    'carrefour': 'https://www.carrefour.es',
-                    'dia': 'https://www.dia.es',
-                    'consum': 'https://www.consum.es',
-                    'supercor': 'https://www.supercor.es',
-                    'el corte ingles': 'https://www.elcorteingles.es/supermercado',
-                }
-                link = urls.get(clave)
-                if not link:
-                    for k, v in urls.items():
-                        if k in clave or clave in k:
-                            link = v
-                            break
-                if not link:
-                    link = urls['mercadona']
-                return link
+                super_key = sup.lower().replace('í', 'i').replace('é', 'e')
+                url = SUPER_URLS.get(super_key, 'https://tienda.mercadona.es')
+                return (
+                    'Perfecto! Aqui tienes tu link directo para hacer la compra en '
+                    + sup
+                    + ':\n\n'
+                    + url
+                    + '\n\nQue disfrutes de tu semana saludable! '
+                )
             return self._gpt_libre(m, u)
         else:
             u['state'] = 'welcome'
