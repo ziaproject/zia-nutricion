@@ -265,16 +265,17 @@ class ZiaEngine:
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale']:
                 sk = str(super_nombre).strip().lower().replace('í', 'i').replace('é', 'e')
                 url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
-                u['state'] = 'plan_listo'
-                return (
-                    'Perfecto'
-                    + nombre_str
-                    + '! Aqui tienes tu link para comprar en '
-                    + super_nombre
-                    + ':\n\n'
-                    + url
-                    + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
+                u['state'] = 'menu_principal'
+                msg2 = (
+                    'Que quieres hacer ahora, ' + nombre + '?\n\n'
+                    '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
+                    '2️⃣ 🛒 Hacer la compra inteligente\n'
+                    '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
+                    '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
+                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
+                    '6️⃣ 🏋️ Nutricion deportiva'
                 )
+                return [url, msg2]
             elif ml in ['2', 'comparar', 'comparar precios', 'otros']:
                 try:
                     presupuesto = float(u['data'].get('presupuesto', '65'))
@@ -301,6 +302,69 @@ class ZiaEngine:
                 return '\n'.join(lineas)
             else:
                 return self._gpt_libre(message if isinstance(message, dict) else m, u)
+        elif s == 'menu_principal':
+            ml = m.lower()
+            company = self.config['branding']['company_name']
+            data = u['data']
+            if m.strip() == '1' or 'recetas' in ml or 'comer' in ml:
+                return (
+                    'Cuentame que te apetece comer o que ingredientes tienes a mano, '
+                    'y te propongo recetas rapidas adaptadas a ti.'
+                )
+            if m.strip() == '2' or re.search(r'\bcompra\b', ml):
+                msgs = self._generar_plan_partes(u['data'])
+                u['plan'] = '\n\n'.join(msgs[1:])
+                u['plan_count'] = u.get('plan_count', 0) + 1
+                u['state'] = 'plan_listo'
+                return msgs
+            if m.strip() == '3' or 'nevera' in ml or 'foto' in ml:
+                u['state'] = 'esperando_foto_nevera'
+                return (
+                    'Perfecto! Enviame una foto de tu nevera o despensa y te propongo 3 recetas rapidas con lo que tienes 📸'
+                )
+            if m.strip() == '4' or 'habitos' in ml:
+                prompt_h = (
+                    'Eres ZIA nutricionista de '
+                    + company
+                    + '. Ofrece consejos practicos y personalizados para mejorar la alimentacion y habitos '
+                    'saludables. Perfil: '
+                    + data.get('nombre', '')
+                    + ', objetivo: '
+                    + data.get('objetivo', '')
+                    + ', restricciones: '
+                    + data.get('restricciones', 'Ninguna')
+                    + '. Responde en español con emojis. Maximo 200 palabras.'
+                )
+                try:
+                    r = self.openai.chat.completions.create(
+                        model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                        messages=[
+                            {
+                                'role': 'system',
+                                'content': 'Eres ZIA nutricionista. Responde en español con emojis.',
+                            },
+                            {'role': 'user', 'content': prompt_h},
+                        ],
+                        max_tokens=400,
+                        temperature=0.7,
+                        timeout=25,
+                    )
+                    return r.choices[0].message.content
+                except Exception:
+                    return 'No pude generar los consejos. Intenta de nuevo.'
+            if m.strip() == '5' or 'dieta' in ml or 'keto' in ml or 'vegana' in ml:
+                u['state'] = 'eligiendo_dieta'
+                return (
+                    'Que tipo de dieta quieres?\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterranea\n'
+                    '4️⃣ Ayuno 16:8\n5️⃣ Vegetariana'
+                )
+            if m.strip() == '6' or 'deporte' in ml or 'gym' in ml:
+                u['state'] = 'modo_deporte'
+                return (
+                    'Que deporte practicas y cuantos dias a la semana? Indica tambien tu objetivo: '
+                    'ganar musculo, perder grasa o mejorar rendimiento 💪'
+                )
+            return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'eligiendo_super':
             SUPER_URLS = {
                 'mercadona': 'https://tienda.mercadona.es',
@@ -560,17 +624,9 @@ class ZiaEngine:
             + '. Dame un momento... 🛒'
         )
         suffix4 = (
-            '\n---\n¿Que quieres hacer, '
-            + data.get('nombre', '')
-            + '?\n\n'
-            '1️⃣ Confirmar compra en '
-            + super_nombre
-            + '\n'
-            '2️⃣ Comparar precios con otros supermercados\n'
-            '3️⃣ Cambiar algo del menu\n'
-            '4️⃣ Foto de mi nevera — recetas con lo que tengo\n'
-            '5️⃣ Dieta especial (keto, vegana, mediterranea...)\n'
-            '6️⃣ Plan de nutricion deportiva'
+            '\n---\n'
+            '1️⃣ Confirmar compra en ' + super_nombre + '\n'
+            '2️⃣ Comparar precios con otros supermercados'
         )
 
         def _call(prompt, max_tok):
