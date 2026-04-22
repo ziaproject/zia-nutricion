@@ -236,7 +236,7 @@ class ZiaEngine:
         company = self.config['branding']['company_name']
         cal = calorias(data)
         personas = data.get('personas', '1 persona')
-        supermercado = data.get('supermercado', 'Mercadona')
+        super_nombre = data.get('supermercado', 'Mercadona')
         cats = self.config.get('catalog', {}).get('categories', [])
         catalogo = ''
         if cats:
@@ -280,28 +280,29 @@ class ZiaEngine:
         prompt3 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
             + '\nGENERA SOLO el Domingo completo con Desayuno, Comida y Cena. '
-            'Sin frase introductoria al principio. Sin lista de la compra ni precios. '
-            'Termina al acabar la Cena del Domingo; no anadas nada despues.'
+            + 'Tienda de referencia del usuario: ' + super_nombre + '. '
+            + 'Sin frase introductoria al principio. Sin lista de la compra ni precios. '
+            + 'Termina al acabar la Cena del Domingo; no anadas nada despues.'
         )
         prompt4 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
             + '\nGENERA SOLO la LISTA DE LA COMPRA completa para los 7 dias (Lunes a Domingo), '
-            'organizada por categorías, con cantidades y precios orientativos para '
-            + data.get('supermercado', 'Mercadona')
+            + 'organizada por categorías, con cantidades y precios orientativos para '
+            + super_nombre
             + ', y el total estimado. Sin frase introductoria. Sin repetir el menu.'
         )
 
         suffix2 = '\n---\nResponde *si* para ver el Domingo y tu lista de la compra 🛒'
         suffix3 = (
             '\n---\nAhora preparo tu lista de la compra para '
-            + data.get('supermercado', 'Mercadona')
+            + super_nombre
             + '. Dame un momento... 🛒'
         )
         suffix4 = (
             '\n---\n¿Confirmamos la compra en '
-            + data.get('supermercado', 'Mercadona')
+            + super_nombre
             + ' o prefieres comparar precios?\n\n1️⃣ Confirmar compra en '
-            + data.get('supermercado', 'Mercadona')
+            + super_nombre
             + '\n2️⃣ Comparar precios con otros supermercados'
         )
 
@@ -321,12 +322,17 @@ class ZiaEngine:
             except Exception as e:
                 return 'Error generando parte del plan: ' + str(e)[:60]
 
-        parte1 = _call(prompt1, 650)
-        parte2 = _call(prompt2, 650).rstrip() + suffix2
-        parte3 = _call(prompt3, 450).rstrip() + suffix3
-        parte4 = _call(prompt4, 1000).rstrip() + suffix4
+        partes = []
+        for prompt, max_tok, suffix in (
+            (prompt1, 650, ''),
+            (prompt2, 650, suffix2),
+            (prompt3, 450, suffix3),
+            (prompt4, 1000, suffix4),
+        ):
+            cuerpo = _call(prompt, max_tok).rstrip()
+            partes.append(cuerpo + suffix)
         intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
-        return [intro] + [parte1, parte2, parte3, parte4]
+        return [intro] + partes
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
