@@ -133,29 +133,39 @@ class ZiaEngine:
             return msgs
         elif s == 'plan_listo':
             ml = m.lower()
+            if m.strip() == '1' or re.search(r'\bconfirmar\b', ml):
+                u['state'] = 'confirmando_compra'
+                sn = (u['data'].get('supermercado', 'Mercadona') or 'Mercadona').strip()
+                return (
+                    '¿Confirmas la compra en '
+                    + sn
+                    + '? Responde *si*, *confirmar*, *ok*... para abrir tu tienda, '
+                    'o *2* / *comparar* para ver precios en otras cadenas.'
+                )
             if m.strip() == '2' or re.search(r'\bcomparar\b', ml):
+                u['state'] = 'confirmando_compra'
                 try:
-                    base = float(str(u['data'].get('presupuesto', '65')).replace(',', '.'))
-                except ValueError:
-                    base = 65.0
-                cadenas = [
-                    ('🟢 Mercadona', 1.0),
-                    ('🔵 Lidl', 0.88),
-                    ('🟡 Aldi', 0.85),
-                    ('🔴 Carrefour', 1.05),
-                    ('🟠 Dia', 1.0),
-                    ('⚪ Consum', 1.0),
-                    ('🟣 Supercor', 1.1),
-                    ('🏛️ El Corte Inglés', 1.2),
+                    presupuesto = float(str(u['data'].get('presupuesto', '65')).replace(',', '.'))
+                except Exception:
+                    presupuesto = 65.0
+                FACTORES = [
+                    ('🟢', 'Mercadona', 'mercadona', 1.0),
+                    ('🔵', 'Lidl', 'lidl', 0.88),
+                    ('🟡', 'Aldi', 'aldi', 0.85),
+                    ('🔴', 'Carrefour', 'carrefour', 1.05),
+                    ('🟠', 'Dia', 'dia', 1.0),
+                    ('⚪', 'Consum', 'consum', 1.0),
+                    ('🟣', 'Supercor', 'supercor', 1.1),
+                    ('🏛️', 'El Corte Inglés', 'el corte ingles', 1.2),
                 ]
-                totales = [(nombre, round(base * factor, 2)) for nombre, factor in cadenas]
-                i_min = min(range(len(totales)), key=lambda i: totales[i][1])
-                lineas = ['🛒 COMPARATIVA DE PRECIOS', '']
-                for i, (nombre, total) in enumerate(totales):
-                    extra = ' ⭐ MÁS BARATO' if i == i_min else ''
-                    lineas.append(nombre + ' → ' + str(total) + '€' + extra)
-                lineas.append('')
-                lineas.append('¿En cuál quieres hacer la compra?')
+                totales = [(e, n, k, round(presupuesto * f, 2)) for e, n, k, f in FACTORES]
+                min_total = min(t[3] for t in totales)
+                lineas = ['🛒 COMPARATIVA DE PRECIOS\n']
+                for e, n, k, total in totales:
+                    estrella = ' ⭐ MÁS BARATO' if total == min_total else ''
+                    lineas.append(e + ' ' + n + ' → ' + str(total) + '€' + estrella)
+                lineas.append('\n¿En cuál quieres hacer la compra? Escribe el nombre.')
+                u['state'] = 'eligiendo_super'
                 return '\n'.join(lineas)
             SUPER_URLS = {
                 'mercadona': 'https://tienda.mercadona.es',
@@ -168,9 +178,9 @@ class ZiaEngine:
                 'el corte ingles': 'https://www.elcorteingles.es/supermercado',
                 'el corte inglés': 'https://www.elcorteingles.es/supermercado',
             }
-            super_key = m.strip().lower()
-            if super_key in SUPER_URLS:
-                url = SUPER_URLS.get(super_key, 'https://tienda.mercadona.es')
+            super_key_pl = m.strip().lower()
+            if super_key_pl in SUPER_URLS:
+                url = SUPER_URLS.get(super_key_pl, 'https://tienda.mercadona.es')
                 return (
                     'Perfecto! Aqui tienes tu link directo para hacer la compra en '
                     + m.strip()
@@ -178,18 +188,92 @@ class ZiaEngine:
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! '
                 )
-            if m.strip() == '1' or re.search(r'\bconfirmar\b', ml):
-                sup = (u['data'].get('supermercado', 'Mercadona') or 'Mercadona').strip()
-                super_key = sup.lower().replace('í', 'i').replace('é', 'e')
-                url = SUPER_URLS.get(super_key, 'https://tienda.mercadona.es')
+            return self._gpt_libre(m, u)
+        elif s == 'confirmando_compra':
+            SUPER_URLS = {
+                'mercadona': 'https://tienda.mercadona.es',
+                'lidl': 'https://www.lidl.es',
+                'aldi': 'https://www.aldi.es',
+                'carrefour': 'https://www.carrefour.es',
+                'dia': 'https://www.dia.es',
+                'consum': 'https://www.consum.es',
+                'supercor': 'https://www.supercor.es',
+                'el corte ingles': 'https://www.elcorteingles.es/supermercado',
+                'el corte inglés': 'https://www.elcorteingles.es/supermercado',
+            }
+            super_nombre = u['data'].get('supermercado', 'Mercadona')
+            nombre = u['data'].get('nombre', '')
+            nombre_str = ', ' + nombre if nombre else ''
+            ml = m.strip().lower()
+            if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale']:
+                sk = str(super_nombre).strip().lower().replace('í', 'i').replace('é', 'e')
+                url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
+                u['state'] = 'plan_listo'
                 return (
-                    'Perfecto! Aqui tienes tu link directo para hacer la compra en '
-                    + sup
+                    'Perfecto'
+                    + nombre_str
+                    + '! Aqui tienes tu link para comprar en '
+                    + super_nombre
                     + ':\n\n'
                     + url
-                    + '\n\nQue disfrutes de tu semana saludable! '
+                    + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 )
-            return self._gpt_libre(m, u)
+            elif ml in ['2', 'comparar', 'comparar precios', 'otros']:
+                try:
+                    presupuesto = float(u['data'].get('presupuesto', '65'))
+                except Exception:
+                    presupuesto = 65.0
+                FACTORES = [
+                    ('🟢', 'Mercadona', 'mercadona', 1.0),
+                    ('🔵', 'Lidl', 'lidl', 0.88),
+                    ('🟡', 'Aldi', 'aldi', 0.85),
+                    ('🔴', 'Carrefour', 'carrefour', 1.05),
+                    ('🟠', 'Dia', 'dia', 1.0),
+                    ('⚪', 'Consum', 'consum', 1.0),
+                    ('🟣', 'Supercor', 'supercor', 1.1),
+                    ('🏛️', 'El Corte Inglés', 'el corte ingles', 1.2),
+                ]
+                totales = [(e, n, k, round(presupuesto * f, 2)) for e, n, k, f in FACTORES]
+                min_total = min(t[3] for t in totales)
+                lineas = ['🛒 COMPARATIVA DE PRECIOS\n']
+                for e, n, k, total in totales:
+                    estrella = ' ⭐ MÁS BARATO' if total == min_total else ''
+                    lineas.append(e + ' ' + n + ' → ' + str(total) + '€' + estrella)
+                lineas.append('\n¿En cuál quieres hacer la compra? Escribe el nombre.')
+                u['state'] = 'eligiendo_super'
+                return '\n'.join(lineas)
+            else:
+                return self._gpt_libre(m, u)
+        elif s == 'eligiendo_super':
+            SUPER_URLS = {
+                'mercadona': 'https://tienda.mercadona.es',
+                'lidl': 'https://www.lidl.es',
+                'aldi': 'https://www.aldi.es',
+                'carrefour': 'https://www.carrefour.es',
+                'dia': 'https://www.dia.es',
+                'consum': 'https://www.consum.es',
+                'supercor': 'https://www.supercor.es',
+                'el corte ingles': 'https://www.elcorteingles.es/supermercado',
+                'el corte inglés': 'https://www.elcorteingles.es/supermercado',
+            }
+            nombre = u['data'].get('nombre', '')
+            nombre_str = ', ' + nombre if nombre else ''
+            super_key = m.strip().lower()
+            url = SUPER_URLS.get(super_key, None)
+            if url:
+                u['data']['supermercado'] = m.strip()
+                u['state'] = 'plan_listo'
+                return (
+                    'Perfecto'
+                    + nombre_str
+                    + '! Aqui tienes tu link para '
+                    + m.strip()
+                    + ':\n\n'
+                    + url
+                    + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
+                )
+            else:
+                return 'Escribe: Mercadona, Lidl, Aldi, Carrefour, Dia, Consum, Supercor o El Corte Inglés.'
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
