@@ -222,41 +222,40 @@ class ZiaEngine:
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
             + '\nGENERA el menu SOLO para Lunes, Martes y Miércoles. Cada dia incluye Desayuno, Comida y Cena. '
             'Empieza la respuesta con *Lunes:* (luego *Martes:* y *Miércoles:*). '
-            'Sin frase final motivacional ni despedida; el texto termina al acabar la Cena del Miércoles.'
+            'Sin frase final; el texto termina al acabar la Cena del Miércoles.'
         )
         prompt2 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
             + '\nGENERA el menu SOLO para Jueves, Viernes y Sábado. Cada dia incluye Desayuno, Comida y Cena. '
             'Sin frase introductoria al principio: empieza directamente con *Jueves:* (luego *Viernes:* y *Sábado:*). '
-            'Sin frase final motivacional. Termina en la Cena del Sábado; no anadas nada despues.'
+            'Termina en la Cena del Sábado; no anadas nada despues.'
         )
         prompt3 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
-            + '\nGENERA SOLO el Domingo con Desayuno, Comida y Cena. '
-            'Sin frase introductoria al principio. Sin lista de la compra ni precios en esta parte. '
+            + '\nGENERA SOLO el Domingo completo con Desayuno, Comida y Cena. '
+            'Sin frase introductoria al principio. Sin lista de la compra ni precios. '
             'Termina al acabar la Cena del Domingo; no anadas nada despues.'
         )
         prompt4 = (
             'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
-            + '\nGENERA SOLO la LISTA DE LA COMPRA completa para los 7 dias (Lunes a Domingo) '
-            'con cantidades y precios orientativos como si se compraran en ' + supermercado + ', '
-            'y el total estimado. Sin frase introductoria. Sin repetir el menu.'
+            + '\nGENERA SOLO la LISTA DE LA COMPRA completa para los 7 dias (Lunes a Domingo), '
+            'organizada por categorías, con cantidades y precios orientativos para '
+            + data.get('supermercado', 'Mercadona')
+            + ', y el total estimado. Sin frase introductoria. Sin repetir el menu.'
         )
 
-        suffix2 = (
-            '\n---\n'
-            '¿Listo para el Domingo y la lista de la compra? Responde *si* para continuar'
-        )
+        suffix2 = '\n---\nResponde *si* para ver el Domingo y tu lista de la compra 🛒'
         suffix3 = (
-            '\n---\n'
-            '🛒 Ahora te preparo tu lista de la compra para ' + supermercado
-            + ' con todo lo que necesitas para la semana. Dame un momento...'
+            '\n---\nAhora preparo tu lista de la compra para '
+            + data.get('supermercado', 'Mercadona')
+            + '. Dame un momento... 🛒'
         )
         suffix4 = (
-            '\n---\n'
-            '¿Confirmamos la compra en ' + supermercado + ' o prefieres comparar precios?\n\n'
-            '1️⃣ Confirmar compra en ' + supermercado + '\n'
-            '2️⃣ Comparar precios con otros supermercados'
+            '\n---\n¿Confirmamos la compra en '
+            + data.get('supermercado', 'Mercadona')
+            + ' o prefieres comparar precios?\n\n1️⃣ Confirmar compra en '
+            + data.get('supermercado', 'Mercadona')
+            + '\n2️⃣ Comparar precios con otros supermercados'
         )
 
         def _call(prompt, max_tok):
@@ -275,14 +274,12 @@ class ZiaEngine:
             except Exception as e:
                 return 'Error generando parte del plan: ' + str(e)[:60]
 
-        partes = [
-            _call(prompt1, 650),
-            _call(prompt2, 650).rstrip() + suffix2,
-            _call(prompt3, 450).rstrip() + suffix3,
-            _call(prompt4, 1000).rstrip() + suffix4,
-        ]
+        parte1 = _call(prompt1, 650)
+        parte2 = _call(prompt2, 650).rstrip() + suffix2
+        parte3 = _call(prompt3, 450).rstrip() + suffix3
+        parte4 = _call(prompt4, 1000).rstrip() + suffix4
         intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
-        return [intro] + partes
+        return [intro] + [parte1, parte2, parte3, parte4]
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
