@@ -77,9 +77,47 @@ class ZiaEngine:
     def get_welcome_message(self):
         return self.config['bot']['welcome_message']
 
+    def _retail_text_and_image_url(self, message):
+        if isinstance(message, str):
+            return message.strip(), None
+        if not isinstance(message, dict):
+            return str(message).strip(), None
+        raw_text = (
+            message.get('text')
+            or message.get('body')
+            or message.get('caption')
+            or ''
+        )
+        text = raw_text.strip() if isinstance(raw_text, str) else ''
+        url = None
+        for key in ('image_url', 'media_url', 'imageUrl', 'mediaUrl', 'MediaUrl0'):
+            v = message.get(key)
+            if isinstance(v, str) and v.strip():
+                url = v.strip()
+                break
+            if isinstance(v, dict) and v.get('url'):
+                uu = str(v['url']).strip()
+                if uu:
+                    url = uu
+                    break
+        if not url:
+            im = message.get('image')
+            if isinstance(im, str) and (
+                im.startswith('http://') or im.startswith('https://') or im.startswith('data:')
+            ):
+                url = im.strip()
+            elif isinstance(im, dict) and im.get('url'):
+                uu = str(im['url']).strip()
+                if uu:
+                    url = uu
+        return text, url
+
     def process_message(self, user_id, message, plan_type='pro'):
         u = self._get_user(user_id)
-        m = message.strip()
+        if isinstance(message, dict):
+            m, _ = self._retail_text_and_image_url(message)
+        else:
+            m = (message or '').strip()
         company = self.config['branding']['company_name']
         nombre = u['data'].get('nombre', '')
         nombre_str = ', ' + nombre if nombre else ''
@@ -188,7 +226,26 @@ class ZiaEngine:
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! '
                 )
-            return self._gpt_libre(m, u)
+            if m.strip() == '4' or 'nevera' in ml or 'foto' in ml:
+                u['state'] = 'esperando_foto_nevera'
+                return (
+                    'Perfecto! Enviame una foto de tu nevera o despensa y te propongo 3 recetas rapidas con lo que tienes 📸'
+                )
+            if m.strip() == '5' or any(
+                k in ml for k in ('keto', 'vegana', 'mediterranea', 'ayuno', 'vegetariana')
+            ):
+                u['state'] = 'eligiendo_dieta'
+                return (
+                    'Que tipo de dieta quieres?\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterranea\n'
+                    '4️⃣ Ayuno 16:8\n5️⃣ Vegetariana'
+                )
+            if m.strip() == '6' or any(k in ml for k in ('deporte', 'gym', 'musculo')):
+                u['state'] = 'modo_deporte'
+                return (
+                    'Que deporte practicas y cuantos dias a la semana? Indica tambien tu objetivo: '
+                    'ganar musculo, perder grasa o mejorar rendimiento 💪'
+                )
+            return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'confirmando_compra':
             SUPER_URLS = {
                 'mercadona': 'https://tienda.mercadona.es',
@@ -243,7 +300,7 @@ class ZiaEngine:
                 u['state'] = 'eligiendo_super'
                 return '\n'.join(lineas)
             else:
-                return self._gpt_libre(m, u)
+                return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'eligiendo_super':
             SUPER_URLS = {
                 'mercadona': 'https://tienda.mercadona.es',
@@ -274,6 +331,116 @@ class ZiaEngine:
                 )
             else:
                 return 'Escribe: Mercadona, Lidl, Aldi, Carrefour, Dia, Consum, Supercor o El Corte Inglés.'
+        elif s == 'esperando_foto_nevera':
+            text, image_url = self._retail_text_and_image_url(message)
+            if image_url:
+                data = u.get('data', {})
+                restricciones = data.get('restricciones', 'Ninguna')
+                try:
+                    r = self.openai.chat.completions.create(
+                        model='gpt-4o',
+                        messages=[
+                            {
+                                'role': 'user',
+                                'content': [
+                                    {
+                                        'type': 'text',
+                                        'text': (
+                                            'Eres ZIA nutricionista. Analiza esta nevera y propón 3 recetas rapidas '
+                                            'en menos de 20 minutos. Restricciones: '
+                                            + restricciones
+                                            + '. Responde en español con emojis. Al final indica 2-3 ingredientes '
+                                            'que faltan con precio orientativo en euros.'
+                                        ),
+                                    },
+                                    {'type': 'image_url', 'image_url': {'url': image_url}},
+                                ],
+                            }
+                        ],
+                        max_tokens=700,
+                        timeout=45,
+                    )
+                    u['state'] = 'plan_listo'
+                    return r.choices[0].message.content
+                except Exception:
+                    return 'No pude analizar la foto. Intentalo de nuevo 📸'
+            else:
+                return 'No he recibido ninguna foto. Enviame una imagen de tu nevera 📸'
+        elif s == 'eligiendo_dieta':
+            dietas = {'1': 'keto', '2': 'vegana', '3': 'mediterranea', '4': 'ayuno 16:8', '5': 'vegetariana'}
+            dieta = dietas.get(m.strip(), m.strip().lower())
+            u['data']['dieta_especial'] = dieta
+            u['state'] = 'plan_listo'
+            data = u['data']
+            company = self.config['branding']['company_name']
+            prompt = (
+                'Eres ZIA nutricionista de '
+                + company
+                + '. Genera un plan semanal de dieta '
+                + dieta
+                + ' completo de Lunes a Domingo con Desayuno, Comida y Cena. Perfil: '
+                + data.get('nombre', '')
+                + ', objetivo: '
+                + data.get('objetivo', '')
+                + ', restricciones: '
+                + data.get('restricciones', 'Ninguna')
+                + '. Usa emojis. Maximo 400 palabras.'
+            )
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                    messages=[
+                        {
+                            'role': 'system',
+                            'content': 'Eres ZIA nutricionista. Responde en español con emojis.',
+                        },
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=800,
+                    temperature=0.7,
+                    timeout=30,
+                )
+                return r.choices[0].message.content
+            except Exception as e:
+                return 'Error generando plan de dieta: ' + str(e)[:50]
+        elif s == 'modo_deporte':
+            u['data']['info_deporte'] = m.strip()
+            u['state'] = 'plan_listo'
+            data = u['data']
+            company = self.config['branding']['company_name']
+            prompt = (
+                'Eres ZIA nutricionista deportiva de '
+                + company
+                + '. El usuario practica: '
+                + m.strip()
+                + '. Genera un plan de nutricion deportiva semanal con comidas pre y post entreno, '
+                'macros diarios (proteinas, carbohidratos, grasas, calorias). Perfil: '
+                + data.get('nombre', '')
+                + ', peso: '
+                + data.get('peso', '70')
+                + 'kg, objetivo: '
+                + data.get('objetivo', '')
+                + ', restricciones: '
+                + data.get('restricciones', 'Ninguna')
+                + '. Usa emojis. Maximo 400 palabras.'
+            )
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                    messages=[
+                        {
+                            'role': 'system',
+                            'content': 'Eres ZIA nutricionista deportiva. Responde en español con emojis.',
+                        },
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=800,
+                    temperature=0.7,
+                    timeout=30,
+                )
+                return r.choices[0].message.content
+            except Exception as e:
+                return 'Error generando plan deportivo: ' + str(e)[:50]
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
@@ -393,11 +560,17 @@ class ZiaEngine:
             + '. Dame un momento... 🛒'
         )
         suffix4 = (
-            '\n---\n¿Confirmamos la compra en '
+            '\n---\n¿Que quieres hacer, '
+            + data.get('nombre', '')
+            + '?\n\n'
+            '1️⃣ Confirmar compra en '
             + super_nombre
-            + ' o prefieres comparar precios?\n\n1️⃣ Confirmar compra en '
-            + super_nombre
-            + '\n2️⃣ Comparar precios con otros supermercados'
+            + '\n'
+            '2️⃣ Comparar precios con otros supermercados\n'
+            '3️⃣ Cambiar algo del menu\n'
+            '4️⃣ Foto de mi nevera — recetas con lo que tengo\n'
+            '5️⃣ Dieta especial (keto, vegana, mediterranea...)\n'
+            '6️⃣ Plan de nutricion deportiva'
         )
 
         def _call(prompt, max_tok):
@@ -417,14 +590,11 @@ class ZiaEngine:
                 return 'Error generando parte del plan: ' + str(e)[:60]
 
         partes = []
-        for prompt, max_tok, suffix in (
-            (prompt1, 650, ''),
-            (prompt2, 650, suffix2),
-            (prompt3, 450, suffix3),
-            (prompt4, 1000, suffix4),
-        ):
-            cuerpo = _call(prompt, max_tok).rstrip()
-            partes.append(cuerpo + suffix)
+        # Orden fijo: prompt1 Lun–Mié, prompt2 Jue–Sáb, prompt3 Domingo, prompt4 lista compra
+        partes.append(_call(prompt1, 650).rstrip())
+        partes.append(_call(prompt2, 650).rstrip() + suffix2)
+        partes.append(_call(prompt3, 450).rstrip() + suffix3)
+        partes.append(_call(prompt4, 1000).rstrip() + suffix4)
         intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
         return [intro] + partes
 
