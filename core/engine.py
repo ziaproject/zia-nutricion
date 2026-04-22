@@ -617,7 +617,6 @@ class ZiaEngine:
             + ', y el total estimado. Sin frase introductoria. Sin repetir el menu.'
         )
 
-        suffix2 = '\n---\nResponde *si* para ver el Domingo y tu lista de la compra 🛒'
         suffix3 = (
             '\n---\nAhora preparo tu lista de la compra para '
             + super_nombre
@@ -646,11 +645,14 @@ class ZiaEngine:
                 return 'Error generando parte del plan: ' + str(e)[:60]
 
         partes = []
-        # Orden fijo: prompt1 Lun–Mié, prompt2 Jue–Sáb, prompt3 Domingo, prompt4 lista compra
-        partes.append(_call(prompt1, 650).rstrip())
-        partes.append(_call(prompt2, 650).rstrip() + suffix2)
-        partes.append(_call(prompt3, 450).rstrip() + suffix3)
-        partes.append(_call(prompt4, 1000).rstrip() + suffix4)
+        for prompt, max_tok, suffix in (
+            (prompt1, 650, ''),
+            (prompt2, 650, ''),
+            (prompt3, 450, suffix3),
+            (prompt4, 1000, suffix4),
+        ):
+            cuerpo = _call(prompt, max_tok).rstrip()
+            partes.append(cuerpo + suffix)
         intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
         return [intro] + partes
 
