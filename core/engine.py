@@ -261,7 +261,7 @@ class ZiaEngine:
             super_nombre = u['data'].get('supermercado', 'Mercadona')
             nombre = u['data'].get('nombre', '')
             ml = m.strip().lower()
-            if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale']:
+            if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
                 sk = str(super_nombre).strip().lower().replace('í', 'i').replace('é', 'e')
                 url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
                 u['state'] = 'menu_principal'
