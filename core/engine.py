@@ -106,7 +106,7 @@ class ZiaEngine:
             elif any(w in ml for w in ['3','familia','familiar','mas','tres']): u['data']['personas'] = 'familia (3 o mas personas)'
             else: u['data']['personas'] = '1 persona'
             u['state'] = 'objetivo'
-            return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder grasa\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
+            return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
         elif s == 'objetivo':
             u['data']['objetivo'] = m
             u['state'] = 'cocina'
@@ -118,14 +118,20 @@ class ZiaEngine:
         elif s == 'restricciones':
             u['data']['restricciones'] = m
             u['state'] = 'presupuesto'
-            return 'Ultimo paso' + nombre_str + '! 💰\n\nCuanto quereis gastar esta semana?\n\n  💚 30-50 euros\n  💛 50-80 euros\n  🧡 80-120 euros\n  💜 Mas de 120 euros'
+            return ('Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
         elif s == 'presupuesto':
-            u['data']['presupuesto'] = m
+            nums = re.findall(r'\d+', m)
+            u['data']['presupuesto'] = nums[0] if nums else '65'
+            u['state'] = 'supermercado'
+            return 'En que supermercado compras habitualmente?\n\n_ej: Mercadona_'
+        elif s == 'supermercado':
+            u['data']['supermercado'] = m.strip() if m.strip() else 'Mercadona'
             u['state'] = 'plan_listo'
-            plan_texto = self._generar_plan(u['data'])
-            u['plan'] = plan_texto
+            partes = self._generar_plan_partes(u['data'])
+            u['plan'] = '\n\n'.join(partes)
             u['plan_count'] = u.get('plan_count', 0) + 1
-            return 'Analizando tu perfil... 🔍\nSeleccionando productos de ' + company + '... 🌿\nCreando tu menu... ✨\n\n' + plan_texto + '\n\n---\nQue quieres hacer' + nombre_str + '?\n\n  🛒 Anadir al carrito\n  ✏️ Cambiar algo\n  ➕ Anadir o quitar productos\n  💾 Guardar lista\n\n_O escribeme cualquier pregunta_ 💬'
+            intro = 'Analizando tu perfil…' + nombre_str
+            return [intro] + partes
         elif s == 'plan_listo':
             return self._gpt_libre(m, u)
         else:
@@ -179,6 +185,9 @@ class ZiaEngine:
             return r.choices[0].message.content
         except Exception as e:
             return 'Error generando plan: ' + str(e)[:60] + '. Escribe *Hola* para reintentar.'
+
+    def _generar_plan_partes(self, data):
+        return [self._generar_plan(data)]
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
