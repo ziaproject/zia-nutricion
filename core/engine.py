@@ -413,48 +413,51 @@ class ZiaEngine:
             else:
                 return 'Escribe: Mercadona, Lidl, Aldi, Carrefour, Dia, Consum, Supercor o El Corte Inglés.'
         elif s == 'esperando_foto_nevera':
+            import json as _json
+            debug_msg = 'DEBUG message: ' + _json.dumps(
+                message if isinstance(message, dict) else {'text': str(message)}
+            )[:200]
             text, image_url = self._retail_text_and_image_url(message)
             if not image_url and isinstance(message, dict):
                 for key in ('MediaUrl0', 'media_url', 'imageUrl', 'image_url'):
                     if message.get(key):
                         image_url = message.get(key)
                         break
-            if image_url:
-                data = u.get('data', {})
-                restricciones = data.get('restricciones', 'Ninguna')
-                nombre = data.get('nombre', '')
-                try:
-                    r = self.openai.chat.completions.create(
-                        model='gpt-4o',
-                        messages=[
-                            {
-                                'role': 'user',
-                                'content': [
-                                    {
-                                        'type': 'text',
-                                        'text': (
-                                            'Eres ZIA nutricionista. Analiza esta nevera y propón 3 recetas rapidas '
-                                            'en menos de 20 minutos para '
-                                            + nombre
-                                            + '. Restricciones: '
-                                            + restricciones
-                                            + '. Responde en español con emojis. Al final indica 2-3 ingredientes '
-                                            'que faltan con precio orientativo en euros.'
-                                        ),
-                                    },
-                                    {'type': 'image_url', 'image_url': {'url': image_url}},
-                                ],
-                            }
-                        ],
-                        max_tokens=700,
-                        timeout=45,
-                    )
-                    u['state'] = 'menu_principal'
-                    return r.choices[0].message.content
-                except Exception as e:
-                    return 'No pude analizar la foto: ' + str(e)[:60]
-            else:
-                return 'No he recibido la foto. Enviamela directamente como imagen 📸'
+            if not image_url:
+                return debug_msg
+            data = u.get('data', {})
+            restricciones = data.get('restricciones', 'Ninguna')
+            nombre = data.get('nombre', '')
+            try:
+                r = self.openai.chat.completions.create(
+                    model='gpt-4o',
+                    messages=[
+                        {
+                            'role': 'user',
+                            'content': [
+                                {
+                                    'type': 'text',
+                                    'text': (
+                                        'Eres ZIA nutricionista. Analiza esta nevera y propón 3 recetas rapidas '
+                                        'en menos de 20 minutos para '
+                                        + nombre
+                                        + '. Restricciones: '
+                                        + restricciones
+                                        + '. Responde en español con emojis. Al final indica 2-3 ingredientes '
+                                        'que faltan con precio orientativo en euros.'
+                                    ),
+                                },
+                                {'type': 'image_url', 'image_url': {'url': image_url}},
+                            ],
+                        }
+                    ],
+                    max_tokens=700,
+                    timeout=45,
+                )
+                u['state'] = 'menu_principal'
+                return r.choices[0].message.content
+            except Exception as e:
+                return 'No pude analizar la foto: ' + str(e)[:60]
         elif s == 'eligiendo_dieta':
             dietas = {'1': 'keto', '2': 'vegana', '3': 'mediterranea', '4': 'ayuno 16:8', '5': 'vegetariana'}
             dieta = dietas.get(m.strip(), m.strip().lower())
