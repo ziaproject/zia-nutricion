@@ -70,7 +70,11 @@ def webhook():
 
         plan_type = get_user_plan(sender)
 
-        message_arg = incoming_msg
+        message_arg = {
+            'text': request.form.get('Body', ''),
+            'MediaUrl0': request.form.get('MediaUrl0', ''),
+            'MediaContentType0': request.form.get('MediaContentType0', ''),
+        }
         meta = engine.config.get('_meta') or {}
         if (
             media_url
