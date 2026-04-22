@@ -635,30 +635,33 @@ class ZiaEngine:
         system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
 
         prompt1 = (
-            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
-            + '\nGENERA el menu SOLO para Lunes, Martes y Miércoles. Cada dia incluye Desayuno, Comida y Cena. '
-            'Empieza la respuesta con *Lunes:* (luego *Martes:* y *Miércoles:*). '
-            'Sin frase final; el texto termina al acabar la Cena del Miércoles.'
+            'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Lunes, Martes y Miercoles. '
+            'PROHIBIDO incluir Jueves, Viernes, Sabado o Domingo. '
+            'Empieza con *Lunes:* Cada dia: Desayuno, Comida y Cena. '
+            'Termina exactamente en la Cena del Miercoles. Sin texto despues. '
+            + perfil
         )
         prompt2 = (
-            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
-            + '\nGENERA el menu SOLO para Jueves, Viernes y Sábado. Cada dia incluye Desayuno, Comida y Cena. '
-            'Sin frase introductoria al principio: empieza directamente con *Jueves:* (luego *Viernes:* y *Sábado:*). '
-            'Termina en la Cena del Sábado; no anadas nada despues.'
+            'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Jueves, Viernes y Sabado. '
+            'PROHIBIDO incluir Lunes, Martes, Miercoles o Domingo. '
+            'Empieza directamente con *Jueves:* Cada dia: Desayuno, Comida y Cena. '
+            'Termina exactamente en la Cena del Sabado. Sin texto antes ni despues. '
+            + perfil
         )
         prompt3 = (
-            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
-            + '\nGENERA SOLO el Domingo completo con Desayuno, Comida y Cena. '
-            + 'Tienda de referencia del usuario: ' + super_nombre + '. '
-            + 'Sin frase introductoria al principio. Sin lista de la compra ni precios. '
-            + 'Termina al acabar la Cena del Domingo; no anadas nada despues.'
+            'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE el Domingo. '
+            'PROHIBIDO incluir cualquier otro dia de la semana. '
+            'PROHIBIDO incluir lista de la compra o precios. '
+            'Empieza directamente con *Domingo:* con Desayuno, Comida y Cena. '
+            'Termina exactamente en la Cena del Domingo. Sin texto antes ni despues. '
+            + perfil
         )
         prompt4 = (
-            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
-            + '\nGENERA SOLO la LISTA DE LA COMPRA completa para los 7 dias (Lunes a Domingo), '
-            + 'organizada por categorías, con cantidades y precios orientativos para '
-            + super_nombre
-            + ', y el total estimado. Sin frase introductoria. Sin repetir el menu.'
+            'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE la LISTA DE LA COMPRA '
+            'para los 7 dias (Lunes a Domingo). PROHIBIDO incluir menus o dias de la semana. '
+            'Organiza por categorias con cantidades y precios para ' + super_nombre + '. '
+            'Termina con TOTAL ESTIMADO. Sin texto antes ni despues. '
+            + perfil
         )
 
         suffix3 = (
