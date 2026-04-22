@@ -130,7 +130,7 @@ class ZiaEngine:
             partes = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(partes)
             u['plan_count'] = u.get('plan_count', 0) + 1
-            intro = 'Analizando tu perfil…' + nombre_str
+            intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
             return [intro] + partes
         elif s == 'plan_listo':
             return self._gpt_libre(m, u)
@@ -187,7 +187,76 @@ class ZiaEngine:
             return 'Error generando plan: ' + str(e)[:60] + '. Escribe *Hola* para reintentar.'
 
     def _generar_plan_partes(self, data):
-        return [self._generar_plan(data)]
+        company = self.config['branding']['company_name']
+        cal = calorias(data)
+        personas = data.get('personas', '1 persona')
+        supermercado = data.get('supermercado', 'Mercadona')
+        cats = self.config.get('catalog', {}).get('categories', [])
+        catalogo = ''
+        if cats:
+            catalogo = 'PRODUCTOS DE ' + company.upper() + ':\n'
+            for cat in cats[:3]:
+                catalogo += '\n' + cat['name'] + ':\n'
+                for p in cat.get('products', [])[:3]:
+                    line = '  - ' + p['name']
+                    if p.get('price'):
+                        line += ' (' + p['price'] + ')'
+                    if p.get('bestseller'):
+                        line += ' ESTRELLA'
+                    catalogo += line + '\n'
+
+        perfil = (
+            'PERFIL: ' + data.get('nombre', '') + ', ' + data.get('genero', '') + ', '
+            + data.get('edad', '') + ' anos, ' + data.get('peso', '') + 'kg, '
+            + data.get('altura', '') + 'cm, ' + str(cal) + ' kcal/dia\n'
+            'Plan para: ' + personas + '\n'
+            'Objetivo: ' + data.get('objetivo', '') + '\n'
+            'Restricciones: ' + data.get('restricciones', 'Ninguna') + '\n'
+            'Presupuesto: ' + data.get('presupuesto', '') + ' euros/semana\n\n'
+            + catalogo
+        )
+
+        model = self.config.get('ai', {}).get('model', 'gpt-4o-mini')
+        system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
+
+        prompt1 = (
+            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
+            + '\nGENERA el menu SOLO para Lunes, Martes y Miércoles. Cada dia incluye Desayuno, Comida y Cena. '
+            'Empieza la respuesta con *Lunes:* (luego *Martes:* y *Miércoles:*). Tono motivador.'
+        )
+        prompt2 = (
+            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
+            + '\nGENERA el menu SOLO para Jueves, Viernes y Sábado. Cada dia incluye Desayuno, Comida y Cena. '
+            'Empieza la respuesta con *Jueves:* (luego *Viernes:* y *Sábado:*). Tono motivador.'
+        )
+        prompt3 = (
+            'Eres ZIA nutricionista de ' + company + '.\n\n' + perfil
+            + '\nGENERA SOLO el Domingo con Desayuno, Comida y Cena. '
+            'Despues incluye la LISTA DE LA COMPRA en una seccion separada con todos los ingredientes '
+            'necesarios para los 7 dias del menu, con cantidades y precios orientativos estimados '
+            'como si se compraran en ' + supermercado + ', y el total estimado. '
+            'Al final pregunta: ¿Confirmas la compra en ' + supermercado
+            + ' o quieres comparar precios con otros supermercados? '
+            'Con opciones: 1️⃣ Confirmar  2️⃣ Comparar precios'
+        )
+
+        partes = []
+        for prompt, max_tok in ((prompt1, 650), (prompt2, 650), (prompt3, 1000)):
+            try:
+                r = self.openai.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {'role': 'system', 'content': system},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=max_tok,
+                    temperature=0.7,
+                    timeout=25,
+                )
+                partes.append(r.choices[0].message.content)
+            except Exception as e:
+                partes.append('Error generando parte del plan: ' + str(e)[:60])
+        return partes
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
