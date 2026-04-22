@@ -433,6 +433,50 @@ class ZiaEngine:
         checkout = self.config.get('integrations',{}).get('cart',{}).get('checkout_url', self.config['branding']['website'])
         data = u['data']
         plan = u.get('plan','')[:200] if u.get('plan') else ''
+        if isinstance(message, dict):
+            text = (message.get('text') or '').strip()
+            image_url = message.get('image_url')
+        else:
+            text = (message or '').strip() if isinstance(message, str) else str(message).strip()
+            image_url = None
+        tl = text.lower()
+        nevera_foto = (image_url is not None) or any(
+            w in tl for w in ('nevera', 'frigo', 'tengo en casa', 'foto')
+        )
+        if nevera_foto:
+            system_nevera = (
+                'Eres ZIA nutricionista. Analiza esta nevera/despensa y propón 3 recetas rápidas en menos de 20 minutos con lo que ves. '
+                'Responde en español con emojis. Incluye ingredientes que faltan con precio orientativo en euros.'
+            )
+            system_nevera += (
+                ' Perfil: ' + data.get('nombre', '')
+                + ', objetivo ' + data.get('objetivo', '')
+                + ', restricciones ' + data.get('restricciones', 'Ninguna') + '.'
+            )
+            user_parts = [{'type': 'text', 'text': text or 'Analiza esta imagen de mi nevera o despensa.'}]
+            if image_url is not None:
+                user_parts.append({'type': 'image_url', 'image_url': {'url': image_url}})
+            history = u.get('history', [])
+            history.append({'role': 'user', 'content': text or ('[foto nevera]' if image_url else '[nevera/despensa]')})
+            if len(history) > 6:
+                history = history[-6:]
+            try:
+                r = self.openai.chat.completions.create(
+                    model='gpt-4o',
+                    messages=[
+                        {'role': 'system', 'content': system_nevera},
+                        {'role': 'user', 'content': user_parts},
+                    ],
+                    max_tokens=600,
+                    temperature=0.7,
+                    timeout=45,
+                )
+                reply = r.choices[0].message.content
+                history.append({'role': 'assistant', 'content': reply})
+                u['history'] = history
+                return reply
+            except Exception as e:
+                return 'Error: ' + str(e)[:50]
         system = ('Eres ZIA de ' + company + '. Perfil: ' + data.get('nombre','')
                   + ', objetivo: ' + data.get('objetivo','')
                   + ', restricciones: ' + data.get('restricciones','Ninguna')
@@ -440,7 +484,7 @@ class ZiaEngine:
                   + '. Carrito: ' + checkout
                   + '. Ayuda con modificaciones y preguntas. Usa emojis. MAXIMO 100 palabras. Espanol.')
         history = u.get('history', [])
-        history.append({'role':'user','content':message})
+        history.append({'role': 'user', 'content': text})
         if len(history) > 6: history = history[-6:]
         try:
             r = self.openai.chat.completions.create(
