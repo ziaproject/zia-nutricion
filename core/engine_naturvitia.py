@@ -365,7 +365,7 @@ class ZiaNaturvitiaEngine:
         )
         return r.choices[0].message.content
 
-    def _gpt_photo_analysis(self, data_url, caption, d):
+    def _analizar_dieta_foto(self, data_url, caption, d):
         nombre = d.get('nombre', '')
         user_txt = (
             'Analiza la imagen (comida, nevera o etiqueta). '
@@ -428,6 +428,13 @@ class ZiaNaturvitiaEngine:
         ml = m.lower()
         d = u['data']
         s = u['state']
+
+        if image_url is not None and image_url:
+            try:
+                data_url = self._media_to_data_url(image_url)
+                return self._analizar_dieta_foto(data_url, m, d)
+            except Exception as e:
+                return 'No pude leer la imagen: ' + str(e)[:100]
 
         if is_reset(m):
             self.reset_user(user_id)
@@ -573,13 +580,6 @@ class ZiaNaturvitiaEngine:
                 return 'Error al sugerir comida: ' + str(e)[:80]
 
         if s == 'nv_activo':
-            if image_url:
-                try:
-                    data_url = self._media_to_data_url(image_url)
-                    return self._gpt_photo_analysis(data_url, m, d)
-                except Exception as e:
-                    return 'No pude leer la imagen: ' + str(e)[:100]
-
             if wants_food_advice(ml):
                 u['state'] = 'nv_esperando_entreno'
                 return 'Antes de recomendarte qué comer: ¿has entrenado hoy? (sí / no)'
