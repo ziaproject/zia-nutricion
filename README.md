@@ -271,3 +271,4 @@ PORT=5000
 - [ ] Panel de administración web para gestionar clientes
 - [ ] Subdominio automático por cliente (cliente.zianutricion.com)
 - [ ] Multi-idioma (PT, FR, IT)
+ 
