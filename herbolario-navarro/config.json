@@ -166,7 +166,7 @@
 
   "payments": {
     "model": "B2B_LICENSE",
-    "billing_contact": "info@whatsdrop.ai",
+    "billing_contact": "hola@zianutricion.com",
     "notes": "Facturación mensual por licencia. Sin restricciones de plan para usuarios finales."
   }
 }

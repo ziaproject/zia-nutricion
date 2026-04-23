@@ -56,7 +56,10 @@ def is_reset(m):
 
 
 def _activity_factor(text):
-    ml = (text or '').lower()
+    raw = (text or '').strip()
+    if len(raw) == 1 and raw in '12345':
+        return {'1': 1.2, '2': 1.375, '3': 1.55, '4': 1.725, '5': 1.9}[raw]
+    ml = raw.lower()
     if any(w in ml for w in ('muy activo', 'atleta', 'doble', '2 sesiones')):
         return 1.9
     if any(w in ml for w in ('activo', 'intenso', '6 días', '6 dias')):
@@ -512,15 +515,23 @@ class ZiaNaturvitiaEngine:
             d['objetivo'] = m.strip()[:500]
             u['state'] = 'nv_onb_actividad'
             return (
-                '¿Nivel de actividad?\n'
-                '*sedentario* / *ligero* / *moderado* / *activo* / *muy activo*\n'
-                '(sirve para el factor sobre tu metabolismo basal)'
+                '¿Cuál es tu nivel de actividad? Elige el que mejor te encaje (responde con el nombre o el número):\n\n'
+                '1️⃣ *Sedentario*: 0 días de entreno, menos de 5.000 pasos/día\n'
+                '2️⃣ *Ligero*: 1–2 días de entreno, 5.000–7.500 pasos/día\n'
+                '3️⃣ *Moderado*: 3–4 días de entreno, 7.500–10.000 pasos/día\n'
+                '4️⃣ *Activo*: 5–6 días de entreno, 10.000–12.500 pasos/día\n'
+                '5️⃣ *Muy activo*: entreno diario o dobles sesiones, más de 12.500 pasos/día\n\n'
+                '_Sirve para el factor sobre tu metabolismo basal (Harris-Benedict)._'
             )
 
         if s == 'nv_onb_actividad':
-            if len(m) < 3:
-                return 'Indica uno: sedentario, ligero, moderado, activo o muy activo.'
-            d['actividad'] = m.strip()[:200]
+            ms = m.strip()
+            if len(ms) < 3 and ms not in ('1', '2', '3', '4', '5'):
+                return (
+                    'Indica uno de los niveles (ej: *moderado*) o el número del 1 al 5, según los ejemplos de días '
+                    'de entreno y pasos diarios que te envié arriba.'
+                )
+            d['actividad'] = ms[:200]
             u['state'] = 'nv_onb_restricciones'
             return '¿Alergias o restricciones alimentarias? (si no hay, escribe *ninguna*)'
 
