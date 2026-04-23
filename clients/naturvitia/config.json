@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "client_id": "naturvitia",
+    "type": "B2B_nutricionista",
+    "version": "1.0"
+  },
+  "branding": {
+    "company_name": "Naturvitia",
+    "bot_display_name": "ZIA"
+  },
+  "bot": {
+    "name": "ZIA",
+    "personality": "Eres ZIA, la nutricionista con IA de Naturvitia.",
+    "tone": "cercano, motivador y profesional",
+    "welcome_message": "Hola! Soy ZIA, tu nutricionista con IA de Naturvitia. Estoy aqui para acompanarte cada dia. Empezamos?"
+  },
+  "ai": {
+    "model": "gpt-4o-mini",
+    "max_tokens": 1500,
+    "temperature": 0.7,
+    "context_window": 20
+  },
+  "catalog": {
+    "meals": [],
+    "supplements": []
+  },
+  "plans": []
+}
