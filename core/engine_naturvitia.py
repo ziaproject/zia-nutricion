@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import re
+import time
 
 import requests
 from openai import OpenAI
@@ -31,6 +32,11 @@ def get_naturvitia_engine():
     if 'singleton' not in _cache_nv:
         _cache_nv['singleton'] = ZiaNaturvitiaEngine()
     return _cache_nv['singleton']
+
+
+def pause_between_plan_whatsapp_parts():
+    """Pausa entre partes del plan (generación y envío vía Twilio) para orden en WhatsApp."""
+    time.sleep(1)
 
 
 RESET_WORDS = [
@@ -315,8 +321,11 @@ class ZiaNaturvitiaEngine:
             'con cantidades orientativas en crudo/cocinado cuando aplique. '
             'No repitas lunes a sábado.'
         )
+        pause_between_plan_whatsapp_parts()
         msg2 = self._gpt_plan_chunk(p2)
+        pause_between_plan_whatsapp_parts()
         msg3 = self._gpt_plan_chunk(p3)
+        pause_between_plan_whatsapp_parts()
         msg4 = self._gpt_plan_chunk(p4)
         return [msg1, msg2, msg3, msg4]
 

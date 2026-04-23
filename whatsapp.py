@@ -225,9 +225,14 @@ def webhook():
                     eng = get_engine(client_id)
                 reply = eng.process_message(phone, msg_payload)
                 if isinstance(reply, list):
-                    for parte in reply:
+                    for i, parte in enumerate(reply):
+                        if i > 0 and client_id == 'naturvitia':
+                            from core.engine_naturvitia import pause_between_plan_whatsapp_parts
+
+                            pause_between_plan_whatsapp_parts()
+                        elif i > 0:
+                            time.sleep(1)
                         send(phone, parte)
-                        time.sleep(1)
                 else:
                     send(phone, reply)
             except Exception as e:

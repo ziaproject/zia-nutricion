@@ -43,8 +43,14 @@ TWILIO_WHATSAPP_FROM = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+1415523
 def send_extra_messages(to: str, messages: list):
     """Envía mensajes adicionales via Twilio API en un hilo separado."""
     try:
+        pause_fn = None
+        if CLIENT_ID == 'naturvitia':
+            from core.engine_naturvitia import pause_between_plan_whatsapp_parts as pause_fn
+
         twilio = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         for msg in messages:
+            if pause_fn:
+                pause_fn()
             twilio.messages.create(
                 body=msg,
                 from_=TWILIO_WHATSAPP_FROM,
