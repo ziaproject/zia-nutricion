@@ -15,8 +15,6 @@ import logging
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from core.engine import get_engine
-
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(message)s'
@@ -28,7 +26,12 @@ app = Flask(__name__)
 CLIENT_ID = os.environ.get('CLIENT_ID', 'zia-nutricion')
 logger.info(f"🚀 ZIA Platform iniciando para cliente: {CLIENT_ID}")
 
-engine = get_engine(CLIENT_ID)
+if CLIENT_ID == 'naturvitia':
+    from core.engine_naturvitia import get_naturvitia_engine as get_engine
+else:
+    from core.engine import get_engine
+
+engine = get_engine() if CLIENT_ID == 'naturvitia' else get_engine(CLIENT_ID)
 logger.info(f"✅ Engine cargado: {engine.config['branding']['company_name']}")
 
 # Cliente Twilio para enviar mensajes adicionales
@@ -76,10 +79,9 @@ def webhook():
             'MediaContentType0': request.form.get('MediaContentType0', ''),
         }
         meta = engine.config.get('_meta') or {}
-        if (
-            media_url
-            and isinstance(meta, dict)
-            and meta.get('type') == 'retail-asesor'
+        if media_url and (
+            (isinstance(meta, dict) and meta.get('type') == 'retail-asesor')
+            or CLIENT_ID == 'naturvitia'
         ):
             try:
                 r = requests.get(
@@ -156,7 +158,8 @@ def index():
 
 def get_user_plan(user_id: str) -> str:
     config = engine.config
-    if config['_meta']['type'] == 'B2B':
+    t = config.get('_meta', {}).get('type', '')
+    if t == 'B2B' or t == 'B2B_nutricionista':
         return 'pro'
     return 'free'
 

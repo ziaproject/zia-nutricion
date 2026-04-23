@@ -14,7 +14,12 @@ def get_engine(client_id=None):
     if client_id is None:
         client_id = os.environ.get('CLIENT_ID', 'zia-nutricion')
     if client_id not in _cache:
-        _cache[client_id] = ZiaEngine(client_id)
+        if client_id == 'naturvitia':
+            from core.engine_naturvitia import ZiaNaturvitiaEngine
+
+            _cache[client_id] = ZiaNaturvitiaEngine(load_client_config(client_id))
+        else:
+            _cache[client_id] = ZiaEngine(client_id)
     return _cache[client_id]
 
 RESET_WORDS = ['hola','inicio','reset','empezar','reiniciar','start','menu','nuevo']

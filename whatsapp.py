@@ -215,8 +215,14 @@ def webhook():
 
         def asesor_engine_async():
             try:
-                from core.engine import get_engine
-                eng = get_engine(client_id)
+                if client_id == 'naturvitia':
+                    from core.engine_naturvitia import get_naturvitia_engine
+
+                    eng = get_naturvitia_engine()
+                else:
+                    from core.engine import get_engine
+
+                    eng = get_engine(client_id)
                 reply = eng.process_message(phone, msg_payload)
                 if isinstance(reply, list):
                     for parte in reply:
