@@ -138,6 +138,13 @@ def parse_yes_no(ml):
 
 
 class ZiaNaturvitiaEngine:
+    @staticmethod
+    def _whatsapp_system_suffix():
+        return (
+            ' NUNCA uses markdown como ###, **, ##. Usa solo texto plano, '
+            'mayúsculas para títulos y emojis.'
+        )
+
     def __init__(self, config=None):
         self.config = config if config is not None else load_naturvitia_config()
         self.client_id = (self.config.get('_meta') or {}).get('client_id', 'naturvitia')
@@ -267,22 +274,25 @@ class ZiaNaturvitiaEngine:
             + ' Responde en español con emojis discretos. '
             'En cada alimento con cantidad indica si es CRUDO o COCINADO (ej. pollo 150 g crudo ≈ 110 g cocido). '
             'Alinea el día con el GET y macros del contexto. No repitas otros días de la semana fuera del bloque pedido.'
+            + self._whatsapp_system_suffix()
         )
 
-    def _gpt_plan_chunk(self, user_content):
+    def _gpt_plan_chunk(self, user_content, max_tokens=500):
         r = self.openai.chat.completions.create(
             model=self._model_chat(),
             messages=[
                 {'role': 'system', 'content': self._plan_system_content()},
                 {'role': 'user', 'content': user_content},
             ],
-            max_tokens=500,
+            max_tokens=max_tokens,
             temperature=float(self.config.get('ai', {}).get('temperature', 0.7)),
             timeout=20,
         )
         return r.choices[0].message.content
 
     def _weekly_plan_four_messages(self, d, energy, intro_first_line):
+        import time
+
         ctx = self._plan_profile_context(d, energy)
         msg1 = (
             intro_first_line
@@ -324,12 +334,12 @@ class ZiaNaturvitiaEngine:
             'con cantidades orientativas en crudo/cocinado cuando aplique. '
             'No repitas lunes a sábado.'
         )
-        pause_between_plan_whatsapp_parts()
+        time.sleep(1)
         msg2 = self._gpt_plan_chunk(p2)
-        pause_between_plan_whatsapp_parts()
+        time.sleep(1)
         msg3 = self._gpt_plan_chunk(p3)
-        pause_between_plan_whatsapp_parts()
-        msg4 = self._gpt_plan_chunk(p4)
+        time.sleep(1)
+        msg4 = self._gpt_plan_chunk(p4, max_tokens=1500)
         return [msg1, msg2, msg3, msg4]
 
     def _gpt_meal_after_training(self, u, entreno_si):
@@ -358,7 +368,10 @@ class ZiaNaturvitiaEngine:
             messages=[
                 {
                     'role': 'system',
-                    'content': 'Eres ZIA de Naturvitia. Nutrición práctica, español, crudo vs cocinado obligatorio.',
+                    'content': (
+                        'Eres ZIA de Naturvitia. Nutrición práctica, español, crudo vs cocinado obligatorio.'
+                        + self._whatsapp_system_suffix()
+                    ),
                 },
                 {'role': 'user', 'content': prompt},
             ],
@@ -402,6 +415,7 @@ class ZiaNaturvitiaEngine:
                     'content': (
                         'Cumples al pie de la letra el formato pedido. Sin parrafos introductorios, sin describir '
                         'lo que hay en la foto, sin resumen final ni menu. Solo las 3 recetas en el formato indicado.'
+                        + self._whatsapp_system_suffix()
                     ),
                 },
                 {
@@ -422,7 +436,10 @@ class ZiaNaturvitiaEngine:
         r = self.openai.chat.completions.create(
             model=self._model_chat(),
             messages=[
-                {'role': 'system', 'content': self.config['bot'].get('system_prompt', '')[:12000]},
+                {
+                    'role': 'system',
+                    'content': (self.config['bot'].get('system_prompt', '')[:12000] + self._whatsapp_system_suffix()),
+                },
                 {
                     'role': 'user',
                     'content': 'Consulta del usuario: '
