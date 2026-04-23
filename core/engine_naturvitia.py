@@ -254,9 +254,9 @@ class ZiaNaturvitiaEngine:
             + d.get('restricciones', 'ninguna')
             + '\n- Patologías declaradas: '
             + d.get('patologias', 'ninguna')
-            + '\n- Comidas al día: '
+            + '\n- Comidas al día (referencia onboarding): '
             + str(comidas)
-            + ' (organiza desayuno/comida/cena y colaciones si aplica).\n'
+            + '.\n'
             '- GET diario orientativo: '
             + str(energy['kcal_objetivo'])
             + ' kcal; macros diarios orientativos: P '
@@ -271,13 +271,30 @@ class ZiaNaturvitiaEngine:
     def _plan_system_content(self):
         return (
             (self.config['bot'].get('personality') or '')
-            + ' Responde en español con emojis discretos. '
+            + ' Responde en español. '
+            'Pon un emoji de comida acorde junto a cada plato o preparación (ej. 🥗 🍳 🐟). '
             'En cada alimento con cantidad indica si es CRUDO o COCINADO (ej. pollo 150 g crudo ≈ 110 g cocido). '
             'Alinea el día con el GET y macros del contexto. No repitas otros días de la semana fuera del bloque pedido.'
             + self._whatsapp_system_suffix()
         )
 
-    def _gpt_plan_chunk(self, user_content, max_tokens=500):
+    def _plan_comidas_diarias_rules(self, d):
+        try:
+            n = int(str(d.get('comidas_dia', '3')).strip())
+        except (TypeError, ValueError):
+            n = 3
+        if n >= 4:
+            return (
+                'ESTRUCTURA DE CADA DIA: solo DESAYUNO, COMIDA, una MERIENDA (una sola, entre comida y cena) y CENA. '
+                'Si el usuario indicó 4 o más comidas al día, esa merienda es obligatoria entre comida y cena. '
+                'PROHIBIDO en todos los casos: media mañana, colación, segunda merienda u otras tomas extra.\n'
+            )
+        return (
+            'ESTRUCTURA DE CADA DIA: solo DESAYUNO, COMIDA y CENA. '
+            'PROHIBIDO: media mañana, merienda, colación y cualquier toma que no sea esas tres.\n'
+        )
+
+    def _gpt_plan_chunk(self, user_content, max_tokens=1500):
         r = self.openai.chat.completions.create(
             model=self._model_chat(),
             messages=[
@@ -314,23 +331,31 @@ class ZiaNaturvitiaEngine:
             + ' g\n\n'
             'Te envío el plan en varios mensajes; en cada comida verás *crudo vs cocinado* cuando aplique.'
         )
+        comidas_rules = self._plan_comidas_diarias_rules(d)
         p2 = (
             ctx
-            + 'TAREA: Plan detallado solo para *Lunes, Martes y Miércoles*. '
-            'Para cada día: comidas según sus tomas diarias, con porciones y macros aproximados del día. '
+            + comidas_rules
+            + 'APERTURA: tu respuesta empieza en la PRIMERA linea con LUNES (nombre del dia en mayusculas), '
+            'sin saludo ni introduccion. Luego Martes y Miércoles en el mismo mensaje.\n'
+            + 'TAREA: Plan detallado solo para Lunes, Martes y Miércoles. '
+            'Cada dia: tomas permitidas arriba, con porciones y macros aproximados del dia. '
             'No incluyas jueves en adelante ni lista de la compra.'
         )
         p3 = (
             ctx
-            + 'TAREA: Plan detallado solo para *Jueves, Viernes y Sábado*. '
-            'Misma estructura que habrías usado para esos días; no repitas lun-mié. '
+            + comidas_rules
+            + 'APERTURA: primera linea exactamente JUEVES en mayusculas, sin saludo ni introduccion. '
+            'Luego Viernes y Sábado.\n'
+            + 'TAREA: Plan detallado solo para Jueves, Viernes y Sábado. Misma estructura de tomas; no repitas lun-mié. '
             'No incluyas domingo ni lista de la compra.'
         )
         p4 = (
             ctx
-            + 'TAREA: Plan detallado solo para *Domingo* (todas las comidas del día). '
-            'Después, *lista de la compra semanal* agrupada por categorías '
-            '(proteínas, lácteos/vegetales, fruta, cereales, grasas, otros) '
+            + comidas_rules
+            + 'APERTURA: primera linea exactamente DOMINGO en mayusculas, sin saludo ni introduccion.\n'
+            + 'TAREA: Plan detallado solo para Domingo (mismas tomas permitidas). '
+            'Despues, lista de la compra semanal agrupada por categorias '
+            '(proteinas, lacteos/verduras, fruta, cereales, grasas, otros) '
             'con cantidades orientativas en crudo/cocinado cuando aplique. '
             'No repitas lunes a sábado.'
         )
@@ -339,7 +364,7 @@ class ZiaNaturvitiaEngine:
         time.sleep(1)
         msg3 = self._gpt_plan_chunk(p3)
         time.sleep(1)
-        msg4 = self._gpt_plan_chunk(p4, max_tokens=1500)
+        msg4 = self._gpt_plan_chunk(p4)
         return [msg1, msg2, msg3, msg4]
 
     def _gpt_meal_after_training(self, u, entreno_si):
