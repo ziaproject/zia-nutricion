@@ -138,12 +138,11 @@ def parse_yes_no(ml):
 
 
 def parse_comidas_dia_value(m):
-    """Normaliza la respuesta de comidas/día a '2'..'6' (texto o número); por defecto '5'."""
+    """Normaliza la respuesta de comidas/día a '2'..'5' (texto o número); por defecto '5'. Máximo 5 comidas."""
     ms = (m or '').strip().lower()
     if not ms:
         return '5'
     for w, val in (
-        ('seis', '6'),
         ('cinco', '5'),
         ('cuatro', '4'),
         ('tres', '3'),
@@ -151,11 +150,15 @@ def parse_comidas_dia_value(m):
     ):
         if re.search(r'\b' + w + r'\b', ms):
             return val
+    if re.search(r'\bseis\b', ms):
+        return '5'
     nums = re.findall(r'\d+', ms)
     if nums:
         v = int(nums[0])
-        if 2 <= v <= 6:
+        if 2 <= v <= 5:
             return str(v)
+        if v > 5:
+            return '5'
     return '5'
 
 
@@ -322,7 +325,9 @@ class ZiaNaturvitiaEngine:
             + ' Responde en español. '
             'Pon un emoji de comida acorde junto a cada plato o preparación (ej. 🥗 🍳 🐟). '
             'En cada alimento con cantidad indica si es CRUDO o COCINADO (ej. pollo 150 g crudo ≈ 110 g cocido). '
-            'Alinea el día con el GET y macros del contexto. No repitas otros días de la semana fuera del bloque pedido.'
+            'Alinea el día con el GET y macros del contexto. No repitas otros días de la semana fuera del bloque pedido. '
+            'Máximo 5 comidas al día según el contexto del usuario. '
+            'Nunca uses la palabra colacion; para tomas intermedias usa solo MEDIA MAÑANA o MERIENDA.'
             + self._whatsapp_system_suffix()
         )
 
@@ -331,37 +336,71 @@ class ZiaNaturvitiaEngine:
             n = int(str(d.get('comidas_dia', '3')).strip())
         except (TypeError, ValueError):
             n = 3
-        if n >= 4:
+        n = max(2, min(5, n))
+        if n == 5:
             return (
-                'ESTRUCTURA DE CADA DIA: solo DESAYUNO, COMIDA, una MERIENDA (una sola, entre comida y cena) y CENA. '
-                'Si el usuario indicó 4 o más comidas al día, esa merienda es obligatoria entre comida y cena. '
-                'PROHIBIDO en todos los casos: media mañana, colación, segunda merienda u otras tomas extra.\n'
+                'ESTRUCTURA DE CADA DIA (el usuario indicó 5 comidas; exactamente 5 tomas, en este orden): '
+                'DESAYUNO, MEDIA MAÑANA, COMIDA, MERIENDA, CENA. '
+                'Nunca uses la palabra colacion; no llames colacion a ninguna toma.\n'
+            )
+        if n == 4:
+            return (
+                'ESTRUCTURA DE CADA DIA (el usuario indicó 4 comidas; exactamente 4 tomas, en este orden): '
+                'DESAYUNO, COMIDA, MERIENDA (entre comida y cena), CENA. Sin media mañana. '
+                'Nunca uses la palabra colacion.\n'
+            )
+        if n == 3:
+            return (
+                'ESTRUCTURA DE CADA DIA (el usuario indicó 3 comidas; exactamente 3 tomas): '
+                'DESAYUNO, COMIDA y CENA solamente. Sin media mañana ni merienda. '
+                'Nunca uses la palabra colacion.\n'
             )
         return (
-            'ESTRUCTURA DE CADA DIA: solo DESAYUNO, COMIDA y CENA. '
-            'PROHIBIDO: media mañana, merienda, colación y cualquier toma que no sea esas tres.\n'
+            'ESTRUCTURA DE CADA DIA (el usuario indicó 2 comidas; exactamente 2 tomas principales al dia): '
+            'elige la combinacion mas adecuada al perfil entre DESAYUNO+COMIDA, COMIDA+CENA o DESAYUNO+CENA; '
+            'solo esos dos bloques nombrados. Sin media mañana ni merienda. Nunca uses la palabra colacion.\n'
         )
 
-    def _gpt_plan_chunk(self, user_content, max_tokens=1500):
+    _DIAS_SEMANA_PLAN = (
+        ('LUNES', '📆'),
+        ('MARTES', '🗓️'),
+        ('MIÉRCOLES', '⛅'),
+        ('JUEVES', '🌤️'),
+        ('VIERNES', '✨'),
+        ('SÁBADO', '🎯'),
+        ('DOMINGO', '🌴'),
+    )
+
+    def _gpt_plan_single_day(self, user_content):
         r = self.openai.chat.completions.create(
             model=self._model_chat(),
             messages=[
                 {'role': 'system', 'content': self._plan_system_content()},
                 {'role': 'user', 'content': user_content},
             ],
-            max_tokens=max_tokens,
+            max_tokens=600,
             temperature=float(self.config.get('ai', {}).get('temperature', 0.7)),
             timeout=20,
         )
         return r.choices[0].message.content
 
-    def _weekly_plan_four_messages(self, d, energy, intro_first_line):
+    def _menu_opciones_tras_domingo(self):
+        return (
+            '\n\n---\n¿Qué quieres hacer ahora?\n'
+            '1️⃣ Lista de la compra\n'
+            '2️⃣ Suplementos\n'
+            '3️⃣ Foto / análisis de tu dieta\n'
+            '4️⃣ Nuevo plan semanal\n'
+            '\n(Escribe el número, una palabra clave o lo que necesites.)'
+        )
+
+    def _weekly_plan_seven_messages(self, d, energy, intro_first_line):
         import time
 
         ctx = self._plan_profile_context(d, energy)
-        msg1 = (
-            intro_first_line
-            + '\n\n📊 *Tu cálculo (Harris-Benedict revisada + actividad + objetivo)*\n'
+        comidas_rules = self._plan_comidas_diarias_rules(d)
+        bloque_macros = (
+            '\n\n📊 *Tu cálculo (Harris-Benedict revisada + actividad + objetivo)*\n'
             '• GET diario orientativo: *'
             + str(energy['kcal_objetivo'])
             + ' kcal/día*\n'
@@ -377,48 +416,33 @@ class ZiaNaturvitiaEngine:
             + ' g | G '
             + str(energy['grasas_g'])
             + ' g\n\n'
-            'Te envío el plan en varios mensajes; en cada comida verás *crudo vs cocinado* cuando aplique.'
+            'A continuación va tu Lunes; los siguientes mensajes serán Martes a Domingo (un día por mensaje). '
+            'Cada día empieza con el nombre en MAYÚSCULAS y un emoji; crudo/cocinado cuando aplique.'
         )
-        comidas_rules = self._plan_comidas_diarias_rules(d)
-        p2 = (
-            ctx
-            + comidas_rules
-            + 'APERTURA: tu respuesta empieza en la PRIMERA linea con LUNES (nombre del dia en mayusculas), '
-            'sin saludo ni introduccion. Luego Martes y Miércoles en el mismo mensaje.\n'
-            + 'TAREA: Plan detallado solo para Lunes, Martes y Miércoles. '
-            'Cada dia: tomas permitidas arriba, con porciones y macros aproximados del dia. '
-            'No incluyas jueves en adelante ni lista de la compra.'
-        )
-        p3 = (
-            ctx
-            + comidas_rules
-            + 'APERTURA: primera linea exactamente JUEVES en mayusculas, sin saludo ni introduccion. '
-            'Luego Viernes y Sábado.\n'
-            + 'TAREA: Plan detallado solo para Jueves, Viernes y Sábado. Misma estructura de tomas; no repitas lun-mié. '
-            'No incluyas domingo ni lista de la compra.'
-        )
-        p4 = (
-            ctx
-            + comidas_rules
-            + 'APERTURA: primera linea exactamente DOMINGO en mayusculas, sin saludo ni introduccion.\n'
-            + 'TAREA: Plan detallado solo para Domingo (mismas tomas permitidas). '
-            'Despues, lista de la compra semanal agrupada por categorias '
-            '(proteinas, lacteos/verduras, fruta, cereales, grasas, otros) '
-            'con cantidades orientativas en crudo/cocinado cuando aplique. '
-            'No repitas lunes a sábado.'
-        )
-        time.sleep(1)
-        msg2 = self._gpt_plan_chunk(p2)
-        time.sleep(1)
-        msg3 = self._gpt_plan_chunk(p3)
-        time.sleep(1)
-        msg4 = self._gpt_plan_chunk(p4)
-        return [msg1, msg2, msg3, msg4]
-
-    _MSG_FOOTER_PLAN = (
-        '\n\n---\nPuedes enviarme foto de comida o nevera para analizarla, o preguntarme qué comer. '
-        'Si preguntas qué comer, antes te preguntaré si has entrenado 💪'
-    )
+        msgs = []
+        for idx, (dia, emoji) in enumerate(self._DIAS_SEMANA_PLAN):
+            time.sleep(2)
+            user_prompt = (
+                ctx
+                + comidas_rules
+                + 'TAREA: Plan nutricional detallado para UN SOLO DIA: '
+                + dia
+                + '. '
+                'La PRIMERA linea debe ser exactamente la palabra '
+                + dia
+                + ' en mayusculas, un espacio, y UN emoji de comida o agenda (puedes usar '
+                + emoji
+                + ' u otro coherente). Sin saludo ni lineas previas. '
+                'Incluye todas las tomas del dia segun la estructura indicada, con porciones CRUDO/COCINADO y macros del dia. '
+                'No incluyas otros dias, ni lista de la compra, ni menu de opciones al final.'
+            )
+            cuerpo = self._gpt_plan_single_day(user_prompt).strip()
+            if idx == 0:
+                msgs.append(intro_first_line + bloque_macros + '\n\n' + cuerpo)
+            else:
+                msgs.append(cuerpo)
+        msgs[-1] += self._menu_opciones_tras_domingo()
+        return msgs
 
     def _generar_plan_completo(self, u, intro_first_line=None):
         d = u['data']
@@ -432,9 +456,7 @@ class ZiaNaturvitiaEngine:
                 + d.get('nombre', '')
                 + '. Ya tengo tu perfil. Generando tu plan semanal con macros… ✅'
             )
-        msgs = self._weekly_plan_four_messages(d, energy, intro)
-        msgs[-1] = msgs[-1] + self._MSG_FOOTER_PLAN
-        return msgs
+        return self._weekly_plan_seven_messages(d, energy, intro)
 
     def _gpt_meal_after_training(self, u, entreno_si):
         d = u['data']
@@ -664,12 +686,12 @@ class ZiaNaturvitiaEngine:
         if s == 'nv_onb_patologias':
             d['patologias'] = m.strip()[:500] or 'Ninguna'
             u['state'] = 'comidas_dia'
-            return '¿Cuántas comidas al día haces habitualmente? (número entre 2 y 6, ej: 5)'
+            return '¿Cuántas comidas al día haces habitualmente? (número entre 2 y 5, ej: 4)'
 
         if s == 'comidas_dia':
             if ml in ('reintentar', 'retry', 'otra vez'):
                 if not d.get('comidas_dia'):
-                    return 'Indica primero cuántas comidas al día haces (número del 2 al 6 o en texto).'
+                    return 'Indica primero cuántas comidas al día haces (número del 2 al 5 o en texto).'
                 try:
                     msgs = self._generar_plan_completo(u, intro_first_line='Listo, reintento del plan ✅')
                     u['state'] = 'plan_listo'
