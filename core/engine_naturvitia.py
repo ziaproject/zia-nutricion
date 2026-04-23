@@ -162,6 +162,18 @@ def parse_comidas_dia_value(m):
     return '5'
 
 
+def plan_listo_menu_digit(m):
+    """Solo el dígito 1–4 (menú post-plan); evita que '3' o '3️⃣' caigan en consulta libre."""
+    raw = (m or '').strip()
+    raw = re.sub(r'[\ufe0f\u200d]', '', raw).replace('️', '')
+    if re.fullmatch(r'[1-4]', raw):
+        return raw
+    solo = ''.join(c for c in raw if c in '1234')
+    if len(solo) == 1 and len(raw) <= 4:
+        return solo
+    return None
+
+
 def quiere_plan_semanal_o_vale(ml):
     t = (ml or '').strip().lower()
     if t in (
@@ -458,6 +470,63 @@ class ZiaNaturvitiaEngine:
             )
         return self._weekly_plan_seven_messages(d, energy, intro)
 
+    def _gpt_lista_compra_semanal(self, u):
+        d = u['data']
+        le = u.get('last_energy') or {}
+        prompt = (
+            'Genera una LISTA DE LA COMPRA SEMANAL en español, texto plano, con emojis por categoría. '
+            'Basate en el perfil y en un plan equilibrado tipo el que seguiria alguien con estos datos:\n'
+            + json.dumps(d, ensure_ascii=False)
+            + '\nGET orientativo '
+            + str(le.get('kcal_objetivo', ''))
+            + ' kcal/dia; macros P '
+            + str(le.get('proteinas_g', ''))
+            + ' g, C '
+            + str(le.get('carbos_g', ''))
+            + ' g, G '
+            + str(le.get('grasas_g', ''))
+            + ' g.\n'
+            'Agrupa: proteinas, lacteos/verduras, fruta, cereales, grasas, otros. Cantidades orientativas crudo/cocinado. '
+            'Maximo 450 palabras.'
+        )
+        r = self.openai.chat.completions.create(
+            model=self._model_chat(),
+            messages=[
+                {
+                    'role': 'system',
+                    'content': 'Eres ZIA de Naturvitia. Listas practicas para la compra.' + self._whatsapp_system_suffix(),
+                },
+                {'role': 'user', 'content': prompt},
+            ],
+            max_tokens=900,
+            temperature=0.65,
+            timeout=35,
+        )
+        return r.choices[0].message.content
+
+    def _gpt_suplementos_plan(self, u):
+        d = u['data']
+        prompt = (
+            'Sugiere suplementos SOLO si encajan con el objetivo y perfil; si no hacen falta, dilo claro. '
+            'Justifica cada uno en una linea. Perfil: '
+            + json.dumps(d, ensure_ascii=False)
+            + '\nMaximo 220 palabras, español, sin vendas agresivas.'
+        )
+        r = self.openai.chat.completions.create(
+            model=self._model_chat(),
+            messages=[
+                {
+                    'role': 'system',
+                    'content': 'Eres ZIA de Naturvitia, criterio prudente.' + self._whatsapp_system_suffix(),
+                },
+                {'role': 'user', 'content': prompt},
+            ],
+            max_tokens=500,
+            temperature=0.6,
+            timeout=30,
+        )
+        return r.choices[0].message.content
+
     def _gpt_meal_after_training(self, u, entreno_si):
         d = u['data']
         ml = 'sí ha entrenado hoy' if entreno_si else 'no ha entrenado hoy'
@@ -588,7 +657,11 @@ class ZiaNaturvitiaEngine:
         if image_url is not None and image_url:
             try:
                 data_url = self._media_to_data_url(image_url)
-                return self._analizar_dieta_foto(data_url, m, d)
+                estado_prev = u['state']
+                out = self._analizar_dieta_foto(data_url, m, d)
+                if estado_prev == 'esperando_foto_dieta':
+                    u['state'] = 'plan_listo'
+                return out
             except Exception as e:
                 return 'No pude leer la imagen: ' + str(e)[:100]
 
@@ -689,6 +762,8 @@ class ZiaNaturvitiaEngine:
             return '¿Cuántas comidas al día haces habitualmente? (número entre 2 y 5, ej: 4)'
 
         if s == 'comidas_dia':
+            if not m.strip():
+                return '¿Cuántas comidas al día haces habitualmente? (número entre 2 y 5, ej: 4)'
             if ml in ('reintentar', 'retry', 'otra vez'):
                 if not d.get('comidas_dia'):
                     return 'Indica primero cuántas comidas al día haces (número del 2 al 5 o en texto).'
@@ -721,7 +796,44 @@ class ZiaNaturvitiaEngine:
             except Exception as e:
                 return 'Error al sugerir comida: ' + str(e)[:80]
 
+        if s == 'esperando_foto_dieta':
+            if ml in ('cancelar', 'salir', 'volver', 'menu', 'menú', '0'):
+                u['state'] = 'plan_listo'
+                return 'De acuerdo.\n' + self._menu_opciones_tras_domingo()
+            return (
+                'Envía una foto de tu plato o de tu día de comidas para analizarla (como imagen). '
+                'Cuando la tengas, mándala aquí. Para volver al menú escribe *cancelar* o *menu*.'
+            )
+
         if s == 'plan_listo':
+            opc = plan_listo_menu_digit(m)
+            if opc == '1':
+                try:
+                    return self._gpt_lista_compra_semanal(u)
+                except Exception as e:
+                    return 'No pude generar la lista: ' + str(e)[:80]
+            if opc == '2':
+                try:
+                    return self._gpt_suplementos_plan(u)
+                except Exception as e:
+                    return 'No pude preparar suplementos: ' + str(e)[:80]
+            if opc == '3':
+                u['state'] = 'esperando_foto_dieta'
+                return (
+                    'Perfecto. Envía una foto de tu comida o de tu día y te doy feedback sobre tu dieta '
+                    '(macros aproximados, crudo/cocinado y 2 ideas de mejora). Para volver al menú: *cancelar*.'
+                )
+            if opc == '4':
+                try:
+                    msgs = self._generar_plan_completo(
+                        u,
+                        intro_first_line='Aquí tienes tu nuevo plan semanal con macros ✅',
+                    )
+                    u['state'] = 'plan_listo'
+                    return msgs
+                except Exception as e:
+                    return 'No pude generar el plan: ' + str(e)[:120]
+
             if ml in ('reintentar', 'retry', 'otra vez') and d.get('comidas_dia'):
                 try:
                     msgs = self._generar_plan_completo(u, intro_first_line='Listo, reintento del plan ✅')
