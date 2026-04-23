@@ -224,67 +224,101 @@ class ZiaNaturvitiaEngine:
             'factor_actividad': factor,
         }
 
-    def _build_weekly_prompt(self, d, energy):
+    def _plan_profile_context(self, d, energy):
         comidas = d.get('comidas_dia', '5')
         return (
-            'Genera un PLAN SEMANAL (Lunes a Domingo) en español con emojis. '
-            'Paciente: '
+            'Contexto del paciente:\n'
+            '- Nombre: '
             + d.get('nombre', '')
-            + '. Objetivo: '
+            + '\n- Objetivo: '
             + d.get('objetivo', '')
-            + '. Actividad: '
+            + '\n- Actividad: '
             + d.get('actividad', '')
-            + '. Restricciones: '
+            + '\n- Restricciones: '
             + d.get('restricciones', 'ninguna')
-            + '. Patologías / contexto clínico declarado: '
+            + '\n- Patologías declaradas: '
             + d.get('patologias', 'ninguna')
-            + '. Comidas al día indicadas por el usuario: '
+            + '\n- Comidas al día: '
             + str(comidas)
-            + ' (adapta el número de tomas: desayuno, comida, cena y colaciones si aplica).\n\n'
-            'DATOS CALCULADOS (Harris-Benedict revisada + factor actividad + ajuste por objetivo):\n'
-            '- GET objetivo calórico diario: '
+            + ' (organiza desayuno/comida/cena y colaciones si aplica).\n'
+            '- GET diario orientativo: '
             + str(energy['kcal_objetivo'])
-            + ' kcal/día\n'
-            '- BMR aprox: '
-            + str(energy['bmr'])
-            + ' kcal | TDEE antes de ajuste objetivo: '
-            + str(energy['tdee_sin_ajuste'])
-            + ' kcal\n'
-            '- Macros orientativos diarios: proteína '
+            + ' kcal; macros diarios orientativos: P '
             + str(energy['proteinas_g'])
-            + ' g, carbohidratos '
+            + ' g, C '
             + str(energy['carbos_g'])
-            + ' g, grasas '
+            + ' g, G '
             + str(energy['grasas_g'])
-            + ' g\n\n'
-            'REGLAS OBLIGATORIAS:\n'
-            '1) Alinea cada día con el objetivo calórico y macros (puedes variar levemente por día si lo explicas).\n'
-            '2) En CADA alimento con peso o medida, indica explícitamente si la cantidad es CRUDA o COCINADA '
-            '(ej: "pollo 150 g crudo (~110 g cocido)").\n'
-            '3) Incluye sección breve de lista de la compra semanal por categorías con cantidades crudo/cocinado cuando aplique.\n'
-            '4) Si hay patologías declaradas, adapta con prudencia y recuerda que no sustituyen consejo médico.\n'
-            'Máximo ~900 palabras en total.'
+            + ' g.\n'
         )
 
-    def _gpt_weekly_plan(self, d, energy):
-        prompt = self._build_weekly_prompt(d, energy)
+    def _plan_system_content(self):
+        return (
+            (self.config['bot'].get('personality') or '')
+            + ' Responde en español con emojis discretos. '
+            'En cada alimento con cantidad indica si es CRUDO o COCINADO (ej. pollo 150 g crudo ≈ 110 g cocido). '
+            'Alinea el día con el GET y macros del contexto. No repitas otros días de la semana fuera del bloque pedido.'
+        )
+
+    def _gpt_plan_chunk(self, user_content):
         r = self.openai.chat.completions.create(
             model=self._model_chat(),
             messages=[
-                {
-                    'role': 'system',
-                    'content': (
-                        self.config['bot'].get('personality', '')
-                        + ' Responde en español. Siempre diferencia crudo vs cocinado en cantidades.'
-                    ),
-                },
-                {'role': 'user', 'content': prompt},
+                {'role': 'system', 'content': self._plan_system_content()},
+                {'role': 'user', 'content': user_content},
             ],
-            max_tokens=min(int(self.config.get('ai', {}).get('max_tokens', 2000)), 2500),
+            max_tokens=500,
             temperature=float(self.config.get('ai', {}).get('temperature', 0.7)),
-            timeout=60,
+            timeout=20,
         )
         return r.choices[0].message.content
+
+    def _weekly_plan_four_messages(self, d, energy, intro_first_line):
+        ctx = self._plan_profile_context(d, energy)
+        msg1 = (
+            intro_first_line
+            + '\n\n📊 *Tu cálculo (Harris-Benedict revisada + actividad + objetivo)*\n'
+            '• GET diario orientativo: *'
+            + str(energy['kcal_objetivo'])
+            + ' kcal/día*\n'
+            '• BMR ~'
+            + str(energy['bmr'])
+            + ' kcal | TDEE base ~'
+            + str(energy['tdee_sin_ajuste'])
+            + ' kcal\n'
+            '• Macros orientativos: P '
+            + str(energy['proteinas_g'])
+            + ' g | C '
+            + str(energy['carbos_g'])
+            + ' g | G '
+            + str(energy['grasas_g'])
+            + ' g\n\n'
+            'Te envío el plan en varios mensajes; en cada comida verás *crudo vs cocinado* cuando aplique.'
+        )
+        p2 = (
+            ctx
+            + 'TAREA: Plan detallado solo para *Lunes, Martes y Miércoles*. '
+            'Para cada día: comidas según sus tomas diarias, con porciones y macros aproximados del día. '
+            'No incluyas jueves en adelante ni lista de la compra.'
+        )
+        p3 = (
+            ctx
+            + 'TAREA: Plan detallado solo para *Jueves, Viernes y Sábado*. '
+            'Misma estructura que habrías usado para esos días; no repitas lun-mié. '
+            'No incluyas domingo ni lista de la compra.'
+        )
+        p4 = (
+            ctx
+            + 'TAREA: Plan detallado solo para *Domingo* (todas las comidas del día). '
+            'Después, *lista de la compra semanal* agrupada por categorías '
+            '(proteínas, lácteos/vegetales, fruta, cereales, grasas, otros) '
+            'con cantidades orientativas en crudo/cocinado cuando aplique. '
+            'No repitas lunes a sábado.'
+        )
+        msg2 = self._gpt_plan_chunk(p2)
+        msg3 = self._gpt_plan_chunk(p3)
+        msg4 = self._gpt_plan_chunk(p4)
+        return [msg1, msg2, msg3, msg4]
 
     def _gpt_meal_after_training(self, u, entreno_si):
         d = u['data']
@@ -480,32 +514,14 @@ class ZiaNaturvitiaEngine:
                 u['last_energy'] = energy
                 u['state'] = 'nv_activo'
                 try:
-                    bloque_calc = (
-                        '\n\n---\n📊 *Tu calculo (Harris-Benedict revisada + actividad + objetivo)*\n'
-                        '• GET diario orientativo: *'
-                        + str(energy['kcal_objetivo'])
-                        + ' kcal*\n'
-                        '• BMR ~'
-                        + str(energy['bmr'])
-                        + ' kcal | TDEE base ~'
-                        + str(energy['tdee_sin_ajuste'])
-                        + ' kcal\n'
-                        '• Macros orientativos: P '
-                        + str(energy['proteinas_g'])
-                        + ' g | C '
-                        + str(energy['carbos_g'])
-                        + ' g | G '
-                        + str(energy['grasas_g'])
-                        + ' g\n'
+                    msgs = self._weekly_plan_four_messages(
+                        d, energy, 'Listo, reintento del plan ✅'
                     )
-                    plan = self._gpt_weekly_plan(d, energy)
-                    return (
-                        'Listo, reintento del plan ✅'
-                        + bloque_calc
-                        + '\n'
-                        + plan
-                        + '\n\n---\nPuedes enviar *foto* o preguntar *qué comer*.'
+                    msgs[-1] += (
+                        '\n\n---\nPuedes enviar *foto* o preguntar *qué comer*. '
+                        'Si preguntas qué comer, antes te preguntaré si has entrenado 💪'
                     )
+                    return msgs
                 except Exception as e:
                     u['state'] = 'nv_onb_comidas'
                     return 'Sigue sin funcionar: ' + str(e)[:100]
@@ -520,36 +536,18 @@ class ZiaNaturvitiaEngine:
             u['last_energy'] = energy
             u['state'] = 'nv_activo'
             try:
-                bloque_calc = (
-                    '\n\n---\n📊 *Tu calculo (Harris-Benedict revisada + actividad + objetivo)*\n'
-                    '• GET diario orientativo: *'
-                    + str(energy['kcal_objetivo'])
-                    + ' kcal*\n'
-                    '• BMR ~'
-                    + str(energy['bmr'])
-                    + ' kcal | TDEE base ~'
-                    + str(energy['tdee_sin_ajuste'])
-                    + ' kcal\n'
-                    '• Macros orientativos: P '
-                    + str(energy['proteinas_g'])
-                    + ' g | C '
-                    + str(energy['carbos_g'])
-                    + ' g | G '
-                    + str(energy['grasas_g'])
-                    + ' g\n'
-                    '(En el plan, todas las cantidades van en *crudo vs cocinado* cuando aplique.)\n'
-                )
-                plan = self._gpt_weekly_plan(d, energy)
-                return (
+                msgs = self._weekly_plan_four_messages(
+                    d,
+                    energy,
                     'Perfecto, '
                     + d.get('nombre', '')
-                    + '. Ya tengo tu perfil. Generando tu plan semanal con macros… ✅'
-                    + bloque_calc
-                    + '\n'
-                    + plan
-                    + '\n\n---\nPuedes enviarme *foto de comida o nevera* para analizarla, o preguntarme *qué comer*. '
+                    + '. Ya tengo tu perfil. Generando tu plan semanal con macros… ✅',
+                )
+                msgs[-1] += (
+                    '\n\n---\nPuedes enviarme *foto de comida o nevera* para analizarla, o preguntarme *qué comer*. '
                     'Si preguntas qué comer, antes te preguntaré si has entrenado 💪'
                 )
+                return msgs
             except Exception as e:
                 u['state'] = 'nv_onb_comidas'
                 return 'No pude generar el plan ahora: ' + str(e)[:120] + '\nRepite el número de comidas o escribe *reintentar*.'
