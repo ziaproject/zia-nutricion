@@ -368,35 +368,48 @@ class ZiaNaturvitiaEngine:
     def _analizar_dieta_foto(self, data_url, caption, d):
         nombre = d.get('nombre', '')
         user_txt = (
-            'Analiza la imagen (comida, nevera o etiqueta). '
-            'Perfil: '
+            'INSTRUCCION ESTRICTA. Usa la foto (nevera, despensa o comida) solo para identificar ingredientes. '
+            'NO describas la imagen ni la nevera. NO escribas introduccion ni conclusion ni menu al final.\n\n'
+            'Perfil para adaptar recetas: '
             + nombre
-            + ', objetivo: '
+            + '; objetivo: '
             + d.get('objetivo', '')
-            + ', restricciones: '
+            + '; restricciones: '
             + d.get('restricciones', 'ninguna')
-            + ', patologías declaradas: '
+            + '; patologias: '
             + d.get('patologias', 'ninguna')
-            + '. '
+            + '.\n\n'
+            'Devuelve EXACTAMENTE 3 recetas rapidas (menos de 20 minutos cada una) usando prioritariamente '
+            'ingredientes visibles en la foto; si falta algo imprescindible, indicalo en una sola linea entre parentesis '
+            'dentro de la receta, sin apartado extra.\n\n'
+            'Para CADA receta usa este formato (sin titulos de seccion genericos antes del bloque):\n'
+            '1) **Nombre de la receta**\n'
+            'Ingredientes: lista con gramos y si es CRUDO o COCINADO (ej: pollo 120 g crudo / arroz 60 g crudo).\n'
+            'Preparacion: paso 1 · paso 2 · paso 3 (exactamente tres pasos).\n'
+            'Macros totales de la receta: kcal, P g, C g, G g (una linea).\n\n'
+            'Repite el mismo formato para la receta 2 y 3. Espanol, emojis discretos solo en el nombre si quieres.'
         )
         if caption:
-            user_txt += 'Mensaje del usuario: ' + caption + '. '
-        user_txt += (
-            'Resume lo que ves, estima macros aproximados si es plato/comida (indicando crudo vs cocinado), '
-            'y da 2 recomendaciones concretas. Máximo 280 palabras, español.'
-        )
+            user_txt += '\nNota del usuario (opcional): ' + caption.strip() + '.'
         r = self.openai.chat.completions.create(
             model='gpt-4o',
             messages=[
+                {
+                    'role': 'system',
+                    'content': (
+                        'Cumples al pie de la letra el formato pedido. Sin parrafos introductorios, sin describir '
+                        'lo que hay en la foto, sin resumen final ni menu. Solo las 3 recetas en el formato indicado.'
+                    ),
+                },
                 {
                     'role': 'user',
                     'content': [
                         {'type': 'text', 'text': user_txt},
                         {'type': 'image_url', 'image_url': {'url': data_url}},
                     ],
-                }
+                },
             ],
-            max_tokens=700,
+            max_tokens=900,
             timeout=50,
         )
         return r.choices[0].message.content
