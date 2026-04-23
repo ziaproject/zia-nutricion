@@ -137,6 +137,54 @@ def parse_yes_no(ml):
     return None
 
 
+def parse_comidas_dia_value(m):
+    """Normaliza la respuesta de comidas/día a '2'..'6' (texto o número); por defecto '5'."""
+    ms = (m or '').strip().lower()
+    if not ms:
+        return '5'
+    for w, val in (
+        ('seis', '6'),
+        ('cinco', '5'),
+        ('cuatro', '4'),
+        ('tres', '3'),
+        ('dos', '2'),
+    ):
+        if re.search(r'\b' + w + r'\b', ms):
+            return val
+    nums = re.findall(r'\d+', ms)
+    if nums:
+        v = int(nums[0])
+        if 2 <= v <= 6:
+            return str(v)
+    return '5'
+
+
+def quiere_plan_semanal_o_vale(ml):
+    t = (ml or '').strip().lower()
+    if t in (
+        'vale',
+        'ok',
+        'okay',
+        'si',
+        'sí',
+        'dale',
+        'genial',
+        'perfecto',
+        'adelante',
+        'va',
+        'vamos',
+        'claro',
+    ):
+        return True
+    return bool(
+        re.search(
+            r'\b(plan\s+semanal|mi\s+plan|el\s+plan|genera(?:r)?\s+el\s+plan|vuelve(?:r)?\s+a\s+generar|'
+            r'regenera(?:r)?|mu[eé]strame\s+el\s+plan|mu[eé]strame\s+mi\s+plan|horario\s+semanal|quiero\s+el\s+plan)\b',
+            t,
+        )
+    )
+
+
 class ZiaNaturvitiaEngine:
     @staticmethod
     def _whatsapp_system_suffix():
@@ -367,6 +415,27 @@ class ZiaNaturvitiaEngine:
         msg4 = self._gpt_plan_chunk(p4)
         return [msg1, msg2, msg3, msg4]
 
+    _MSG_FOOTER_PLAN = (
+        '\n\n---\nPuedes enviarme foto de comida o nevera para analizarla, o preguntarme qué comer. '
+        'Si preguntas qué comer, antes te preguntaré si has entrenado 💪'
+    )
+
+    def _generar_plan_completo(self, u, intro_first_line=None):
+        d = u['data']
+        energy = self._calc_energy(d)
+        u['last_energy'] = energy
+        if intro_first_line is not None:
+            intro = intro_first_line
+        else:
+            intro = (
+                'Perfecto, '
+                + d.get('nombre', '')
+                + '. Ya tengo tu perfil. Generando tu plan semanal con macros… ✅'
+            )
+        msgs = self._weekly_plan_four_messages(d, energy, intro)
+        msgs[-1] = msgs[-1] + self._MSG_FOOTER_PLAN
+        return msgs
+
     def _gpt_meal_after_training(self, u, entreno_si):
         d = u['data']
         ml = 'sí ha entrenado hoy' if entreno_si else 'no ha entrenado hoy'
@@ -486,6 +555,13 @@ class ZiaNaturvitiaEngine:
         ml = m.lower()
         d = u['data']
         s = u['state']
+        # Sesiones antiguas (antes del rename de estados)
+        if s == 'nv_onb_comidas':
+            u['state'] = 'comidas_dia'
+            s = 'comidas_dia'
+        elif s == 'nv_activo':
+            u['state'] = 'plan_listo'
+            s = 'plan_listo'
 
         if image_url is not None and image_url:
             try:
@@ -587,65 +663,62 @@ class ZiaNaturvitiaEngine:
 
         if s == 'nv_onb_patologias':
             d['patologias'] = m.strip()[:500] or 'Ninguna'
-            u['state'] = 'nv_onb_comidas'
+            u['state'] = 'comidas_dia'
             return '¿Cuántas comidas al día haces habitualmente? (número entre 2 y 6, ej: 5)'
 
-        if s == 'nv_onb_comidas':
-            if ml in ('reintentar', 'retry', 'otra vez') and d.get('comidas_dia'):
-                energy = self._calc_energy(d)
-                u['last_energy'] = energy
-                u['state'] = 'nv_activo'
+        if s == 'comidas_dia':
+            if ml in ('reintentar', 'retry', 'otra vez'):
+                if not d.get('comidas_dia'):
+                    return 'Indica primero cuántas comidas al día haces (número del 2 al 6 o en texto).'
                 try:
-                    msgs = self._weekly_plan_four_messages(
-                        d, energy, 'Listo, reintento del plan ✅'
-                    )
-                    msgs[-1] += (
-                        '\n\n---\nPuedes enviar *foto* o preguntar *qué comer*. '
-                        'Si preguntas qué comer, antes te preguntaré si has entrenado 💪'
-                    )
+                    msgs = self._generar_plan_completo(u, intro_first_line='Listo, reintento del plan ✅')
+                    u['state'] = 'plan_listo'
                     return msgs
                 except Exception as e:
-                    u['state'] = 'nv_onb_comidas'
                     return 'Sigue sin funcionar: ' + str(e)[:100]
-            nums = re.findall(r'\d+', m)
-            if not nums:
-                return 'Indica un número del 2 al 6, por ejemplo: 4'
-            n = int(nums[0])
-            if not (2 <= n <= 6):
-                return 'Por favor un número entre 2 y 6 comidas al día.'
-            d['comidas_dia'] = str(n)
-            energy = self._calc_energy(d)
-            u['last_energy'] = energy
-            u['state'] = 'nv_activo'
+            d['comidas_dia'] = parse_comidas_dia_value(m)
             try:
-                msgs = self._weekly_plan_four_messages(
-                    d,
-                    energy,
-                    'Perfecto, '
-                    + d.get('nombre', '')
-                    + '. Ya tengo tu perfil. Generando tu plan semanal con macros… ✅',
-                )
-                msgs[-1] += (
-                    '\n\n---\nPuedes enviarme *foto de comida o nevera* para analizarla, o preguntarme *qué comer*. '
-                    'Si preguntas qué comer, antes te preguntaré si has entrenado 💪'
-                )
+                msgs = self._generar_plan_completo(u)
+                u['state'] = 'plan_listo'
                 return msgs
             except Exception as e:
-                u['state'] = 'nv_onb_comidas'
-                return 'No pude generar el plan ahora: ' + str(e)[:120] + '\nRepite el número de comidas o escribe *reintentar*.'
+                return (
+                    'No pude generar el plan ahora: '
+                    + str(e)[:120]
+                    + '\nRepite tu respuesta o escribe *reintentar*.'
+                )
 
-        # --- Activo: foto, comida con pregunta entreno, chat ---
+        # --- Tras el plan: consultas, regenerar plan, comida con pregunta entreno ---
         if s == 'nv_esperando_entreno':
             yn = parse_yes_no(ml)
             if yn is None:
                 return 'Responde con *sí* o *no*: ¿has entrenado hoy? Así ajusto carbohidratos y timing.'
-            u['state'] = 'nv_activo'
+            u['state'] = 'plan_listo'
             try:
                 return self._gpt_meal_after_training(u, yn)
             except Exception as e:
                 return 'Error al sugerir comida: ' + str(e)[:80]
 
-        if s == 'nv_activo':
+        if s == 'plan_listo':
+            if ml in ('reintentar', 'retry', 'otra vez') and d.get('comidas_dia'):
+                try:
+                    msgs = self._generar_plan_completo(u, intro_first_line='Listo, reintento del plan ✅')
+                    u['state'] = 'plan_listo'
+                    return msgs
+                except Exception as e:
+                    return 'No pude regenerar el plan: ' + str(e)[:120]
+
+            if quiere_plan_semanal_o_vale(ml):
+                try:
+                    msgs = self._generar_plan_completo(
+                        u,
+                        intro_first_line='Aquí tienes de nuevo tu plan semanal con macros ✅',
+                    )
+                    u['state'] = 'plan_listo'
+                    return msgs
+                except Exception as e:
+                    return 'No pude regenerar el plan: ' + str(e)[:120]
+
             if wants_food_advice(ml):
                 u['state'] = 'nv_esperando_entreno'
                 return 'Antes de recomendarte qué comer: ¿has entrenado hoy? (sí / no)'
