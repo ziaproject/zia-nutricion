@@ -329,6 +329,9 @@ class ZiaNaturvitiaEngine:
             + ' g, G '
             + str(energy['grasas_g'])
             + ' g.\n'
+            '- Presupuesto compra semanal (euros): '
+            + str(d.get('presupuesto', 'no indicado'))
+            + '.\n'
         )
 
     def _plan_system_content(self):
@@ -446,7 +449,10 @@ class ZiaNaturvitiaEngine:
                 + emoji
                 + ' u otro coherente). Sin saludo ni lineas previas. '
                 'Incluye todas las tomas del dia segun la estructura indicada, con porciones CRUDO/COCINADO y macros del dia. '
-                'No incluyas otros dias, ni lista de la compra, ni menu de opciones al final.'
+                'No incluyas otros dias, ni lista de la compra, ni menu de opciones al final.\n'
+                'OBLIGATORIO: el nombre del dia SIEMPRE debe ir seguido de un emoji de comida. '
+                'Ejemplo: LUNES 🥗, MARTES 🍳, MIERCOLES 🥙, JUEVES 🍗, VIERNES 🐟, SABADO 🥩, DOMINGO 🍲. '
+                'Nunca omitas el emoji del dia.'
             )
             msgs.append(self._gpt_plan_single_day(user_prompt).strip())
         msgs[-1] += self._menu_opciones_tras_domingo()
@@ -454,6 +460,8 @@ class ZiaNaturvitiaEngine:
 
     def _generar_plan_completo(self, u, intro_first_line=None):
         d = u['data']
+        if not str(d.get('presupuesto', '')).strip():
+            d['presupuesto'] = '60'
         energy = self._calc_energy(d)
         u['last_energy'] = energy
         if intro_first_line is not None:
@@ -466,11 +474,16 @@ class ZiaNaturvitiaEngine:
             )
         return self._weekly_plan_eight_messages(d, energy, intro)
 
-    def _gpt_lista_compra_semanal(self, u):
+    def _generar_lista_compra(self, u):
         d = u['data']
         le = u.get('last_energy') or {}
+        pres = str(d.get('presupuesto', '60')).replace(',', '.')
         prompt = (
             'Genera una LISTA DE LA COMPRA SEMANAL en español, texto plano, con emojis por categoría. '
+            'Presupuesto TOTAL semanal del usuario: '
+            + pres
+            + ' euros (prioridad: adaptar cantidades, priorizar ingredientes economicos razonables y evitar productos caros innecesarios; '
+            'el total orientativo debe respetar ese techo salvo que sea imposible, en cuyo caso indicalo en una linea al final).\n'
             'Basate en el perfil y en un plan equilibrado tipo el que seguiria alguien con estos datos:\n'
             + json.dumps(d, ensure_ascii=False)
             + '\nGET orientativo '
@@ -763,13 +776,42 @@ class ZiaNaturvitiaEngine:
             if ml in ('reintentar', 'retry', 'otra vez'):
                 if not d.get('comidas_dia'):
                     return 'Indica primero cuántas comidas al día haces (número del 2 al 5 o en texto).'
-                try:
-                    msgs = self._generar_plan_completo(u, intro_first_line='Listo, reintento del plan ✅')
-                    u['state'] = 'plan_listo'
-                    return msgs
-                except Exception as e:
-                    return 'Sigue sin funcionar: ' + str(e)[:100]
+                if d.get('presupuesto'):
+                    try:
+                        msgs = self._generar_plan_completo(u, intro_first_line='Listo, reintento del plan ✅')
+                        u['state'] = 'plan_listo'
+                        return msgs
+                    except Exception as e:
+                        return 'Sigue sin funcionar: ' + str(e)[:100]
+                u['state'] = 'presupuesto'
+                return (
+                    '¿Cuánto quieres gastar en la compra esta semana? 💰 '
+                    '(escribe la cantidad en euros, ej: 60)'
+                )
             d['comidas_dia'] = parse_comidas_dia_value(m)
+            u['state'] = 'presupuesto'
+            return (
+                '¿Cuánto quieres gastar en la compra esta semana? 💰 '
+                '(escribe la cantidad en euros, ej: 60)'
+            )
+
+        if s == 'presupuesto':
+            if not m.strip():
+                return (
+                    '¿Cuánto quieres gastar en la compra esta semana? 💰 '
+                    '(escribe la cantidad en euros, ej: 60)'
+                )
+            m2 = m.replace(',', '.')
+            nums = re.findall(r'\d+\.?\d*', m2)
+            if not nums:
+                return 'No he entendido la cantidad. Escribe el importe en euros, ej: 60 o 72.50'
+            try:
+                p = float(nums[0])
+            except ValueError:
+                return 'Escribe un número válido en euros, ej: 65'
+            if not (10 <= p <= 600):
+                return 'Indica un importe razonable entre 10 y 600 euros.'
+            d['presupuesto'] = str(int(p)) if p == int(p) else str(round(p, 2))
             try:
                 msgs = self._generar_plan_completo(u)
                 u['state'] = 'plan_listo'
@@ -778,7 +820,7 @@ class ZiaNaturvitiaEngine:
                 return (
                     'No pude generar el plan ahora: '
                     + str(e)[:120]
-                    + '\nRepite tu respuesta o escribe *reintentar*.'
+                    + '\nRepite la cantidad en euros o escribe *reintentar* desde comidas.'
                 )
 
         # --- Tras el plan: consultas, regenerar plan, comida con pregunta entreno ---
@@ -805,7 +847,7 @@ class ZiaNaturvitiaEngine:
             opc = plan_listo_menu_digit(m)
             if opc == '1':
                 try:
-                    return self._gpt_lista_compra_semanal(u)
+                    return self._generar_lista_compra(u)
                 except Exception as e:
                     return 'No pude generar la lista: ' + str(e)[:80]
             if opc == '2':
