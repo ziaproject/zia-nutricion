@@ -376,10 +376,10 @@ class ZiaNaturvitiaEngine:
     _DIAS_SEMANA_PLAN = (
         ('LUNES', '📆'),
         ('MARTES', '🗓️'),
-        ('MIÉRCOLES', '⛅'),
+        ('MIERCOLES', '⛅'),
         ('JUEVES', '🌤️'),
         ('VIERNES', '✨'),
-        ('SÁBADO', '🎯'),
+        ('SABADO', '🎯'),
         ('DOMINGO', '🌴'),
     )
 
@@ -406,7 +406,7 @@ class ZiaNaturvitiaEngine:
             '\n(Escribe el número, una palabra clave o lo que necesites.)'
         )
 
-    def _weekly_plan_seven_messages(self, d, energy, intro_first_line):
+    def _weekly_plan_eight_messages(self, d, energy, intro_first_line):
         import time
 
         ctx = self._plan_profile_context(d, energy)
@@ -428,11 +428,11 @@ class ZiaNaturvitiaEngine:
             + ' g | G '
             + str(energy['grasas_g'])
             + ' g\n\n'
-            'A continuación va tu Lunes; los siguientes mensajes serán Martes a Domingo (un día por mensaje). '
+            'Te envío 7 mensajes seguidos, uno por día, en orden: LUNES, MARTES, MIERCOLES, JUEVES, VIERNES, SABADO, DOMINGO. '
             'Cada día empieza con el nombre en MAYÚSCULAS y un emoji; crudo/cocinado cuando aplique.'
         )
-        msgs = []
-        for idx, (dia, emoji) in enumerate(self._DIAS_SEMANA_PLAN):
+        msgs = [intro_first_line + bloque_macros]
+        for dia, emoji in self._DIAS_SEMANA_PLAN:
             time.sleep(2)
             user_prompt = (
                 ctx
@@ -448,11 +448,7 @@ class ZiaNaturvitiaEngine:
                 'Incluye todas las tomas del dia segun la estructura indicada, con porciones CRUDO/COCINADO y macros del dia. '
                 'No incluyas otros dias, ni lista de la compra, ni menu de opciones al final.'
             )
-            cuerpo = self._gpt_plan_single_day(user_prompt).strip()
-            if idx == 0:
-                msgs.append(intro_first_line + bloque_macros + '\n\n' + cuerpo)
-            else:
-                msgs.append(cuerpo)
+            msgs.append(self._gpt_plan_single_day(user_prompt).strip())
         msgs[-1] += self._menu_opciones_tras_domingo()
         return msgs
 
@@ -468,7 +464,7 @@ class ZiaNaturvitiaEngine:
                 + d.get('nombre', '')
                 + '. Ya tengo tu perfil. Generando tu plan semanal con macros… ✅'
             )
-        return self._weekly_plan_seven_messages(d, energy, intro)
+        return self._weekly_plan_eight_messages(d, energy, intro)
 
     def _gpt_lista_compra_semanal(self, u):
         d = u['data']
