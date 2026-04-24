@@ -162,15 +162,19 @@ def parse_comidas_dia_value(m):
     return '5'
 
 
-def plan_listo_menu_digit(m):
-    """Solo el dígito 1–4 (menú post-plan); evita que '3' o '3️⃣' caigan en consulta libre."""
+def parse_plan_menu_digit(m, max_n):
+    """Dígito 1–max_n (menú post-plan dinámico); evita que '3' o '3️⃣' caigan en consulta libre."""
+    if max_n < 1:
+        return None
     raw = (m or '').strip()
     raw = re.sub(r'[\ufe0f\u200d]', '', raw).replace('️', '')
-    if re.fullmatch(r'[1-4]', raw):
-        return raw
-    solo = ''.join(c for c in raw if c in '1234')
+    if max_n <= 9 and re.fullmatch(rf'[1-{max_n}]', raw):
+        return int(raw)
+    solo = ''.join(c for c in raw if c.isdigit())
     if len(solo) == 1 and len(raw) <= 4:
-        return solo
+        d = int(solo)
+        if 1 <= d <= max_n:
+            return d
     return None
 
 
@@ -220,11 +224,12 @@ class ZiaNaturvitiaEngine:
                 'state': 'nv_onb_nombre',
                 'data': {},
                 'history': [],
+                'usado': set(),
             }
         return self._users[uid]
 
     def reset_user(self, uid):
-        self._users[uid] = {'state': 'nv_onb_nombre', 'data': {}, 'history': []}
+        self._users[uid] = {'state': 'nv_onb_nombre', 'data': {}, 'history': [], 'usado': set()}
 
     def get_welcome_message(self):
         return self.config['bot']['welcome_message']
@@ -281,6 +286,70 @@ class ZiaNaturvitiaEngine:
 
     def _model_chat(self):
         return self.config.get('ai', {}).get('model', 'gpt-4o-mini')
+
+    _POST_PLAN_MENU_STATES = frozenset({'plan_listo', 'esperando_foto_dieta', 'nv_esperando_entreno'})
+
+    _MENU_OPCIONES_ORDER = (
+        ('lista_compra', 'Lista de la compra'),
+        ('suplementos', 'Suplementos'),
+        ('foto_dieta', 'Foto / análisis de tu dieta'),
+        ('plan_semanal', 'Nuevo plan semanal'),
+        ('que_como', 'Ideas de comida (¿qué como?)'),
+    )
+
+    @staticmethod
+    def _ensure_usado(u):
+        us = u.get('usado')
+        if isinstance(us, set):
+            return
+        if isinstance(us, (list, tuple)):
+            u['usado'] = set(us)
+        else:
+            u['usado'] = set()
+
+    def _menu_items_disponibles(self, u):
+        self._ensure_usado(u)
+        used = u['usado']
+        return [(k, lab) for k, lab in self._MENU_OPCIONES_ORDER if k not in used]
+
+    def _menu_opciones_tras_domingo(self, u):
+        items = self._menu_items_disponibles(u)
+        if not items:
+            return '\n\n¿Tienes alguna duda más sobre tu nutrición? 🤓'
+        lines = ['\n\n---\n¿Qué quieres hacer ahora?']
+        emojis = ('1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣')
+        for i, (_, lab) in enumerate(items):
+            lines.append(emojis[i] + ' ' + lab)
+        lines.append('\n(Escribe el número, una palabra clave o lo que necesites.)')
+        return '\n'.join(lines)
+
+    def _with_post_plan_menu(self, u, text):
+        if u.get('state') in self._POST_PLAN_MENU_STATES:
+            return text + self._menu_opciones_tras_domingo(u)
+        return text
+
+    def _match_menu_keyword(self, ml, keys_only):
+        if not ml or not keys_only:
+            return None
+        if 'lista_compra' in keys_only and re.search(
+            r'\b(lista\s*(de\s*la)?\s*compra|supermercado|carrito)\b', ml
+        ):
+            return 'lista_compra'
+        if 'suplementos' in keys_only and (
+            'suplement' in ml or 'vitamina' in ml or 'omega' in ml or 'creatina' in ml
+        ):
+            return 'suplementos'
+        if 'foto_dieta' in keys_only and (
+            re.search(r'\b(foto|imagen|plato)\b', ml) or 'analisis' in ml or 'análisis' in ml
+        ):
+            return 'foto_dieta'
+        if 'plan_semanal' in keys_only and re.search(
+            r'\b(plan\s+semanal|regenera|nuevo\s+plan|horario\s+semanal)\b', ml
+        ):
+            return 'plan_semanal'
+        if 'que_como' in keys_only and wants_food_advice(ml):
+            return 'que_como'
+        return None
 
     def _calc_energy(self, d):
         bmr = harris_benedict_revised_bmr(
@@ -399,17 +468,7 @@ class ZiaNaturvitiaEngine:
         )
         return r.choices[0].message.content
 
-    def _menu_opciones_tras_domingo(self):
-        return (
-            '\n\n---\n¿Qué quieres hacer ahora?\n'
-            '1️⃣ Lista de la compra\n'
-            '2️⃣ Suplementos\n'
-            '3️⃣ Foto / análisis de tu dieta\n'
-            '4️⃣ Nuevo plan semanal\n'
-            '\n(Escribe el número, una palabra clave o lo que necesites.)'
-        )
-
-    def _weekly_plan_eight_messages(self, d, energy, intro_first_line):
+    def _weekly_plan_eight_messages(self, d, energy, intro_first_line, u):
         import time
 
         ctx = self._plan_profile_context(d, energy)
@@ -455,10 +514,9 @@ class ZiaNaturvitiaEngine:
                 'Nunca omitas el emoji del dia.'
             )
             msgs.append(self._gpt_plan_single_day(user_prompt).strip())
-        msgs[-1] += self._menu_opciones_tras_domingo()
         return msgs
 
-    def _generar_plan_completo(self, u, intro_first_line=None):
+    def _generar_plan_completo(self, u, intro_first_line=None, marcar_plan_semanal_usado=True):
         d = u['data']
         if not str(d.get('presupuesto', '')).strip():
             d['presupuesto'] = '60'
@@ -472,7 +530,12 @@ class ZiaNaturvitiaEngine:
                 + d.get('nombre', '')
                 + '. Ya tengo tu perfil. Generando tu plan semanal con macros… ✅'
             )
-        return self._weekly_plan_eight_messages(d, energy, intro)
+        msgs = self._weekly_plan_eight_messages(d, energy, intro, u)
+        self._ensure_usado(u)
+        if marcar_plan_semanal_usado:
+            u['usado'].add('plan_semanal')
+        msgs[-1] += self._menu_opciones_tras_domingo(u)
+        return msgs
 
     def _generar_lista_compra(self, u):
         d = u['data']
@@ -670,9 +733,12 @@ class ZiaNaturvitiaEngine:
                 out = self._analizar_dieta_foto(data_url, m, d)
                 if estado_prev == 'esperando_foto_dieta':
                     u['state'] = 'plan_listo'
-                return out
+                    self._ensure_usado(u)
+                    u['usado'].add('foto_dieta')
+                return self._with_post_plan_menu(u, out)
             except Exception as e:
-                return 'No pude leer la imagen: ' + str(e)[:100]
+                err = 'No pude leer la imagen: ' + str(e)[:100]
+                return self._with_post_plan_menu(u, err)
 
         if is_reset(m):
             self.reset_user(user_id)
@@ -813,7 +879,7 @@ class ZiaNaturvitiaEngine:
                 return 'Indica un importe razonable entre 10 y 600 euros.'
             d['presupuesto'] = str(int(p)) if p == int(p) else str(round(p, 2))
             try:
-                msgs = self._generar_plan_completo(u)
+                msgs = self._generar_plan_completo(u, marcar_plan_semanal_usado=False)
                 u['state'] = 'plan_listo'
                 return msgs
             except Exception as e:
@@ -827,50 +893,34 @@ class ZiaNaturvitiaEngine:
         if s == 'nv_esperando_entreno':
             yn = parse_yes_no(ml)
             if yn is None:
-                return 'Responde con *sí* o *no*: ¿has entrenado hoy? Así ajusto carbohidratos y timing.'
+                return self._with_post_plan_menu(
+                    u,
+                    'Responde con *sí* o *no*: ¿has entrenado hoy? Así ajusto carbohidratos y timing.',
+                )
             u['state'] = 'plan_listo'
             try:
-                return self._gpt_meal_after_training(u, yn)
+                out = self._gpt_meal_after_training(u, yn)
+                self._ensure_usado(u)
+                u['usado'].add('que_como')
+                return self._with_post_plan_menu(u, out)
             except Exception as e:
-                return 'Error al sugerir comida: ' + str(e)[:80]
+                return self._with_post_plan_menu(u, 'Error al sugerir comida: ' + str(e)[:80])
 
         if s == 'esperando_foto_dieta':
             if ml in ('cancelar', 'salir', 'volver', 'menu', 'menú', '0'):
                 u['state'] = 'plan_listo'
-                return 'De acuerdo.\n' + self._menu_opciones_tras_domingo()
-            return (
+                return self._with_post_plan_menu(u, 'De acuerdo.')
+            return self._with_post_plan_menu(
+                u,
                 'Envía una foto de tu plato o de tu día de comidas para analizarla (como imagen). '
-                'Cuando la tengas, mándala aquí. Para volver al menú escribe *cancelar* o *menu*.'
+                'Cuando la tengas, mándala aquí. Para volver al menú escribe *cancelar* o *menu*.',
             )
 
         if s == 'plan_listo':
-            opc = plan_listo_menu_digit(m)
-            if opc == '1':
-                try:
-                    return self._generar_lista_compra(u)
-                except Exception as e:
-                    return 'No pude generar la lista: ' + str(e)[:80]
-            if opc == '2':
-                try:
-                    return self._gpt_suplementos_plan(u)
-                except Exception as e:
-                    return 'No pude preparar suplementos: ' + str(e)[:80]
-            if opc == '3':
-                u['state'] = 'esperando_foto_dieta'
-                return (
-                    'Perfecto. Envía una foto de tu comida o de tu día y te doy feedback sobre tu dieta '
-                    '(macros aproximados, crudo/cocinado y 2 ideas de mejora). Para volver al menú: *cancelar*.'
-                )
-            if opc == '4':
-                try:
-                    msgs = self._generar_plan_completo(
-                        u,
-                        intro_first_line='Aquí tienes tu nuevo plan semanal con macros ✅',
-                    )
-                    u['state'] = 'plan_listo'
-                    return msgs
-                except Exception as e:
-                    return 'No pude generar el plan: ' + str(e)[:120]
+            self._ensure_usado(u)
+            items = self._menu_items_disponibles(u)
+            keys_only = [k for k, _ in items]
+            n = len(items)
 
             if ml in ('reintentar', 'retry', 'otra vez') and d.get('comidas_dia'):
                 try:
@@ -878,7 +928,7 @@ class ZiaNaturvitiaEngine:
                     u['state'] = 'plan_listo'
                     return msgs
                 except Exception as e:
-                    return 'No pude regenerar el plan: ' + str(e)[:120]
+                    return self._with_post_plan_menu(u, 'No pude regenerar el plan: ' + str(e)[:120])
 
             if quiere_plan_semanal_o_vale(ml):
                 try:
@@ -889,20 +939,69 @@ class ZiaNaturvitiaEngine:
                     u['state'] = 'plan_listo'
                     return msgs
                 except Exception as e:
-                    return 'No pude regenerar el plan: ' + str(e)[:120]
+                    return self._with_post_plan_menu(u, 'No pude regenerar el plan: ' + str(e)[:120])
 
-            if wants_food_advice(ml):
+            digit = parse_plan_menu_digit(m, n) if n else None
+            chosen_key = keys_only[digit - 1] if digit is not None else None
+            if chosen_key is None and m.strip():
+                chosen_key = self._match_menu_keyword(ml, keys_only)
+
+            if chosen_key == 'lista_compra':
+                try:
+                    out = self._generar_lista_compra(u)
+                    u['usado'].add('lista_compra')
+                    return self._with_post_plan_menu(u, out)
+                except Exception as e:
+                    return self._with_post_plan_menu(u, 'No pude generar la lista: ' + str(e)[:80])
+            if chosen_key == 'suplementos':
+                try:
+                    out = self._gpt_suplementos_plan(u)
+                    u['usado'].add('suplementos')
+                    return self._with_post_plan_menu(u, out)
+                except Exception as e:
+                    return self._with_post_plan_menu(u, 'No pude preparar suplementos: ' + str(e)[:80])
+            if chosen_key == 'foto_dieta':
+                u['state'] = 'esperando_foto_dieta'
+                return self._with_post_plan_menu(
+                    u,
+                    'Perfecto. Envía una foto de tu comida o de tu día y te doy feedback sobre tu dieta '
+                    '(macros aproximados, crudo/cocinado y 2 ideas de mejora). Para volver al menú: *cancelar*.',
+                )
+            if chosen_key == 'plan_semanal':
+                try:
+                    msgs = self._generar_plan_completo(
+                        u,
+                        intro_first_line='Aquí tienes tu nuevo plan semanal con macros ✅',
+                    )
+                    u['state'] = 'plan_listo'
+                    return msgs
+                except Exception as e:
+                    return self._with_post_plan_menu(u, 'No pude generar el plan: ' + str(e)[:120])
+            if chosen_key == 'que_como':
                 u['state'] = 'nv_esperando_entreno'
-                return 'Antes de recomendarte qué comer: ¿has entrenado hoy? (sí / no)'
+                return self._with_post_plan_menu(
+                    u,
+                    'Antes de recomendarte qué comer: ¿has entrenado hoy? (sí / no)',
+                )
+
+            if wants_food_advice(ml) and 'que_como' not in u['usado']:
+                u['state'] = 'nv_esperando_entreno'
+                return self._with_post_plan_menu(
+                    u,
+                    'Antes de recomendarte qué comer: ¿has entrenado hoy? (sí / no)',
+                )
 
             if m:
                 try:
-                    return self._gpt_libre(m, d)
+                    return self._with_post_plan_menu(u, self._gpt_libre(m, d))
                 except Exception as e:
-                    return 'Error: ' + str(e)[:80]
-            return (
+                    return self._with_post_plan_menu(u, 'Error: ' + str(e)[:80])
+            if n == 0:
+                return '¿Tienes alguna duda más sobre tu nutrición? 🤓'
+            return self._with_post_plan_menu(
+                u,
                 'Envía texto o una foto. Si quieres ideas de comida, pregunta por ejemplo *¿qué como ahora?* '
-                'y te preguntaré si has entrenado.'
+                'y te preguntaré si has entrenado.',
             )
 
         u['state'] = 'nv_onb_nombre'
