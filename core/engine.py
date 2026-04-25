@@ -166,7 +166,7 @@ class ZiaEngine:
             nums = re.findall(r'\d+', m)
             u['data']['presupuesto'] = nums[0] if nums else '65'
             u['state'] = 'supermercado'
-            return ('En que supermercado sueles comprar? 🏪\n\n  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n_O escribe el nombre directamente_')
+            return '🏪 En que supermercado sueles comprar?\n\n  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n_O escribe el nombre directamente_'
         elif s == 'supermercado':
             u['data']['supermercado'] = m.strip() if m.strip() else 'Mercadona'
             u['state'] = 'plan_listo'
