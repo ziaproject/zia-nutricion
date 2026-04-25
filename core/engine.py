@@ -284,7 +284,8 @@ class ZiaEngine:
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                     '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                     '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                    '6️⃣ 🏋️ Nutricion deportiva'
+                    '6️⃣ 🏋️ Nutricion deportiva\n'
+                    '7️⃣ 🩺 Analisis de mi analitica'
                 )
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
@@ -316,6 +317,11 @@ class ZiaEngine:
                 return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'menu_principal':
             ml = m.lower()
+            if m.strip() == '7' or 'analitica' in ml or 'analisis' in ml or 'sangre' in ml:
+                u['state'] = 'esperando_foto_analitica'
+                return (
+                    'Enviame una foto de tu analitica de sangre y la interpreto nutricionalmente para adaptar tu plan 🩺'
+                )
             company = self.config['branding']['company_name']
             data = u['data']
             if m.strip() == '1' or 'recetas' in ml or 'comer' in ml:
@@ -370,7 +376,8 @@ class ZiaEngine:
                         '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                         '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                         '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                        '6️⃣ 🏋️ Nutricion deportiva'
+                        '6️⃣ 🏋️ Nutricion deportiva\n'
+                        '7️⃣ 🩺 Analisis de mi analitica'
                     )
                     return r.choices[0].message.content + menu
                 except Exception:
@@ -422,7 +429,8 @@ class ZiaEngine:
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                     '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                     '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                    '6️⃣ 🏋️ Nutricion deportiva'
+                    '6️⃣ 🏋️ Nutricion deportiva\n'
+                    '7️⃣ 🩺 Analisis de mi analitica'
                 )
                 return [msg1, msg2]
             else:
@@ -483,13 +491,71 @@ class ZiaEngine:
                         '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                         '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                         '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                        '6️⃣ 🏋️ Nutricion deportiva'
+                        '6️⃣ 🏋️ Nutricion deportiva\n'
+                        '7️⃣ 🩺 Analisis de mi analitica'
                     )
                     return r.choices[0].message.content + menu
                 except Exception as e:
                     return 'No pude analizar la foto: ' + str(e)[:80]
             else:
                 return 'No he recibido la foto. Enviamela directamente como imagen 📸'
+        elif s == 'esperando_foto_analitica':
+            text, image_url = self._retail_text_and_image_url(message)
+            if not image_url and isinstance(message, dict):
+                for key in ('MediaUrl0', 'media_url', 'imageUrl', 'image_url'):
+                    if message.get(key):
+                        image_url = message.get(key)
+                        break
+            if image_url:
+                data = u.get('data', {})
+                nombre = data.get('nombre', '')
+                restricciones = data.get('restricciones', 'Ninguna')
+                objetivo = data.get('objetivo', '')
+                try:
+                    import requests as _req
+                    import base64 as _b64
+                    twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
+                    twilio_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
+                    img_response = _req.get(image_url, auth=(twilio_sid, twilio_token), timeout=15)
+                    img_b64 = _b64.b64encode(img_response.content).decode('utf-8')
+                    content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+                    data_url = 'data:' + content_type + ';base64,' + img_b64
+                    prompt_analitica = (
+                        'Eres ZIA, nutricionista experta. Analiza esta analitica de sangre y: '
+                        '1) Identifica valores fuera de rango (colesterol, glucosa, vitaminas, hierro, etc) '
+                        '2) Explica en lenguaje sencillo que significa cada valor alterado '
+                        '3) Da recomendaciones nutricionales especificas para mejorar esos valores '
+                        '4) Indica alimentos que debe aumentar y alimentos que debe reducir '
+                        'Perfil: ' + nombre + ', objetivo: ' + objetivo + ', restricciones: ' + restricciones + '. '
+                        'Responde en espanol con emojis. Tono cercano y motivador. '
+                        'IMPORTANTE: Indica que esto es orientativo y no sustituye consejo medico.'
+                    )
+                    r = self.openai.chat.completions.create(
+                        model='gpt-4o',
+                        messages=[{'role': 'user', 'content': [
+                            {'type': 'text', 'text': prompt_analitica},
+                            {'type': 'image_url', 'image_url': {'url': data_url}}
+                        ]}],
+                        max_tokens=900,
+                        timeout=45
+                    )
+                    nombre_str = nombre if nombre else 'tu'
+                    menu = (
+                        '\n\n---\nQue quieres hacer ahora, ' + nombre_str + '?\n\n'
+                        '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
+                        '2️⃣ 🛒 Hacer la compra inteligente\n'
+                        '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
+                        '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
+                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
+                        '6️⃣ 🏋️ Nutricion deportiva\n'
+                        '7️⃣ 🩺 Analisis de mi analitica'
+                    )
+                    u['state'] = 'menu_principal'
+                    return r.choices[0].message.content + menu
+                except Exception as e:
+                    return 'No pude analizar la analitica: ' + str(e)[:80]
+            else:
+                return 'No he recibido la foto. Enviame una imagen de tu analitica de sangre 🩺'
         elif s == 'recetas_rapidas':
             data = u['data']
             nombre = data.get('nombre', '')
@@ -519,7 +585,8 @@ class ZiaEngine:
                 '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                 '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                 '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                '6️⃣ 🏋️ Nutricion deportiva'
+                '6️⃣ 🏋️ Nutricion deportiva\n'
+                '7️⃣ 🩺 Analisis de mi analitica'
             )
             u['state'] = 'menu_principal'
             try:
@@ -581,7 +648,8 @@ class ZiaEngine:
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                     '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                     '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                    '6️⃣ 🏋️ Nutricion deportiva'
+                    '6️⃣ 🏋️ Nutricion deportiva\n'
+                    '7️⃣ 🩺 Analisis de mi analitica'
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
@@ -629,7 +697,8 @@ class ZiaEngine:
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                     '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                     '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                    '6️⃣ 🏋️ Nutricion deportiva'
+                    '6️⃣ 🏋️ Nutricion deportiva\n'
+                    '7️⃣ 🩺 Analisis de mi analitica'
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
@@ -812,7 +881,8 @@ class ZiaEngine:
                 '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                 '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
                 '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                '6️⃣ 🏋️ Nutricion deportiva'
+                '6️⃣ 🏋️ Nutricion deportiva\n'
+                '7️⃣ 🩺 Analisis de mi analitica'
             )
         nevera_foto = (image_url is not None) or any(
             w in tl for w in ('nevera', 'frigo', 'tengo en casa', 'foto')
