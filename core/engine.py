@@ -536,8 +536,8 @@ class ZiaEngine:
                             {'type': 'text', 'text': prompt_analitica},
                             {'type': 'image_url', 'image_url': {'url': data_url}}
                         ]}],
-                        max_tokens=900,
-                        timeout=45
+                        max_tokens=600,
+                        timeout=25
                     )
                     nombre_str = nombre if nombre else 'tu'
                     menu = (

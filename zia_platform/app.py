@@ -61,6 +61,20 @@ def send_extra_messages(to: str, messages: list):
         logger.error(f"❌ Error enviando mensaje extra: {str(e)}")
 
 
+def process_photo_in_background(to: str, message_arg: dict, plan_type: str):
+    """Procesa fotos lentas fuera del webhook y envía la respuesta por Twilio."""
+    try:
+        reply = engine.process_message(
+            user_id=to,
+            message=message_arg,
+            plan_type=plan_type
+        )
+        messages = reply if isinstance(reply, list) else [reply]
+        send_extra_messages(to, messages)
+    except Exception as e:
+        logger.error(f"❌ Error procesando foto en background: {str(e)}", exc_info=True)
+
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -110,6 +124,19 @@ def webhook():
             except Exception as e:
                 logger.error("Error descargando imagen para retail-asesor: %s", e, exc_info=True)
                 return Response('', status=200)
+
+        user_state = getattr(engine, '_users', {}).get(sender, {}).get('state')
+        if media_url and user_state in ('esperando_foto_analitica', 'esperando_foto_nevera'):
+            t = threading.Thread(
+                target=process_photo_in_background,
+                args=(sender, message_arg, plan_type),
+                daemon=True
+            )
+            t.start()
+
+            resp = MessagingResponse()
+            resp.message("Dame un momento, estoy analizando la foto 📸")
+            return str(resp)
 
         reply = engine.process_message(
             user_id=sender,
