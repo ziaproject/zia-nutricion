@@ -168,7 +168,12 @@ class ZiaEngine:
             u['state'] = 'supermercado'
             return '🏪 En que supermercado sueles comprar?\n\n  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n_O escribe el nombre directamente_'
         elif s == 'supermercado':
-            u['data']['supermercado'] = m.strip() if m.strip() else 'Mercadona'
+            SUPER_MAP = {
+                '1': 'Mercadona', '2': 'Lidl', '3': 'Aldi', '4': 'Carrefour',
+                '5': 'Dia', '6': 'Consum', '7': 'Supercor', '8': 'El Corte Ingles'
+            }
+            super_nombre = SUPER_MAP.get(m.strip(), m.strip()) if m.strip() else 'Mercadona'
+            u['data']['supermercado'] = super_nombre
             u['state'] = 'plan_listo'
             msgs = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(msgs[1:])
@@ -271,7 +276,7 @@ class ZiaEngine:
                 msg1 = (
                     'Perfecto, '
                     + nombre
-                    + '! Aqui tienes tu link para '
+                    + '! Tu link para '
                     + super_nombre
                     + ':\n\n'
                     + url
@@ -279,13 +284,13 @@ class ZiaEngine:
                 )
                 msg2 = (
                     'Que quieres hacer ahora, ' + nombre + '?\n\n'
-                    '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
+                    '1️⃣ 🍽️ Comer mejor hoy\n'
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
-                    '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                    '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
+                    '3️⃣ 📸 Foto nevera\n'
+                    '4️⃣ 🧠 Mejorar habitos\n'
+                    '5️⃣ 🥗 Dieta especifica\n'
                     '6️⃣ 🏋️ Nutricion deportiva\n'
-                    '7️⃣ 🩺 Analisis de mi analitica'
+                    '7️⃣ 🩺 Analisis analitica'
                 )
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
@@ -514,12 +519,17 @@ class ZiaEngine:
                 try:
                     import requests as _req
                     import base64 as _b64
+                    from PIL import Image as _PIL
+                    import io as _io
                     twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
                     twilio_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
                     img_response = _req.get(image_url, auth=(twilio_sid, twilio_token), timeout=15)
-                    img_b64 = _b64.b64encode(img_response.content).decode('utf-8')
-                    content_type = img_response.headers.get('Content-Type', 'image/jpeg')
-                    data_url = 'data:' + content_type + ';base64,' + img_b64
+                    img = _PIL.open(_io.BytesIO(img_response.content)).convert('RGB')
+                    buf = _io.BytesIO()
+                    img.save(buf, format='JPEG')
+                    img_b64 = _b64.b64encode(buf.getvalue()).decode('utf-8')
+                    content_type = 'image/jpeg'
+                    data_url = 'data:image/jpeg;base64,' + img_b64
                     prompt_analitica = (
                         'Eres ZIA, nutricionista experta. Analiza esta analitica de sangre y: '
                         '1) Identifica valores fuera de rango (colesterol, glucosa, vitaminas, hierro, etc) '
