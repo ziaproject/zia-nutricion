@@ -154,6 +154,12 @@ class ZiaEngine:
             if not elegido:
                 return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
             u['data']['personas'] = elegido
+            if elegido == '1 persona':
+                u['data']['num_personas'] = 1
+            elif elegido == '2 personas':
+                u['data']['num_personas'] = 2
+            else:
+                u['data']['num_personas'] = 4
             u['state'] = 'objetivo'
             return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
         elif s == 'objetivo':
@@ -224,13 +230,34 @@ class ZiaEngine:
         elif s == 'plan_listo':
             ml = m.lower()
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
-                u['state'] = 'confirmando_compra'
                 super_nombre = u['data'].get('supermercado', 'Mercadona')
-                return (
-                    '¿Confirmas la compra en '
-                    + super_nombre
-                    + '? Responde si para obtener el link directo 🛒'
+                SUPER_URLS = {
+                    'mercadona': 'https://tienda.mercadona.es',
+                    'lidl': 'https://www.lidl.es',
+                    'aldi': 'https://www.aldi.es',
+                    'carrefour': 'https://www.carrefour.es',
+                    'dia': 'https://www.dia.es',
+                    'consum': 'https://www.consum.es',
+                    'supercor': 'https://www.supercor.es',
+                    'el corte ingles': 'https://www.elcorteingles.es/supermercado',
+                    'el corte inglés': 'https://www.elcorteingles.es/supermercado',
+                }
+                sk = super_nombre.strip().lower()
+                url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
+                nombre = u['data'].get('nombre', '')
+                msg1 = 'Perfecto, ' + nombre + '! Tu link para ' + super_nombre + ':\n\n' + url + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
+                msg2 = (
+                    'Que quieres hacer ahora, ' + nombre + '?\n\n'
+                    '1️⃣ 🍽️ Comer mejor hoy\n'
+                    '2️⃣ 🛒 Hacer la compra inteligente\n'
+                    '3️⃣ 📸 Foto nevera\n'
+                    '4️⃣ 🧠 Mejorar habitos\n'
+                    '5️⃣ 🥗 Dieta especifica\n'
+                    '6️⃣ 🏋️ Nutricion deportiva\n'
+                    '7️⃣ 🩺 Analisis analitica'
                 )
+                u['state'] = 'menu_principal'
+                return [msg1, msg2]
             if m.strip() == '2' or re.search(r'\bcomparar\b', ml):
                 u['state'] = 'confirmando_compra'
                 try:
@@ -811,6 +838,8 @@ class ZiaEngine:
         company = self.config['branding']['company_name']
         cal = calorias(data)
         personas = data.get('personas', '1 persona')
+        presupuesto = data.get('presupuesto', '65')
+        num_personas = data.get('num_personas', 1)
         super_nombre = data.get('supermercado', 'Mercadona')
         cats = self.config.get('catalog', {}).get('categories', [])
         catalogo = ''
@@ -829,11 +858,12 @@ class ZiaEngine:
         perfil = (
             'PERFIL: ' + data.get('nombre', '') + ', ' + data.get('genero', '') + ', '
             + data.get('edad', '') + ' anos, ' + data.get('peso', '') + 'kg, '
-            + data.get('altura', '') + 'cm, ' + str(cal) + ' kcal/dia\n'
-            'Plan para: ' + personas + '\n'
-            'Objetivo: ' + data.get('objetivo', '') + '\n'
-            'Restricciones: ' + data.get('restricciones', 'Ninguna') + '\n'
-            'Presupuesto: ' + data.get('presupuesto', '') + ' euros/semana\n\n'
+            + data.get('altura', '') + 'cm, ' + str(cal) + ' kcal/dia. '
+            'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
+            'Objetivo: ' + data.get('objetivo', '') + '. '
+            'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
+            'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
+            'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
             + catalogo
         )
 
@@ -865,8 +895,11 @@ class ZiaEngine:
         prompt4 = (
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE la LISTA DE LA COMPRA '
             'para los 7 dias (Lunes a Domingo). PROHIBIDO incluir menus o dias de la semana. '
+            'El TOTAL ESTIMADO NO puede superar ' + presupuesto + ' euros. '
+            'Si los productos superan el presupuesto reduce cantidades o elige alternativas mas baratas. '
             'Organiza por categorias con cantidades y precios para ' + super_nombre + '. '
-            'Termina con TOTAL ESTIMADO. Sin texto antes ni despues. '
+            'Termina con TOTAL ESTIMADO (debe ser menor o igual a ' + presupuesto + ' euros). '
+            'Sin texto antes ni despues. '
             + perfil
         )
 
