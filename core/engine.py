@@ -115,6 +115,9 @@ class ZiaEngine:
         return text, url
 
     def process_message(self, user_id, message, plan_type='pro'):
+        meta = self.config.get('_meta')
+        if isinstance(meta, dict) and meta.get('type') == 'retail-asesor':
+            return self._process_retail_asesor(user_id, message)
         u = self._get_user(user_id)
         if isinstance(message, dict):
             m, _ = self._retail_text_and_image_url(message)
