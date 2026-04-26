@@ -144,22 +144,64 @@ class ZiaEngine:
             u['state'] = 'personas'
             return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨\u200d👩\u200d👧\u200d👦 Familiar (3 o mas personas)'
         elif s == 'personas':
-            ml = m.lower()
-            if any(w in ml for w in ['2','dos','pareja','amigo']): u['data']['personas'] = '2 personas'
-            elif any(w in ml for w in ['3','familia','familiar','mas','tres']): u['data']['personas'] = 'familia (3 o mas personas)'
-            else: u['data']['personas'] = '1 persona'
+            opts = {'1': '1 persona', '2': '2 personas', '3': 'familia (3 o mas personas)'}
+            ml = m.strip().lower()
+            elegido = opts.get(m.strip(), None)
+            if not elegido:
+                if 'solo' in ml or 'mi' in ml or 'una' in ml or '1' in ml: elegido = '1 persona'
+                elif '2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml: elegido = '2 personas'
+                elif '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml: elegido = 'familia (3 o mas personas)'
+            if not elegido:
+                return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
+            u['data']['personas'] = elegido
             u['state'] = 'objetivo'
             return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
         elif s == 'objetivo':
-            u['data']['objetivo'] = m
+            opts = {'1':'Perder peso','2':'Ganar musculo','3':'Mas energia y vitalidad','4':'Comer mas sano','5':'Mejorar la digestion'}
+            ml = m.strip().lower()
+            elegido = opts.get(m.strip(), None)
+            if not elegido:
+                if 'peso' in ml or 'grasa' in ml: elegido = 'Perder peso'
+                elif 'musculo' in ml or 'muscu' in ml: elegido = 'Ganar musculo'
+                elif 'energia' in ml: elegido = 'Mas energia y vitalidad'
+                elif 'sano' in ml or 'salud' in ml: elegido = 'Comer mas sano'
+                elif 'digest' in ml: elegido = 'Mejorar la digestion'
+            if not elegido:
+                return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
+            u['data']['objetivo'] = elegido
             u['state'] = 'cocina'
             return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨\u200d🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking (preparar el domingo)'
         elif s == 'cocina':
-            u['data']['cocina'] = m
+            opts = {'1':'Poco tiempo, recetas rapidas','2':'Me gusta cocinar','3':'Solo platos sencillos','4':'Batch cooking'}
+            ml = m.strip().lower()
+            elegido = opts.get(m.strip(), None)
+            if not elegido:
+                if 'poco' in ml or 'rapido' in ml or 'tiempo' in ml: elegido = 'Poco tiempo, recetas rapidas'
+                elif 'gusta' in ml or 'cocin' in ml: elegido = 'Me gusta cocinar'
+                elif 'sencill' in ml: elegido = 'Solo platos sencillos'
+                elif 'batch' in ml or 'domingo' in ml: elegido = 'Batch cooking'
+            if not elegido:
+                return 'No te he entendido 😊 Elige una opcion:\n\n⚡ Poco tiempo, recetas rapidas\n👨‍🍳 Me gusta cocinar\n🥗 Solo platos sencillos\n📦 Batch cooking'
+            u['data']['cocina'] = elegido
             u['state'] = 'restricciones'
             return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
         elif s == 'restricciones':
-            u['data']['restricciones'] = m
+            opts = {
+                '1': 'Ninguna', '2': 'Vegano/Vegetariano', '3': 'Sin gluten',
+                '4': 'Sin lactosa', '5': 'Sin pescado'
+            }
+            ml = m.strip().lower()
+            elegido = opts.get(m.strip(), None)
+            if not elegido:
+                if 'ninguna' in ml or 'no' == ml: elegido = 'Ninguna'
+                elif 'vegan' in ml or 'vegetarian' in ml: elegido = 'Vegano/Vegetariano'
+                elif 'gluten' in ml or 'celiac' in ml: elegido = 'Sin gluten'
+                elif 'lactosa' in ml or 'lacteo' in ml or 'leche' in ml: elegido = 'Sin lactosa'
+                elif 'pescado' in ml: elegido = 'Sin pescado'
+                elif m.strip(): elegido = m.strip()
+            if not elegido:
+                return 'No te he entendido 😊 Elige una opcion:\n\n✅ Ninguna\n🌱 Vegano/Vegetariano\n🌾 Sin gluten\n🥛 Sin lactosa\n🐟 Sin pescado\n✏️ Otra (escribela)'
+            u['data']['restricciones'] = elegido
             u['state'] = 'presupuesto'
             return ('Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
         elif s == 'presupuesto':
