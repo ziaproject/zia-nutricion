@@ -17,7 +17,8 @@ def get_engine(client_id=None):
         _cache[client_id] = ZiaEngine(client_id)
     return _cache[client_id]
 
-RESET_WORDS = ['hola','inicio','reset','empezar','reiniciar','start','menu','nuevo']
+RESET_WORDS = RESET_WORDS = ['inicio','reset','reiniciar','start','menu','nuevo']
+
 
 def is_reset(m):
     return m.strip().lower() in RESET_WORDS
