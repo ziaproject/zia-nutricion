@@ -1029,3 +1029,40 @@ class ZiaEngine:
             return reply
         except Exception as e:
             return 'Error: ' + str(e)[:50]
+    def _process_retail_asesor(self, user_id, message):
+        u = self._get_user(user_id)
+        history = u.get('history', [])
+        if isinstance(message, str):
+            reset = is_reset(message)
+        elif isinstance(message, dict):
+            t0 = message.get('text') or message.get('body') or message.get('caption') or ''
+            reset = is_reset(t0.strip()) if isinstance(t0, str) else False
+        else:
+            reset = False
+        if reset:
+            had_history = len(u.get('history', [])) > 0
+            u['history'] = []
+            history = []
+            if not had_history:
+                return self.get_welcome_message()
+        text, image_url = self._retail_text_and_image_url(message)
+        if image_url:
+            user_msg = {'role': 'user', 'content': [{'type': 'text', 'text': text or 'Analiza esta imagen.'}, {'type': 'image_url', 'image_url': {'url': image_url}}]}
+        else:
+            user_msg = {'role': 'user', 'content': text}
+        ai = self.config.get('ai', {})
+        model = ai.get('model', 'gpt-4o-mini')
+        max_tokens = ai.get('max_tokens', 800)
+        temperature = ai.get('temperature', 0.7)
+        system_prompt = self.config.get('system_prompt', '')
+        messages = [{'role': 'system', 'content': system_prompt}] + history + [user_msg]
+        try:
+            r = self.openai.chat.completions.create(model=model, messages=messages, max_tokens=max_tokens, temperature=temperature, timeout=60)
+            reply = r.choices[0].message.content
+            new_history = history + [user_msg, {'role': 'assistant', 'content': reply}]
+            if len(new_history) > 10:
+                new_history = new_history[-10:]
+            u['history'] = new_history
+            return reply
+        except Exception as e:
+            return 'Error: ' + str(e)[:80]
