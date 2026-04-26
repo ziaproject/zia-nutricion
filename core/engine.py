@@ -14,12 +14,7 @@ def get_engine(client_id=None):
     if client_id is None:
         client_id = os.environ.get('CLIENT_ID', 'zia-nutricion')
     if client_id not in _cache:
-        if client_id == 'naturvitia':
-            from core.engine_naturvitia import ZiaNaturvitiaEngine
-
-            _cache[client_id] = ZiaNaturvitiaEngine(load_client_config(client_id))
-        else:
-            _cache[client_id] = ZiaEngine(client_id)
+        _cache[client_id] = ZiaEngine(client_id)
     return _cache[client_id]
 
 RESET_WORDS = ['hola','inicio','reset','empezar','reiniciar','start','menu','nuevo']
@@ -71,13 +66,15 @@ class ZiaEngine:
         self._users = {}
 
     def _get_user(self, uid):
-        if uid not in self._users:
-            self._users[uid] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': 0}
-        return self._users[uid]
+        key = f"{self.client_id}_{uid}"
+        if key not in self._users:
+            self._users[key] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': 0}
+        return self._users[key]
 
     def reset_user(self, uid):
-        count = self._users.get(uid, {}).get('plan_count', 0)
-        self._users[uid] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': count}
+        key = f"{self.client_id}_{uid}"
+        count = self._users.get(key, {}).get('plan_count', 0)
+        self._users[key] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': count}
 
     def get_welcome_message(self):
         return self.config['bot']['welcome_message']
@@ -142,7 +139,7 @@ class ZiaEngine:
                 u['data'][k] = v
             nombre = u['data'].get('nombre', '')
             u['state'] = 'personas'
-            return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨\u200d👩\u200d👧\u200d👦 Familiar (3 o mas personas)'
+            return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'personas':
             opts = {'1': '1 persona', '2': '2 personas', '3': 'familia (3 o mas personas)'}
             ml = m.strip().lower()
@@ -176,7 +173,7 @@ class ZiaEngine:
                 return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
             u['data']['objetivo'] = elegido
             u['state'] = 'cocina'
-            return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨\u200d🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking (preparar el domingo)'
+            return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨‍🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking (preparar el domingo)'
         elif s == 'cocina':
             opts = {'1':'Poco tiempo, recetas rapidas','2':'Me gusta cocinar','3':'Solo platos sencillos','4':'Batch cooking'}
             ml = m.strip().lower()
