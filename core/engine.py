@@ -130,6 +130,20 @@ class ZiaEngine:
             return 'Mercadona'
         return super_map.get(normalize_text(raw), raw)
 
+    def _menu_principal_text(self, data):
+        nombre = data.get('nombre', '')
+        titulo = ('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?'
+        return (
+            titulo + '\n\n'
+            '1️⃣ 🍽️ Comer mejor hoy\n'
+            '2️⃣ 🛒 Hacer la compra inteligente\n'
+            '3️⃣ 📸 Foto nevera\n'
+            '4️⃣ 🧠 Mejorar habitos\n'
+            '5️⃣ 🥗 Dieta especifica\n'
+            '6️⃣ 📊 Ver mi progreso semanal\n'
+            '7️⃣ 💊 Qué suplementos necesito'
+        )
+
     def _retail_text_and_image_url(self, message):
         if isinstance(message, str):
             return message.strip(), None
@@ -335,14 +349,7 @@ class ZiaEngine:
                 nombre = u['data'].get('nombre', '')
                 saludo = ('Perfecto, ' + nombre + '!') if nombre else 'Perfecto! 🌿'
                 msg1 = saludo + ' Tu link para ' + super_nombre + ':\n\n' + url + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
-                msg2 = (
-                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
-                    '1️⃣ 🍽️ Comer mejor hoy\n'
-                    '2️⃣ 🛒 Hacer la compra inteligente\n'
-                    '3️⃣ 📸 Foto nevera\n'
-                    '4️⃣ 🧠 Mejorar habitos\n'
-                    '5️⃣ 🥗 Dieta especifica'
-                )
+                msg2 = self._menu_principal_text(u['data'])
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
             if m.strip() == '2' or re.search(r'\bcomparar\b', ml):
@@ -392,14 +399,7 @@ class ZiaEngine:
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! '
                 )
-                msg2 = (
-                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
-                    '1️⃣ 🍽️ Comer mejor hoy\n'
-                    '2️⃣ 🛒 Hacer la compra inteligente\n'
-                    '3️⃣ 📸 Foto nevera\n'
-                    '4️⃣ 🧠 Mejorar habitos\n'
-                    '5️⃣ 🥗 Dieta especifica'
-                )
+                msg2 = self._menu_principal_text(u['data'])
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
             if m.strip() == '4' or 'nevera' in ml or 'foto' in ml:
@@ -443,14 +443,7 @@ class ZiaEngine:
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 )
-                msg2 = (
-                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
-                    '1️⃣ 🍽️ Comer mejor hoy\n'
-                    '2️⃣ 🛒 Hacer la compra inteligente\n'
-                    '3️⃣ 📸 Foto nevera\n'
-                    '4️⃣ 🧠 Mejorar habitos\n'
-                    '5️⃣ 🥗 Dieta especifica'
-                )
+                msg2 = self._menu_principal_text(u['data'])
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
             elif ml in ['2', 'comparar', 'comparar precios', 'otros']:
@@ -527,15 +520,7 @@ class ZiaEngine:
                         timeout=25,
                     )
                     u['state'] = 'menu_principal'
-                    nombre = data.get('nombre', '')
-                    menu = (
-                        '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
-                        '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                        '2️⃣ 🛒 Hacer la compra inteligente\n'
-                        '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                        '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
-                    )
+                    menu = '\n\n---\n' + self._menu_principal_text(data)
                     return r.choices[0].message.content + menu
                 except Exception:
                     return 'No pude generar los consejos. Intenta de nuevo.'
@@ -544,6 +529,20 @@ class ZiaEngine:
                 return (
                     'Que tipo de dieta quieres?\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterranea\n'
                     '4️⃣ Ayuno 16:8\n5️⃣ Vegetariana'
+                )
+            if m.strip() == '6' or 'progreso' in ml or 'semana' in ml:
+                u['state'] = 'progreso_semanal'
+                return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Cómo te encuentras de energía, digestión y estado de ánimo?'
+            if m.strip() == '7' or 'suplement' in ml or 'vitamina' in ml:
+                u['state'] = 'suplementos'
+                return (
+                    '¿Cuál es tu principal preocupación ahora mismo? 💊\n'
+                    '1️⃣ Me falta energía\n'
+                    '2️⃣ Quiero ganar músculo\n'
+                    '3️⃣ Mejorar digestión\n'
+                    '4️⃣ Dormir mejor\n'
+                    '5️⃣ Reforzar defensas\n'
+                    '6️ 🔥 Perder peso'
                 )
             return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'eligiendo_super':
@@ -574,14 +573,7 @@ class ZiaEngine:
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 )
-                msg2 = (
-                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
-                    '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                    '2️⃣ 🛒 Hacer la compra inteligente\n'
-                    '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                    '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
-                )
+                msg2 = self._menu_principal_text(u['data'])
                 return [msg1, msg2]
             else:
                 return 'Escribe: Mercadona, Lidl, Aldi, Carrefour, Dia, Consum, Supercor o El Corte Inglés.'
@@ -636,15 +628,7 @@ class ZiaEngine:
                         timeout=45,
                     )
                     u['state'] = 'menu_principal'
-                    nombre = data.get('nombre', '')
-                    menu = (
-                        '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
-                        '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                        '2️⃣ 🛒 Hacer la compra inteligente\n'
-                        '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                        '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
-                    )
+                    menu = '\n\n---\n' + self._menu_principal_text(data)
                     return r.choices[0].message.content + menu
                 except Exception as e:
                     return 'No pude analizar la foto: ' + str(e)[:80]
@@ -668,14 +652,7 @@ class ZiaEngine:
                 + '. '
                 'Usa emojis. Maximo 300 palabras. Responde en espanol.'
             )
-            menu = (
-                '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
-                '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                '2️⃣ 🛒 Hacer la compra inteligente\n'
-                '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
-            )
+            menu = '\n\n---\n' + self._menu_principal_text(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -727,18 +704,75 @@ class ZiaEngine:
                     timeout=30,
                 )
                 u['state'] = 'menu_principal'
-                nombre = data.get('nombre', '')
-                menu = (
-                    '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
-                    '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                    '2️⃣ 🛒 Hacer la compra inteligente\n'
-                    '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                    '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
-                )
+                menu = '\n\n---\n' + self._menu_principal_text(data)
                 return [mensaje_espera, r.choices[0].message.content + menu]
             except Exception as e:
                 return 'No pude generar el plan de dieta por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
+        elif s == 'progreso_semanal':
+            data = u['data']
+            perfil_usuario = self._profile_for_prompt(data)
+            prompt = (
+                'Eres ZIA nutricionista. El usuario cuenta su progreso semanal: '
+                + m.strip()
+                + '. Perfil: '
+                + perfil_usuario
+                + '. Haz un analisis breve, identifica avances y dificultades, y ajusta recomendaciones '
+                'para la semana siguiente. Tono cercano, practico y motivador. Maximo 300 palabras.'
+            )
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                    messages=[
+                        {'role': 'system', 'content': 'Eres ZIA nutricionista. Responde en espanol con emojis.'},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=600,
+                    temperature=0.7,
+                    timeout=25,
+                )
+                u['state'] = 'menu_principal'
+                return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
+            except Exception as e:
+                return 'No pude analizar tu progreso por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
+        elif s == 'suplementos':
+            data = u['data']
+            perfil_usuario = self._profile_for_prompt(data)
+            opciones = {
+                '1': 'Me falta energía',
+                '2': 'Quiero ganar músculo',
+                '3': 'Mejorar digestión',
+                '4': 'Dormir mejor',
+                '5': 'Reforzar defensas',
+                '6': 'Perder peso',
+            }
+            necesidad = opciones.get(m.strip(), m.strip())
+            extra = ''
+            if m.strip() == '6' or 'peso' in normalize_text(m) or 'perder' in normalize_text(m):
+                extra = ' Para perdida de peso incluye L-carnitina, CLA, proteina, fibra y te verde.'
+            prompt = (
+                'Eres ZIA nutricionista. Recomienda suplementos especificos para esta necesidad: '
+                + necesidad
+                + '. Perfil: '
+                + perfil_usuario
+                + '. Incluye dosis orientativas, consejos practicos y advertencias de seguridad basicas. '
+                + extra
+                + ' Indica que es orientativo y no sustituye consejo medico. Maximo 350 palabras.'
+            )
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                    messages=[
+                        {'role': 'system', 'content': 'Eres ZIA nutricionista. Responde en espanol con emojis.'},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=700,
+                    temperature=0.7,
+                    timeout=25,
+                )
+                u['state'] = 'menu_principal'
+                return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
+            except Exception as e:
+                return 'No pude generar recomendaciones de suplementos por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
@@ -933,12 +967,7 @@ class ZiaEngine:
             u['state'] = 'menu_principal'
             return (
                 'De nada, ' + nombre + '! 😊\n\n'
-                'Que quieres hacer ahora?\n\n'
-                '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                '2️⃣ 🛒 Hacer la compra inteligente\n'
-                '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
+                + self._menu_principal_text(data)
             )
         nevera_foto = (image_url is not None) or any(
             w in tl for w in ('nevera', 'frigo', 'tengo en casa', 'foto')
