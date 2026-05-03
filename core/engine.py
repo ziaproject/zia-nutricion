@@ -542,7 +542,7 @@ class ZiaEngine:
                     '3️⃣ Mejorar digestión\n'
                     '4️⃣ Dormir mejor\n'
                     '5️⃣ Reforzar defensas\n'
-                    '6️ 🔥 Perder peso'
+                    '6️⃣ 🔥 Perder peso'
                 )
             return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'eligiendo_super':
@@ -737,6 +737,7 @@ class ZiaEngine:
         elif s == 'suplementos':
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
+            ml = normalize_text(m)
             opciones = {
                 '1': 'Me falta energía',
                 '2': 'Quiero ganar músculo',
@@ -745,9 +746,25 @@ class ZiaEngine:
                 '5': 'Reforzar defensas',
                 '6': 'Perder peso',
             }
-            necesidad = opciones.get(m.strip(), m.strip())
+            opcion = m.strip()
+            if opcion not in opciones:
+                if 'perder peso' in ml or 'adelgazar' in ml or 'bajar peso' in ml:
+                    opcion = '6'
+                elif 'energia' in ml or 'cansancio' in ml or 'falta energia' in ml:
+                    opcion = '1'
+                elif 'musculo' in ml:
+                    opcion = '2'
+                elif 'digestion' in ml or 'estomago' in ml:
+                    opcion = '3'
+                elif 'dormir' in ml or 'sueno' in ml or 'insomnio' in ml:
+                    opcion = '4'
+                elif 'defensas' in ml or 'inmunidad' in ml or 'resfriado' in ml:
+                    opcion = '5'
+            if opcion not in opciones:
+                return 'No te he entendido 😊 Elige un numero del 1 al 6 para recomendarte suplementos.'
+            necesidad = opciones[opcion]
             extra = ''
-            if m.strip() == '6' or 'peso' in normalize_text(m) or 'perder' in normalize_text(m):
+            if opcion == '6':
                 extra = ' Para perdida de peso incluye L-carnitina, CLA, proteina, fibra y te verde.'
             prompt = (
                 'Eres ZIA nutricionista. Recomienda suplementos especificos para esta necesidad: '
@@ -885,6 +902,8 @@ class ZiaEngine:
             'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Jueves:* como primera palabra. '
             'Nada antes. Genera SOLO Jueves, Viernes y Sábado con Desayuno, Comida y Cena. '
             'PARA en la Cena del Sábado. '
+            'OBLIGATORIO incluir Desayuno, Comida Y Cena para Jueves, Viernes Y Sábado. '
+            'PROHIBIDO terminar en Comida del Sábado. La Cena del Sábado es OBLIGATORIA. '
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Jueves, Viernes y Sabado. '
             'PROHIBIDO incluir Lunes, Martes, Miercoles o Domingo. '
             'Empieza directamente con *Jueves:* Cada dia: Desayuno, Comida y Cena. '
