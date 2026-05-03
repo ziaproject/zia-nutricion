@@ -301,6 +301,34 @@ class ZiaEngine:
             if not elegido:
                 return 'No te he entendido 😊 Elige una opcion:\n\n⚡ Poco tiempo, recetas rapidas\n👨‍🍳 Me gusta cocinar\n🥗 Solo platos sencillos\n📦 Batch cooking'
             u['data']['cocina'] = elegido
+            u['state'] = 'actividad'
+            return '¿Cuál es tu nivel de actividad diaria? 🏃\n1️⃣ Sedentario\n2️⃣ Moderado\n3️⃣ Activo (3-4 días ejercicio)\n4️⃣ Muy activo (5+ días)'
+        elif s == 'actividad':
+            opts = {'1': 'Sedentario', '2': 'Moderado', '3': 'Activo (3-4 días ejercicio)', '4': 'Muy activo (5+ días)'}
+            ml = normalize_text(m)
+            elegido = opts.get(m.strip(), None)
+            if not elegido:
+                if 'sedent' in ml: elegido = 'Sedentario'
+                elif 'moder' in ml: elegido = 'Moderado'
+                elif 'muy' in ml or '5' in ml: elegido = 'Muy activo (5+ días)'
+                elif 'activo' in ml or '3' in ml or '4' in ml: elegido = 'Activo (3-4 días ejercicio)'
+            if not elegido:
+                return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Sedentario\n2️⃣ Moderado\n3️⃣ Activo (3-4 días ejercicio)\n4️⃣ Muy activo (5+ días)'
+            u['data']['actividad'] = elegido
+            u['state'] = 'num_comidas'
+            return '¿Cuántas veces comes al día? 🍽️\n1️ 2 veces\n2️⃣ 3 veces\n3️⃣ 4-5 veces con snacks\n4️⃣ Ayuno intermitente'
+        elif s == 'num_comidas':
+            opts = {'1': '2 veces', '2': '3 veces', '3': '4-5 veces con snacks', '4': 'Ayuno intermitente'}
+            ml = normalize_text(m)
+            elegido = opts.get(m.strip(), None)
+            if not elegido:
+                if 'ayuno' in ml or 'intermitente' in ml: elegido = 'Ayuno intermitente'
+                elif '4' in ml or '5' in ml or 'snack' in ml: elegido = '4-5 veces con snacks'
+                elif '3' in ml: elegido = '3 veces'
+                elif '2' in ml: elegido = '2 veces'
+            if not elegido:
+                return 'No te he entendido 😊 Elige una opcion:\n\n1️ 2 veces\n2️⃣ 3 veces\n3️⃣ 4-5 veces con snacks\n4️⃣ Ayuno intermitente'
+            u['data']['num_comidas'] = elegido
             u['state'] = 'restricciones'
             return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
         elif s == 'restricciones':
@@ -746,41 +774,39 @@ class ZiaEngine:
                 )
         elif s == 'suplementos':
             data = u['data']
-            ml = normalize_text(m.strip())
+            ml = m.strip().lower()
             num = m.strip()
-            if num == '1' or 'energi' in ml or 'cansancio' in ml:
+            if num in ['1'] or any(w in ml for w in ['energi','cansancio','fatiga']):
                 opcion = 'energia'
-            elif num == '2' or 'musculo' in ml or 'proteina' in ml:
+            elif num in ['2'] or any(w in ml for w in ['musculo','fuerza','proteina','gym']):
                 opcion = 'musculo'
-            elif num == '3' or 'digest' in ml or 'estomago' in ml or 'intestin' in ml:
+            elif num in ['3'] or any(w in ml for w in ['digest','estomago','intestin','hincha']):
                 opcion = 'digestion'
-            elif num == '4' or 'dormir' in ml or 'sueño' in ml or 'sueno' in ml or 'insomnio' in ml:
+            elif num in ['4'] or any(w in ml for w in ['dormir','sueño','insomnio','descanso']):
                 opcion = 'sueno'
-            elif num == '5' or 'defensa' in ml or 'inmunidad' in ml or 'resfriado' in ml:
+            elif num in ['5'] or any(w in ml for w in ['defensa','inmunidad','resfriado']):
                 opcion = 'defensas'
-            elif num == '6' or 'perder' in ml or 'adelgazar' in ml or 'peso' in ml or 'grasa' in ml:
+            elif num in ['6'] or any(w in ml for w in ['perder','adelgazar','peso','grasa']):
                 opcion = 'peso'
             else:
-                opcion = None
-            if opcion is None:
-                objetivo_suplementos = m.strip() or 'orientación general sobre suplementos'
-            else:
-                objetivo_suplementos = opcion
+                opcion = u['data'].get('last_suplementos_opcion', 'libre')
+            u['data']['last_suplementos_opcion'] = opcion
             prompt = (
                 'Eres ZIA, experta en nutrición y suplementación deportiva. El usuario quiere '
-                + objetivo_suplementos
+                + (opcion if opcion != 'libre' else (m.strip() or 'orientación general sobre suplementos'))
                 + '. Dame los 4-5 mejores suplementos específicos para este objetivo con:\n'
                 '- Nombre del suplemento y para qué sirve\n'
                 '- Dosis recomendada diaria\n'
                 '- Precio orientativo en España (€/mes)\n'
                 '- Cuándo tomarlo (antes/después entreno, con comida, etc)\n'
-                'Para perder peso: L-carnitina, CLA, té verde, proteína whey, fibra\n'
-                'Para energía: vitamina B12, hierro, magnesio, CoQ10, vitamina D\n'
-                'Para músculo: creatina monohidrato, proteína whey, BCAA, glutamina, ZMA\n'
-                'Para digestión: probióticos, enzimas digestivas, aloe vera, jengibre, fibra\n'
-                'Para sueño: melatonina, magnesio, valeriana, triptófano, ashwagandha\n'
-                'Para defensas: vitamina C, zinc, equinácea, vitamina D, probióticos\n'
-                'Responde en español con emojis. Tono experto pero cercano. Añade frase motivacional al final.'
+                'energia: Vitamina B12, Hierro, Magnesio, CoQ10, Vitamina D\n'
+                'musculo: Creatina monohidrato, Proteína whey, BCAA, Glutamina, ZMA\n'
+                'digestion: Probióticos, Enzimas digestivas, Aloe vera, Jengibre, Fibra\n'
+                'sueno: Melatonina (0.5-5mg noche ~8€), Magnesio glicinato (300mg noche ~15€), Ashwagandha (300mg noche ~20€), L-Triptófano (500mg noche ~12€), Valeriana (300mg noche ~8€)\n'
+                'defensas: Vitamina C, Zinc, Equinácea, Vitamina D, Probióticos\n'
+                'peso: L-carnitina, CLA, Té verde, Proteína whey, Fibra\n'
+                'Para cada suplemento: nombre, para qué sirve, dosis, cuándo tomarlo, precio €/mes.\n'
+                'Tono experto y motivador. Emojis. Máximo 250 palabras.'
             )
             try:
                 r = self.openai.chat.completions.create(
@@ -793,14 +819,13 @@ class ZiaEngine:
                     temperature=0.7,
                     timeout=25,
                 )
-                u['state'] = 'menu_principal'
-                return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
+                u['state'] = 'suplementos'
+                return r.choices[0].message.content
             except Exception as e:
-                u['state'] = 'menu_principal'
+                u['state'] = 'suplementos'
                 return (
                     'No pude generar recomendaciones de suplementos ahora mismo por un error o timeout. '
                     'Aun asi, podemos seguir avanzando juntos 💪 Intentalo de nuevo en unos minutos.'
-                    '\n\n---\n' + self._menu_principal_text(data)
                 )
         else:
             u['state'] = 'welcome'
@@ -881,6 +906,8 @@ class ZiaEngine:
                 'PERFIL GRUPAL: ' + descripcion_grupo + '. '
                 'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
+                'Actividad: ' + data.get('actividad', '') + '. '
+                'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
                 + catalogo
             )
@@ -893,6 +920,8 @@ class ZiaEngine:
                 'Objetivo: ' + data.get('objetivo', '') + '. '
                 'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
+                'Actividad: ' + data.get('actividad', '') + '. '
+                'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
                 + catalogo
             )
@@ -904,6 +933,11 @@ class ZiaEngine:
             'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Lunes:* como primera palabra. '
             'Nada antes. Genera SOLO Lunes, Martes y Miércoles con Desayuno, Comida y Cena. '
             'PARA en la Cena del Miércoles. '
+            'Formato obligatorio de cada día:\n'
+            '*Lunes:*\n'
+            '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Lunes, Martes y Miercoles. '
             'PROHIBIDO incluir Jueves, Viernes, Sabado o Domingo. '
             'Empieza con *Lunes:* Cada dia: Desayuno, Comida y Cena. '
@@ -916,6 +950,11 @@ class ZiaEngine:
             'PARA en la Cena del Sábado. '
             'OBLIGATORIO incluir Desayuno, Comida Y Cena para Jueves, Viernes Y Sábado. '
             'PROHIBIDO terminar en Comida del Sábado. La Cena del Sábado es OBLIGATORIA. '
+            'Formato obligatorio de cada día:\n'
+            '*Jueves:*\n'
+            '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Jueves, Viernes y Sabado. '
             'PROHIBIDO incluir Lunes, Martes, Miercoles o Domingo. '
             'Empieza directamente con *Jueves:* Cada dia: Desayuno, Comida y Cena. '
@@ -925,6 +964,11 @@ class ZiaEngine:
         prompt3 = (
             'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Domingo:* como primera palabra. '
             'Nada antes. Genera SOLO el Domingo con Desayuno, Comida y Cena. '
+            'Formato obligatorio:\n'
+            '*Domingo:*\n'
+            '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE el Domingo. '
             'PROHIBIDO incluir cualquier otro dia de la semana. '
             'PROHIBIDO incluir lista de la compra o precios. '
@@ -937,6 +981,7 @@ class ZiaEngine:
             'completa para los 7 dias (Lunes a Domingo). PROHIBIDO incluir menus o dias de la semana. '
             'El TOTAL ESTIMADO NO puede superar ' + presupuesto + ' euros. '
             'Si los productos superan el presupuesto reduce cantidades o elige alternativas mas baratas. '
+            'PROHIBIDO incluir especias, condimentos o aliños. '
             'Organiza por categorias con cantidades y precios para ' + super_nombre + '. '
             'Termina con TOTAL ESTIMADO (debe ser menor o igual a ' + presupuesto + ' euros). '
             'Sin texto antes ni despues. '
