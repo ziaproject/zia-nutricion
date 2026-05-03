@@ -299,18 +299,20 @@ class ZiaEngine:
                 return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
             u['data']['objetivo'] = elegido
             u['state'] = 'cocina'
-            return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨‍🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking (preparar el domingo)'
+            return '¿Cómo es tu relación con la cocina? 🍳\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
         elif s == 'cocina':
-            opts = {'1':'Poco tiempo, recetas rapidas','2':'Me gusta cocinar','3':'Solo platos sencillos','4':'Batch cooking'}
             ml = normalize_text(m)
-            elegido = opts.get(m.strip(), None)
+            elegido = None
+            if m.strip() == '1' or 'poco tiempo' in ml or 'rapido' in ml or '15 min' in ml:
+                elegido = 'Poco tiempo, recetas rápidas'
+            elif m.strip() == '2' or 'vago' in ml or 'precocinado' in ml or 'listo' in ml or 'facil' in ml:
+                elegido = 'Cocina para vagos'
+            elif m.strip() == '3' or 'gusta' in ml or 'cocinar' in ml or 'cocino' in ml:
+                elegido = 'Me gusta cocinar'
+            elif m.strip() == '4' or 'batch' in ml or 'domingo' in ml or 'preparo' in ml:
+                elegido = 'Batch cooking'
             if not elegido:
-                if 'poco' in ml or 'rapido' in ml or 'tiempo' in ml: elegido = 'Poco tiempo, recetas rapidas'
-                elif 'gusta' in ml or 'cocin' in ml: elegido = 'Me gusta cocinar'
-                elif 'sencill' in ml: elegido = 'Solo platos sencillos'
-                elif 'batch' in ml or 'domingo' in ml: elegido = 'Batch cooking'
-            if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n⚡ Poco tiempo, recetas rapidas\n👨‍🍳 Me gusta cocinar\n🥗 Solo platos sencillos\n📦 Batch cooking'
+                return 'No te he entendido 😊 Elige una opcion:\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
             u['data']['cocina'] = elegido
             u['state'] = 'actividad'
             return 'Quiero entender cómo te mueves en tu día a día 👀\nNo para juzgarte… sino para ayudarte a sentirte mejor.\n\n¿Cuál se parece más a ti ahora mismo?\n\n1️⃣ Paso muchas horas sentado y me cuesta activarme\n2️⃣ Me muevo algo, pero sin rutina clara\n3️⃣ Entreno algunos días y quiero mejorar\n4️⃣ El deporte ya es parte de mi vida'
@@ -594,14 +596,12 @@ class ZiaEngine:
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
                 'Eres ZIA nutricionista. El usuario quiere una compra fácil y saludable tipo Mercadona. '
-                'Recomienda 12-15 productos concretos de Mercadona que sean:\n'
-                '- Saludables y fáciles de preparar\n'
-                '- Ready-to-eat o de preparación rápida\n'
-                '- Adaptados a su perfil: '
-                + perfil_usuario
-                + '\nOrganiza por secciones: 🥩 Proteínas, 🥦 Verduras, 🍎 Frutas, 🌾 Cereales, 🥚 Lácteos, 🫙 Otros\n'
-                'Para cada producto indica precio orientativo.\n'
-                'Tono cercano y práctico. Emojis. Máximo 200 palabras.'
+                'Recomienda SOLO productos listos o de máximo 2 minutos: arroz/quinoa Brillante, tortilla de patatas hecha, '
+                'cremas de verduras tetra brik, ensaladas bolsa, hummus, guacamole, latas atún/sardinas/mejillones, '
+                'pechuga envasada, yogures proteicos, fruta lista, frutos secos, gazpacho tetra brik, legumbres cocidas en bote. '
+                'Adapta a restricciones del usuario. Perfil: ' + perfil_usuario + '. '
+                'Organiza por secciones con precio. Máximo 200 palabras. '
+                'Al final escribe exactamente: Todo listo en menos de 5 minutos 🚀'
             )
             menu = '\n\n---\n' + self._menu_principal_text(data)
             u['state'] = 'menu_principal'
@@ -984,28 +984,6 @@ class ZiaEngine:
                         '5️⃣ Reforzar defensas\n'
                         '6️⃣ Perder peso'
                     )
-            if normalize_text(m) == 'no' and u['data'].get('last_suplementos_opcion'):
-                u['state'] = 'menu_principal'
-                return '¡Perfecto! 💪 Cuando quieras lo preparamos. ¿En qué más puedo ayudarte?\n\n' + self._menu_principal_text(data)
-            if normalize_text(m) in ['si', 'quiero'] and u['data'].get('last_suplementos_opcion'):
-                objetivo_map = {
-                    'energia': 'Mas energia y vitalidad',
-                    'musculo': 'Ganar musculo',
-                    'digestion': 'Mejorar la digestion',
-                    'sueno': 'Dormir mejor',
-                    'defensas': 'Reforzar defensas',
-                    'peso': 'Perder peso',
-                }
-                objetivo = objetivo_map.get(u['data'].get('last_suplementos_opcion'))
-                if objetivo:
-                    u['data']['objetivo'] = objetivo
-                super_nombre = u['data'].get('supermercado', 'Mercadona')
-                u['state'] = 'plan_listo'
-                mensaje_espera = 'Perfecto! 🌿 Estoy adaptando tu plan semanal a este objetivo para ' + super_nombre + '. Dame un momento... ⏳'
-                msgs = self._generar_plan_partes(u['data'])
-                u['plan'] = '\n\n'.join(msgs[1:])
-                u['plan_count'] = u.get('plan_count', 0) + 1
-                return [mensaje_espera] + msgs
             if num in ['1'] or any(w in ml for w in ['energi','cansancio','fatiga']):
                 opcion = 'energia'
             elif num in ['2'] or any(w in ml for w in ['musculo','fuerza','proteina','gym']):
@@ -1052,14 +1030,14 @@ class ZiaEngine:
                     temperature=0.7,
                     timeout=25,
                 )
-                u['state'] = 'suplementos'
-                return r.choices[0].message.content + '\n\n💡 ¿Quieres que adapte tu plan nutricional semanal a este objetivo? Escribe *si* y lo preparo ahora.'
+                u['state'] = 'menu_principal'
+                return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
             except Exception as e:
-                u['state'] = 'suplementos'
+                u['state'] = 'menu_principal'
                 return (
                     'No pude generar recomendaciones de suplementos ahora mismo por un error o timeout. '
                     'Aun asi, podemos seguir avanzando juntos 💪 Intentalo de nuevo en unos minutos.'
-                    '\n\n💡 ¿Quieres que adapte tu plan nutricional semanal a este objetivo? Escribe *si* y lo preparo ahora.'
+                    '\n\n---\n' + self._menu_principal_text(data)
                 )
         else:
             u['state'] = 'welcome'
@@ -1141,6 +1119,13 @@ class ZiaEngine:
             'Si sin lactosa, PROHIBIDO lácteos en ningún día. '
             'Al final de cada día añade exactamente: 💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad. '
         )
+        cocina_minima = ''
+        if data.get('cocina') == 'Cocina para vagos':
+            cocina_minima = (
+                'IMPORTANTE: Este usuario prefiere cocina mínima. Usa SOLO productos ready-to-eat: '
+                'arroz Brillante, tortilla hecha, cremas tetra brik, ensaladas bolsa, conservas, '
+                'hummus listo, pollo envasado. PROHIBIDO recetas que requieran más de 5 minutos. '
+            )
         cats = self.config.get('catalog', {}).get('categories', [])
         catalogo = ''
         if cats:
@@ -1164,6 +1149,7 @@ class ZiaEngine:
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 + pauta_nutricional +
+                cocina_minima +
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
                 + catalogo
             )
@@ -1179,6 +1165,7 @@ class ZiaEngine:
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 + pauta_nutricional +
+                cocina_minima +
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
                 + catalogo
             )
