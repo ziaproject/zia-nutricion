@@ -570,15 +570,9 @@ class ZiaEngine:
                 return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Cómo te encuentras de energía, digestión y estado de ánimo?'
             if m.strip() == '7' or 'suplement' in ml or 'vitamina' in ml:
                 u['state'] = 'suplementos'
-                return (
-                    '¿Cuál es tu principal preocupación ahora mismo? 💊\n'
-                    '1️⃣ Me falta energía\n'
-                    '2️⃣ Quiero ganar músculo\n'
-                    '3️⃣ Mejorar digestión\n'
-                    '4️⃣ Dormir mejor\n'
-                    '5️⃣ Reforzar defensas\n'
-                    '6️⃣ Perder peso'
-                )
+                u['data']['suplementos_med_checked'] = False
+                u['data']['suplementos_pending_query'] = m.strip() if m.strip() != '7' else ''
+                return "Antes de recomendarte suplementos, ¿tomas alguna medicación habitualmente? Algunos suplementos pueden interactuar. Si no tomas nada, escribe 'no'."
             return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'eligiendo_super':
             SUPER_URLS = {
@@ -776,6 +770,24 @@ class ZiaEngine:
             data = u['data']
             ml = m.strip().lower()
             num = m.strip()
+            if not u['data'].get('suplementos_med_checked'):
+                u['data']['suplementos_medicacion'] = m.strip() or 'No indicado'
+                u['data']['suplementos_med_checked'] = True
+                pending = u['data'].get('suplementos_pending_query', '').strip()
+                if pending:
+                    m = pending
+                    ml = m.strip().lower()
+                    num = m.strip()
+                else:
+                    return (
+                        'Gracias por decírmelo 🙏 ¿Cuál es tu principal preocupación ahora mismo? 💊\n'
+                        '1️⃣ Me falta energía\n'
+                        '2️⃣ Quiero ganar músculo\n'
+                        '3️⃣ Mejorar digestión\n'
+                        '4️⃣ Dormir mejor\n'
+                        '5️⃣ Reforzar defensas\n'
+                        '6️⃣ Perder peso'
+                    )
             if normalize_text(m) in ['si', 'quiero'] and u['data'].get('last_suplementos_opcion'):
                 objetivo_map = {
                     'energia': 'Mas energia y vitalidad',
@@ -813,7 +825,10 @@ class ZiaEngine:
             prompt = (
                 'Eres ZIA, experta en nutrición y suplementación deportiva. El usuario quiere '
                 + (opcion if opcion != 'libre' else (m.strip() or 'orientación general sobre suplementos'))
+                + '. Medicación habitual indicada por el usuario: '
+                + u['data'].get('suplementos_medicacion', 'No indicado')
                 + '. Dame los 4-5 mejores suplementos específicos para este objetivo con:\n'
+                'Si el usuario toma medicación o no queda claro, incluye una advertencia breve para consultar con su médico/farmacéutico antes de tomar suplementos.\n'
                 '- Nombre del suplemento y para qué sirve\n'
                 '- Dosis recomendada diaria\n'
                 '- Precio orientativo en España (€/mes)\n'
@@ -906,6 +921,27 @@ class ZiaEngine:
         presupuesto = data.get('presupuesto', '65')
         num_personas = data.get('num_personas', 1)
         super_nombre = data.get('supermercado', 'Mercadona')
+        try:
+            peso = float(data.get('peso', 70))
+        except Exception:
+            peso = 70
+        actividad_norm = normalize_text(data.get('actividad', ''))
+        agua_litros = peso * 0.035
+        if 'activo' in actividad_norm:
+            agua_litros += 0.5
+        if 'muy' in actividad_norm:
+            agua_litros += 0.3
+        agua_litros = round(agua_litros, 1)
+        pauta_nutricional = (
+            'El usuario necesita exactamente ' + str(cal) + ' kcal/día. '
+            'Distribuye: 30% proteínas, 40% carbohidratos, 30% grasas. '
+            'PROHIBIDO repetir el mismo proteína dos días seguidos. '
+            'Varía entre pollo, pescado, legumbres, huevos, ternera, pavo. '
+            'Varía también los carbohidratos entre arroz, quinoa, patata, pasta integral, avena. '
+            'CRÍTICO: Si restricciones incluye sin gluten, PROHIBIDO incluir trigo, cebada, centeno, avena normal en ningún día. '
+            'Si sin lactosa, PROHIBIDO lácteos en ningún día. '
+            'Al final de cada día añade exactamente: 💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad. '
+        )
         cats = self.config.get('catalog', {}).get('categories', [])
         catalogo = ''
         if cats:
@@ -928,6 +964,7 @@ class ZiaEngine:
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
+                + pauta_nutricional +
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
                 + catalogo
             )
@@ -942,6 +979,7 @@ class ZiaEngine:
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
+                + pauta_nutricional +
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
                 + catalogo
             )
@@ -958,6 +996,7 @@ class ZiaEngine:
             '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad.\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Lunes, Martes y Miercoles. '
             'PROHIBIDO incluir Jueves, Viernes, Sabado o Domingo. '
             'Empieza con *Lunes:* Cada dia: Desayuno, Comida y Cena. '
@@ -975,6 +1014,7 @@ class ZiaEngine:
             '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad.\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Jueves, Viernes y Sabado. '
             'PROHIBIDO incluir Lunes, Martes, Miercoles o Domingo. '
             'Empieza directamente con *Jueves:* Cada dia: Desayuno, Comida y Cena. '
@@ -989,6 +1029,7 @@ class ZiaEngine:
             '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad.\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE el Domingo. '
             'PROHIBIDO incluir cualquier otro dia de la semana. '
             'PROHIBIDO incluir lista de la compra o precios. '
@@ -1002,7 +1043,8 @@ class ZiaEngine:
             'El TOTAL ESTIMADO NO puede superar ' + presupuesto + ' euros. '
             'Si los productos superan el presupuesto reduce cantidades o elige alternativas mas baratas. '
             'PROHIBIDO incluir especias, condimentos o aliños. '
-            'Organiza por categorias con cantidades y precios para ' + super_nombre + '. '
+            'Organiza por secciones EXACTAMENTE asi con cantidades y precios para ' + super_nombre + ': '
+            '🥩 Proteínas, 🥦 Verduras y hortalizas, 🍎 Frutas, 🌾 Cereales y legumbres, 🥚 Lácteos y huevos, 🫙 Otros. '
             'Termina con TOTAL ESTIMADO (debe ser menor o igual a ' + presupuesto + ' euros). '
             'Sin texto antes ni despues. '
             + perfil
