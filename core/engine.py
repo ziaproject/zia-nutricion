@@ -204,7 +204,7 @@ class ZiaEngine:
         s = u['state']
         if s == 'welcome':
             u['state'] = 'tipo_plan'
-            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n  👤 Plan individual (solo para mi)\n  👫 Plan en pareja (2 personas)\n  👨‍👩‍👧‍👦 Plan familiar (3 o más personas)'
+            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n👤 Plan individual\n👫 Plan pareja\n👨‍👩‍👧 Plan familiar'
         elif s == 'tipo_plan':
             ml = normalize_text(m)
             if (
@@ -316,18 +316,18 @@ class ZiaEngine:
                 return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Sedentario\n2️⃣ Moderado\n3️⃣ Activo (3-4 días ejercicio)\n4️⃣ Muy activo (5+ días)'
             u['data']['actividad'] = elegido
             u['state'] = 'num_comidas'
-            return '¿Cuántas veces comes al día? 🍽️\n1️ 2 veces\n2️⃣ 3 veces\n3️⃣ 4-5 veces con snacks\n4️⃣ Ayuno intermitente'
+            return '¿Cuántas veces comes al día? 🍽️\n1️⃣ 2 veces al día\n2️⃣ 3 veces al día\n3️⃣ 4-5 veces con snacks\n4️⃣ Ayuno intermitente'
         elif s == 'num_comidas':
-            opts = {'1': '2 veces', '2': '3 veces', '3': '4-5 veces con snacks', '4': 'Ayuno intermitente'}
+            opts = {'1': '2 veces al día', '2': '3 veces al día', '3': '4-5 veces con snacks', '4': 'Ayuno intermitente'}
             ml = normalize_text(m)
             elegido = opts.get(m.strip(), None)
             if not elegido:
                 if 'ayuno' in ml or 'intermitente' in ml: elegido = 'Ayuno intermitente'
                 elif '4' in ml or '5' in ml or 'snack' in ml: elegido = '4-5 veces con snacks'
-                elif '3' in ml: elegido = '3 veces'
-                elif '2' in ml: elegido = '2 veces'
+                elif '3' in ml: elegido = '3 veces al día'
+                elif '2' in ml: elegido = '2 veces al día'
             if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n1️ 2 veces\n2️⃣ 3 veces\n3️⃣ 4-5 veces con snacks\n4️⃣ Ayuno intermitente'
+                return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ 2 veces al día\n2️⃣ 3 veces al día\n3️⃣ 4-5 veces con snacks\n4️⃣ Ayuno intermitente'
             u['data']['num_comidas'] = elegido
             u['state'] = 'restricciones'
             return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
@@ -776,6 +776,25 @@ class ZiaEngine:
             data = u['data']
             ml = m.strip().lower()
             num = m.strip()
+            if normalize_text(m) in ['si', 'quiero'] and u['data'].get('last_suplementos_opcion'):
+                objetivo_map = {
+                    'energia': 'Mas energia y vitalidad',
+                    'musculo': 'Ganar musculo',
+                    'digestion': 'Mejorar la digestion',
+                    'sueno': 'Dormir mejor',
+                    'defensas': 'Reforzar defensas',
+                    'peso': 'Perder peso',
+                }
+                objetivo = objetivo_map.get(u['data'].get('last_suplementos_opcion'))
+                if objetivo:
+                    u['data']['objetivo'] = objetivo
+                super_nombre = u['data'].get('supermercado', 'Mercadona')
+                u['state'] = 'plan_listo'
+                mensaje_espera = 'Perfecto! 🌿 Estoy adaptando tu plan semanal a este objetivo para ' + super_nombre + '. Dame un momento... ⏳'
+                msgs = self._generar_plan_partes(u['data'])
+                u['plan'] = '\n\n'.join(msgs[1:])
+                u['plan_count'] = u.get('plan_count', 0) + 1
+                return [mensaje_espera] + msgs
             if num in ['1'] or any(w in ml for w in ['energi','cansancio','fatiga']):
                 opcion = 'energia'
             elif num in ['2'] or any(w in ml for w in ['musculo','fuerza','proteina','gym']):
@@ -789,7 +808,7 @@ class ZiaEngine:
             elif num in ['6'] or any(w in ml for w in ['perder','adelgazar','peso','grasa']):
                 opcion = 'peso'
             else:
-                opcion = u['data'].get('last_suplementos_opcion', 'libre')
+                opcion = 'libre'
             u['data']['last_suplementos_opcion'] = opcion
             prompt = (
                 'Eres ZIA, experta en nutrición y suplementación deportiva. El usuario quiere '
@@ -820,12 +839,13 @@ class ZiaEngine:
                     timeout=25,
                 )
                 u['state'] = 'suplementos'
-                return r.choices[0].message.content
+                return r.choices[0].message.content + '\n\n💡 ¿Quieres que adapte tu plan nutricional semanal a este objetivo? Escribe *si* y lo preparo ahora.'
             except Exception as e:
                 u['state'] = 'suplementos'
                 return (
                     'No pude generar recomendaciones de suplementos ahora mismo por un error o timeout. '
                     'Aun asi, podemos seguir avanzando juntos 💪 Intentalo de nuevo en unos minutos.'
+                    '\n\n💡 ¿Quieres que adapte tu plan nutricional semanal a este objetivo? Escribe *si* y lo preparo ahora.'
                 )
         else:
             u['state'] = 'welcome'
