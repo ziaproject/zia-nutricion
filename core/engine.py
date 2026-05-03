@@ -133,7 +133,7 @@ class ZiaEngine:
         s = u['state']
         if s == 'welcome':
             u['state'] = 'tipo_plan'
-            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
+            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n  👤 Plan individual (solo para mi)\n  👫 Plan en pareja (2 personas)\n  👨‍👩‍👧‍👦 Plan familiar (3 o más personas)'
         elif s == 'tipo_plan':
             ml = m.strip().lower()
             if '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml:
@@ -253,11 +253,10 @@ class ZiaEngine:
             super_nombre = SUPER_MAP.get(m.strip(), m.strip()) if m.strip() else 'Mercadona'
             u['data']['supermercado'] = super_nombre
             u['state'] = 'plan_listo'
-            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
             msgs = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(msgs[1:])
             u['plan_count'] = u.get('plan_count', 0) + 1
-            return [mensaje_espera] + msgs
+            return msgs
         elif s == 'plan_listo':
             ml = m.lower()
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
