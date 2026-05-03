@@ -143,7 +143,7 @@ class ZiaEngine:
             '1️⃣ ⏱️ No tengo tiempo, hazme la compra rápida\n'
             '2️⃣ 🍽️ ¿Qué como o ceno? (escribe o manda foto de tu nevera)\n'
             '3️⃣ 💪 Quiero mejorar mi alimentación\n'
-            '4️⃣ 🛒 Compra fácil tipo Mercadona\n'
+            '4️⃣ 🛒 Comida preparada (lista para comer)\n'
             '5️⃣ 💊 Suplementación'
         )
 
@@ -556,9 +556,13 @@ class ZiaEngine:
             ):
                 u['state'] = 'mejorar'
                 return '¿Qué quieres mejorar? 👇\n\n1️⃣ 📅 Plan semanal completo\n2️⃣ 😅 Me he pasado el finde, quiero resetear\n3️⃣ 🎯 Tengo un evento en X días\n4️⃣ 🥗 Dieta específica (keto, vegana, colesterol...)\n5️⃣ 📊 Mi progreso semanal'
-            elif m.strip() == '4' or 'mercadona' in ml or 'compra facil' in ml or 'ready' in ml:
+            elif (
+                m.strip() == '4' or 'comida preparada' in ml or 'preparada' in ml
+                or 'lista para comer' in ml or 'precocinado' in ml
+                or 'mercadona' in ml or 'compra facil' in ml
+            ):
                 u['state'] = 'compra_mercadona'
-                m = 'compra fácil tipo Mercadona'
+                m = 'comida preparada lista para comer'
                 return self.process_message(user_id, message)
             elif m.strip() == '5' or 'suplemento' in ml or 'vitamina' in ml or 'proteina' in ml:
                 u['state'] = 'suplementos'
@@ -595,13 +599,24 @@ class ZiaEngine:
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
-                'Eres ZIA nutricionista. El usuario quiere una compra fácil y saludable tipo Mercadona. '
-                'Recomienda SOLO productos listos o de máximo 2 minutos: arroz/quinoa Brillante, tortilla de patatas hecha, '
-                'cremas de verduras tetra brik, ensaladas bolsa, hummus, guacamole, latas atún/sardinas/mejillones, '
-                'pechuga envasada, yogures proteicos, fruta lista, frutos secos, gazpacho tetra brik, legumbres cocidas en bote. '
-                'Adapta a restricciones del usuario. Perfil: ' + perfil_usuario + '. '
-                'Organiza por secciones con precio. Máximo 200 palabras. '
-                'Al final escribe exactamente: Todo listo en menos de 5 minutos 🚀'
+                'Eres ZIA nutricionista. El usuario quiere comida preparada lista para comer del supermercado, sin cocinar.\n'
+                'Recomienda 12-15 productos concretos listos para comer que encuentras en cualquier supermercado español:\n'
+                '- Cremas de verduras tetra brik (calabaza, zanahoria, puerro)\n'
+                '- Tortilla de patatas hecha\n'
+                '- Arroces y quinoas Brillante (1 min microondas)\n'
+                '- Pollo asado o pechuga envasada lista\n'
+                '- Ensaladas bolsa con proteína\n'
+                '- Hummus y guacamole listos\n'
+                '- Gazpacho y salmorejo tetra brik\n'
+                '- Legumbres cocidas en bote\n'
+                '- Latas de atún, sardinas, mejillones\n'
+                '- Yogures proteicos\n'
+                '- Fruta lavada lista (fresas, arándanos, uvas)\n'
+                '- Frutos secos en bolsita\n'
+                'Organiza por secciones con emoji y precio orientativo.\n'
+                'Adapta a restricciones del usuario: ' + perfil_usuario + '.\n'
+                'Tono cercano y práctico. Emojis. Máximo 200 palabras.\n'
+                "Al final: 'Todo listo en menos de 5 minutos 🚀'"
             )
             menu = '\n\n---\n' + self._menu_principal_text(data)
             u['state'] = 'menu_principal'
