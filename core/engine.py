@@ -132,8 +132,34 @@ class ZiaEngine:
             u = self._get_user(user_id)
         s = u['state']
         if s == 'welcome':
-            u['state'] = 'datos'
-            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
+            u['state'] = 'tipo_plan'
+            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
+        elif s == 'tipo_plan':
+            ml = m.strip().lower()
+            if 'solo' in ml or 'mi' in ml or '1' in ml:
+                u['data']['personas'] = '1 persona'
+                u['data']['num_personas'] = 1
+                u['state'] = 'datos'
+                return 'Perfecto. Para empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
+            if '2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml:
+                u['data']['personas'] = '2 personas'
+                u['data']['num_personas'] = 2
+                u['state'] = 'datos_pareja'
+                return 'Perfecto. Describeme a las 2 personas en un mensaje libre: nombres, genero, edad, peso, altura, objetivo y restricciones si las hay.'
+            if '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml:
+                u['data']['personas'] = 'familia (3 o mas personas)'
+                u['data']['num_personas'] = 4
+                u['state'] = 'datos_familia'
+                return 'Perfecto. Describeme a la familia en un mensaje libre: cuantas personas sois, edades aproximadas, objetivos y restricciones si las hay.'
+            return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
+        elif s == 'datos_pareja':
+            u['data']['descripcion_grupo'] = m
+            u['state'] = 'presupuesto'
+            return ('Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
+        elif s == 'datos_familia':
+            u['data']['descripcion_grupo'] = m
+            u['state'] = 'presupuesto'
+            return ('Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
@@ -142,6 +168,9 @@ class ZiaEngine:
             for k, v in parsed.items():
                 u['data'][k] = v
             nombre = u['data'].get('nombre', '')
+            if u['data'].get('personas'):
+                u['state'] = 'objetivo'
+                return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
             u['state'] = 'personas'
             return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'personas':
