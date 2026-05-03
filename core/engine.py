@@ -136,6 +136,11 @@ class ZiaEngine:
             return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'tipo_plan':
             ml = m.strip().lower()
+            if '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml:
+                u['data']['personas'] = 'familia (3 o mas personas)'
+                u['data']['num_personas'] = 4
+                u['state'] = 'datos_familia'
+                return 'Perfecto. Describeme a la familia en un mensaje libre: cuantas personas sois, edades aproximadas, objetivos y restricciones si las hay.'
             if 'solo' in ml or 'mi' in ml or '1' in ml:
                 u['data']['personas'] = '1 persona'
                 u['data']['num_personas'] = 1
@@ -146,11 +151,6 @@ class ZiaEngine:
                 u['data']['num_personas'] = 2
                 u['state'] = 'datos_pareja'
                 return 'Perfecto. Describeme a las 2 personas en un mensaje libre: nombres, genero, edad, peso, altura, objetivo y restricciones si las hay.'
-            if '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml:
-                u['data']['personas'] = 'familia (3 o mas personas)'
-                u['data']['num_personas'] = 4
-                u['state'] = 'datos_familia'
-                return 'Perfecto. Describeme a la familia en un mensaje libre: cuantas personas sois, edades aproximadas, objetivos y restricciones si las hay.'
             return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'datos_pareja':
             u['data']['descripcion_grupo'] = m
