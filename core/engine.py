@@ -277,7 +277,7 @@ class ZiaEngine:
                 nombre = u['data'].get('nombre', '')
                 msg1 = 'Perfecto, ' + nombre + '! Tu link para ' + super_nombre + ':\n\n' + url + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 msg2 = (
-                    'Que quieres hacer ahora, ' + nombre + '?\n\n'
+                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
                     '1️⃣ 🍽️ Comer mejor hoy\n'
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Foto nevera\n'
@@ -327,13 +327,26 @@ class ZiaEngine:
             super_key_pl = m.strip().lower()
             if super_key_pl in SUPER_URLS:
                 url = SUPER_URLS.get(super_key_pl, 'https://tienda.mercadona.es')
-                return (
+                nombre = u['data'].get('nombre', '')
+                msg1 = (
                     'Perfecto! Aqui tienes tu link directo para hacer la compra en '
                     + m.strip()
                     + ':\n\n'
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! '
                 )
+                msg2 = (
+                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
+                    '1️⃣ 🍽️ Comer mejor hoy\n'
+                    '2️⃣ 🛒 Hacer la compra inteligente\n'
+                    '3️⃣ 📸 Foto nevera\n'
+                    '4️⃣ 🧠 Mejorar habitos\n'
+                    '5️⃣ 🥗 Dieta especifica\n'
+                    '6️⃣ 🏋️ Nutricion deportiva\n'
+                    '7️⃣ 🩺 Analisis analitica'
+                )
+                u['state'] = 'menu_principal'
+                return [msg1, msg2]
             if m.strip() == '4' or 'nevera' in ml or 'foto' in ml:
                 u['state'] = 'esperando_foto_nevera'
                 return (
@@ -382,7 +395,7 @@ class ZiaEngine:
                     + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 )
                 msg2 = (
-                    'Que quieres hacer ahora, ' + nombre + '?\n\n'
+                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
                     '1️⃣ 🍽️ Comer mejor hoy\n'
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Foto nevera\n'
@@ -474,7 +487,7 @@ class ZiaEngine:
                     u['state'] = 'menu_principal'
                     nombre = data.get('nombre', '')
                     menu = (
-                        '\n\n---\nQue quieres hacer ahora, ' + nombre + '?\n\n'
+                        '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
                         '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
                         '2️⃣ 🛒 Hacer la compra inteligente\n'
                         '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
@@ -527,7 +540,7 @@ class ZiaEngine:
                     + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 )
                 msg2 = (
-                    'Que quieres hacer ahora, ' + nombre + '?\n\n'
+                    (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
                     '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
@@ -589,7 +602,7 @@ class ZiaEngine:
                     u['state'] = 'menu_principal'
                     nombre = data.get('nombre', '')
                     menu = (
-                        '\n\n---\nQue quieres hacer ahora, ' + nombre + '?\n\n'
+                        '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
                         '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
                         '2️⃣ 🛒 Hacer la compra inteligente\n'
                         '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
@@ -648,9 +661,8 @@ class ZiaEngine:
                         max_tokens=600,
                         timeout=25
                     )
-                    nombre_str = nombre if nombre else 'tu'
                     menu = (
-                        '\n\n---\nQue quieres hacer ahora, ' + nombre_str + '?\n\n'
+                        '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
                         '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
                         '2️⃣ 🛒 Hacer la compra inteligente\n'
                         '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
@@ -688,7 +700,7 @@ class ZiaEngine:
                 'Usa emojis. Maximo 300 palabras. Responde en espanol.'
             )
             menu = (
-                '\n\n---\nQue quieres hacer ahora, ' + nombre + '?\n\n'
+                '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
                 '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
                 '2️⃣ 🛒 Hacer la compra inteligente\n'
                 '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
@@ -751,7 +763,7 @@ class ZiaEngine:
                 u['state'] = 'menu_principal'
                 nombre = data.get('nombre', '')
                 menu = (
-                    '\n\n---\nQue quieres hacer ahora, ' + nombre + '?\n\n'
+                    '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
                     '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
@@ -800,7 +812,7 @@ class ZiaEngine:
                 u['state'] = 'menu_principal'
                 nombre = data.get('nombre', '')
                 menu = (
-                    '\n\n---\nQue quieres hacer ahora, ' + nombre + '?\n\n'
+                    '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
                     '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
@@ -984,7 +996,8 @@ class ZiaEngine:
         lista = _call(prompt4, 1000).rstrip() + suffix4
         partes = [lunes_mie, jue_sab, domingo, lista]
         print('ZIA plan partes generadas:', len(partes))
-        return partes
+        intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
+        return [intro] + [lunes_mie, jue_sab, domingo, lista]
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
