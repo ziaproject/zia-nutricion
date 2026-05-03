@@ -147,6 +147,21 @@ class ZiaEngine:
             '5️⃣ 💊 Suplementación'
         )
 
+    def _welcome_plan_text(self, company):
+        return (
+            'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\n'
+            'En 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\n'
+            'Para quien es el plan?\n\n'
+            '👤 Plan individual\n'
+            '👫 Plan pareja\n'
+            '👨‍👩‍👧 Plan familiar'
+        )
+
+    def _gpt_libre_same_state(self, message, u, state):
+        respuesta = self._gpt_libre(message, u)
+        u['state'] = state
+        return respuesta
+
     def _retail_text_and_image_url(self, message):
         if isinstance(message, str):
             return message.strip(), None
@@ -200,19 +215,19 @@ class ZiaEngine:
         s = u['state']
         if s == 'welcome':
             u['state'] = 'tipo_plan'
-            return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n👤 Plan individual\n👫 Plan pareja\n👨‍👩‍👧 Plan familiar'
+            return self._welcome_plan_text(company)
         elif s == 'tipo_plan':
             ml = normalize_text(m)
             if (
                 'familia' in ml or 'familiar' in ml or 'mis hijos' in ml
                 or 'somos 3' in ml or 'somos 4' in ml or 'somos 5' in ml
-                or ml in ['3', '4', '5'] or 'tres' in ml
+                or ml == '3' or 'tres' in ml
             ):
                 u['data']['personas'] = 'familia (3 o mas personas)'
                 u['data']['num_personas'] = 4
                 u['state'] = 'datos_familia'
                 return 'Perfecto. Describeme a la familia en un mensaje libre: cuantas personas sois, edades aproximadas, objetivos y restricciones si las hay.'
-            if '2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml:
+            if ml == '2' or 'somos 2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml:
                 u['data']['personas'] = '2 personas'
                 u['data']['num_personas'] = 2
                 u['state'] = 'datos_pareja'
@@ -548,10 +563,7 @@ class ZiaEngine:
                 u['data']['suplementos_med_checked'] = False
                 u['data']['suplementos_pending_query'] = m.strip() if m.strip() != '5' else ''
                 return "Antes de recomendarte suplementos, ¿tomas alguna medicación habitualmente? Algunos suplementos pueden interactuar. Si no tomas nada, escribe 'no'."
-            if u['state'] in ['compra_rapida', 'compra_mercadona']:
-                pass
-            else:
-                return self._gpt_libre(message if isinstance(message, dict) else m, u)
+            return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'menu_principal')
         if s == 'compra_rapida' or u.get('state') == 'compra_rapida':
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
@@ -624,7 +636,7 @@ class ZiaEngine:
             if m.strip() == '5' or 'progreso' in ml or 'semana' in ml:
                 u['state'] = 'progreso_semanal'
                 return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Energía, digestión, ánimo?'
-            return self._gpt_libre(message if isinstance(message, dict) else m, u)
+            return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'mejorar')
         elif s == 'mejorar_1':
             super_nombre = u['data'].get('supermercado', 'Mercadona')
             u['state'] = 'plan_listo'
@@ -1007,11 +1019,11 @@ class ZiaEngine:
             elif num in ['6'] or any(w in ml for w in ['perder','adelgazar','peso','grasa']):
                 opcion = 'peso'
             else:
-                opcion = 'libre'
+                return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'suplementos')
             u['data']['last_suplementos_opcion'] = opcion
             prompt = (
                 'Eres ZIA, experta en nutrición y suplementación deportiva. El usuario quiere '
-                + (opcion if opcion != 'libre' else (m.strip() or 'orientación general sobre suplementos'))
+                + opcion
                 + '. Medicación habitual indicada por el usuario: '
                 + u['data'].get('suplementos_medicacion', 'No indicado')
                 + '. Dame los 4-5 mejores suplementos específicos para este objetivo con:\n'
