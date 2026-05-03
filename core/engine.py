@@ -885,17 +885,27 @@ class ZiaEngine:
                         line += ' ESTRELLA'
                     catalogo += line + '\n'
 
-        perfil = (
-            'PERFIL: ' + data.get('nombre', '') + ', ' + data.get('genero', '') + ', '
-            + data.get('edad', '') + ' anos, ' + data.get('peso', '') + 'kg, '
-            + data.get('altura', '') + 'cm, ' + str(cal) + ' kcal/dia. '
-            'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
-            'Objetivo: ' + data.get('objetivo', '') + '. '
-            'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
-            'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
-            'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
-            + catalogo
-        )
+        descripcion_grupo = data.get('descripcion_grupo', '').strip()
+        if descripcion_grupo and personas != '1 persona':
+            perfil = (
+                'PERFIL GRUPAL: ' + descripcion_grupo + '. '
+                'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
+                'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
+                'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
+                + catalogo
+            )
+        else:
+            perfil = (
+                'PERFIL: ' + data.get('nombre', '') + ', ' + data.get('genero', '') + ', '
+                + data.get('edad', '') + ' anos, ' + data.get('peso', '') + 'kg, '
+                + data.get('altura', '') + 'cm, ' + str(cal) + ' kcal/dia. '
+                'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
+                'Objetivo: ' + data.get('objetivo', '') + '. '
+                'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
+                'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
+                'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
+                + catalogo
+            )
 
         model = self.config.get('ai', {}).get('model', 'gpt-4o-mini')
         system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
