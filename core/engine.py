@@ -719,28 +719,31 @@ class ZiaEngine:
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
-                'Eres ZIA nutricionista. El usuario cuenta su progreso semanal: '
+                'Respuesta del usuario sobre como le ha ido la semana: '
                 + m.strip()
                 + '. Perfil: '
                 + perfil_usuario
-                + '. Haz un analisis breve, identifica avances y dificultades, y ajusta recomendaciones '
-                'para la semana siguiente. Tono cercano, practico y motivador. Maximo 300 palabras.'
             )
             try:
                 r = self.openai.chat.completions.create(
                     model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
                     messages=[
-                        {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en espanol con emojis.'},
+                        {'role': 'system', 'content': 'Eres ZIA, coach nutricional motivadora. El usuario te cuenta cómo le ha ido la semana siguiendo su plan nutricional. Da un análisis empático y motivador de máximo 150 palabras, celebra sus logros, sugiere 2-3 ajustes concretos para la semana siguiente. Usa emojis y tono positivo.'},
                         {'role': 'user', 'content': prompt},
                     ],
-                    max_tokens=600,
+                    max_tokens=350,
                     temperature=0.7,
                     timeout=25,
                 )
                 u['state'] = 'menu_principal'
                 return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
             except Exception as e:
-                return 'No pude analizar tu progreso por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
+                u['state'] = 'menu_principal'
+                return (
+                    'No pude analizar tu progreso ahora mismo por un error o timeout, pero no pasa nada 💪 '
+                    'Cuéntamelo de nuevo en unos minutos y lo revisamos juntas.'
+                    '\n\n---\n' + self._menu_principal_text(data)
+                )
         elif s == 'suplementos':
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
@@ -767,9 +770,7 @@ class ZiaEngine:
                     opcion = '4'
                 elif 'defensas' in ml or 'inmunidad' in ml or 'resfriado' in ml:
                     opcion = '5'
-            if opcion not in opciones:
-                return 'No te he entendido 😊 Elige un numero del 1 al 6 para recomendarte suplementos.'
-            necesidad = opciones[opcion]
+            necesidad = opciones.get(opcion, m.strip() or 'orientacion general sobre suplementos')
             extra = ''
             if opcion == '6':
                 extra = ' Para perdida de peso incluye L-carnitina, CLA, proteina, fibra y te verde.'
