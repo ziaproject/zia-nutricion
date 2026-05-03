@@ -526,6 +526,7 @@ class ZiaEngine:
             ):
                 u['state'] = 'compra_rapida'
                 m = 'compra rápida en 20 minutos'
+                return self.process_message(user_id, message)
             if (
                 m.strip() == '2' or 'como' in ml or 'ceno' in ml
                 or 'hambre' in ml or 'nevera' in ml or 'foto' in ml
@@ -541,6 +542,7 @@ class ZiaEngine:
             elif m.strip() == '4' or 'mercadona' in ml or 'compra facil' in ml or 'ready' in ml:
                 u['state'] = 'compra_mercadona'
                 m = 'compra fácil tipo Mercadona'
+                return self.process_message(user_id, message)
             elif m.strip() == '5' or 'suplemento' in ml or 'vitamina' in ml or 'proteina' in ml:
                 u['state'] = 'suplementos'
                 u['data']['suplementos_med_checked'] = False
@@ -579,11 +581,15 @@ class ZiaEngine:
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
-                'Eres ZIA nutricionista. Recomienda 10-15 productos saludables ready-to-eat de Mercadona '
-                'con alternativas sanas reales, adaptados al objetivo y restricciones del usuario. Perfil: '
+                'Eres ZIA nutricionista. El usuario quiere una compra fácil y saludable tipo Mercadona. '
+                'Recomienda 12-15 productos concretos de Mercadona que sean:\n'
+                '- Saludables y fáciles de preparar\n'
+                '- Ready-to-eat o de preparación rápida\n'
+                '- Adaptados a su perfil: '
                 + perfil_usuario
-                + '. Organiza por secciones, incluye cuándo usar cada producto y evita ultraprocesados de baja calidad. '
-                'Responde en español con emojis y tono práctico.'
+                + '\nOrganiza por secciones: 🥩 Proteínas, 🥦 Verduras, 🍎 Frutas, 🌾 Cereales, 🥚 Lácteos, 🫙 Otros\n'
+                'Para cada producto indica precio orientativo.\n'
+                'Tono cercano y práctico. Emojis. Máximo 200 palabras.'
             )
             menu = '\n\n---\n' + self._menu_principal_text(data)
             u['state'] = 'menu_principal'
@@ -594,7 +600,7 @@ class ZiaEngine:
                         {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
                         {'role': 'user', 'content': prompt},
                     ],
-                    max_tokens=650,
+                    max_tokens=500,
                     temperature=0.7,
                     timeout=25,
                 )
@@ -618,7 +624,7 @@ class ZiaEngine:
             if m.strip() == '5' or 'progreso' in ml or 'semana' in ml:
                 u['state'] = 'progreso_semanal'
                 return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Energía, digestión, ánimo?'
-            return 'No te he entendido 😊 Elige una opción:\n\n1️⃣ 📅 Plan semanal completo\n2️⃣ 😅 Me he pasado el finde, quiero resetear\n3️⃣ 🎯 Tengo un evento en X días\n4️⃣ 🥗 Dieta específica (keto, vegana, colesterol...)\n5️⃣ 📊 Mi progreso semanal'
+            return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'mejorar_1':
             super_nombre = u['data'].get('supermercado', 'Mercadona')
             u['state'] = 'plan_listo'
