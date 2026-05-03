@@ -139,14 +139,12 @@ class ZiaEngine:
 
     def _menu_principal_text(self, data):
         return (
-            '¿Qué quieres hacer ahora?\n\n'
-            '1️⃣ 🍽️ ¿Qué como o ceno ahora?\n'
-            '2️⃣ 🛒 Tengo 20 min, hazme la lista de la compra rápida\n'
-            '3️⃣ 😅 Me he pasado el finde, quiero volver a cuidarme\n'
-            '4️⃣ 🎯 Tengo un evento en X días\n'
-            '5️⃣ 🥗 Dieta específica (keto, vegana, colesterol...)\n'
-            '6️⃣ 📊 Mi progreso semanal\n'
-            '7️⃣ 💊 Suplementos'
+            'Ahora dime qué necesitas HOY 👇\n\n'
+            '1️⃣ ⏱️ No tengo tiempo, hazme la compra rápida\n'
+            '2️⃣ 🍽️ ¿Qué como o ceno? (escribe o manda foto de tu nevera)\n'
+            '3️⃣ 💪 Quiero mejorar mi alimentación\n'
+            '4️⃣ 🛒 Compra fácil tipo Mercadona\n'
+            '5️⃣ 💊 Suplementación'
         )
 
     def _retail_text_and_image_url(self, message):
@@ -523,51 +521,36 @@ class ZiaEngine:
             company = self.config['branding']['company_name']
             data = u['data']
             if (
-                m.strip() == '1' or 'que ceno' in ml or 'que como' in ml
-                or 'tengo hambre' in ml or 'foto nevera' in ml
+                m.strip() == '1' or 'tiempo' in ml or 'rapido' in ml
+                or 'lista' in ml or 'sin tiempo' in ml
             ):
-                u['state'] = 'opcion1'
-                return (
-                    '¿Tienes foto de tu nevera o me cuentas qué tienes en casa? 📸\n'
-                    'O dime si es para comer o cenar y te propongo algo rápido 🍽️'
-                )
+                u['state'] = 'compra_rapida'
+                m = 'compra rápida en 20 minutos'
             if (
-                m.strip() == '2' or 'lista' in ml or '20 min' in ml
-                or 'compra rapida' in ml or 'voy al super' in ml
+                m.strip() == '2' or 'como' in ml or 'ceno' in ml
+                or 'hambre' in ml or 'nevera' in ml or 'foto' in ml
             ):
-                u['state'] = 'opcion2'
-                m = 'lista rápida'
+                u['state'] = 'que_como'
+                return '¿Es para comer o cenar? 🍽️ Y si tienes foto de tu nevera mándamela, si no cuéntame qué tienes en casa 📸'
             elif (
-                m.strip() == '3' or 'me he pasado' in ml or 'he comido mal' in ml
-                or 'finde malo' in ml or 'resetear' in ml
+                m.strip() == '3' or 'mejorar' in ml or 'plan' in ml or 'dieta' in ml
+                or 'evento' in ml or 'boda' in ml or 'reset' in ml or 'pasado' in ml
             ):
-                u['state'] = 'opcion3'
-                return (
-                    '¡Oye, que un día no define tu camino! 😊 Lo importante es que quieres volver y eso ya es mucho.\n\n'
-                    'Cuéntame, ¿qué ha pasado? Sin juicios, solo para ayudarte mejor 🙌'
-                )
-            elif m.strip() == '4' or 'evento' in ml or 'boda' in ml or 'playa' in ml or 'viaje' in ml:
-                u['state'] = 'opcion4'
-                return '¡Qué emocionante! 🎯 ¿Para cuándo es el evento y qué quieres conseguir?\n\n_Ejemplo: boda en 3 semanas, quiero perder 3kg_'
-            if m.strip() == '5' or 'dieta' in ml or 'keto' in ml or 'vegana' in ml:
-                u['state'] = 'eligiendo_dieta'
-                return (
-                    'Que tipo de dieta quieres?\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterranea\n'
-                    '4️⃣ Ayuno 16:8\n5️⃣ Vegetariana'
-                )
-            if m.strip() == '6' or 'progreso' in ml or 'semana' in ml:
-                u['state'] = 'progreso_semanal'
-                return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Cómo te encuentras de energía, digestión y estado de ánimo?'
-            if m.strip() == '7' or 'suplement' in ml or 'vitamina' in ml:
+                u['state'] = 'mejorar'
+                return '¿Qué quieres mejorar? 👇\n\n1️⃣ 📅 Plan semanal completo\n2️⃣ 😅 Me he pasado el finde, quiero resetear\n3️⃣ 🎯 Tengo un evento en X días\n4️⃣ 🥗 Dieta específica (keto, vegana, colesterol...)\n5️⃣ 📊 Mi progreso semanal'
+            elif m.strip() == '4' or 'mercadona' in ml or 'compra facil' in ml or 'ready' in ml:
+                u['state'] = 'compra_mercadona'
+                m = 'compra fácil tipo Mercadona'
+            elif m.strip() == '5' or 'suplemento' in ml or 'vitamina' in ml or 'proteina' in ml:
                 u['state'] = 'suplementos'
                 u['data']['suplementos_med_checked'] = False
-                u['data']['suplementos_pending_query'] = m.strip() if m.strip() != '7' else ''
+                u['data']['suplementos_pending_query'] = m.strip() if m.strip() != '5' else ''
                 return "Antes de recomendarte suplementos, ¿tomas alguna medicación habitualmente? Algunos suplementos pueden interactuar. Si no tomas nada, escribe 'no'."
-            if u['state'] == 'opcion2':
+            if u['state'] in ['compra_rapida', 'compra_mercadona']:
                 pass
             else:
                 return self._gpt_libre(message if isinstance(message, dict) else m, u)
-        if s == 'opcion2' or u.get('state') == 'opcion2':
+        if s == 'compra_rapida' or u.get('state') == 'compra_rapida':
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
@@ -592,6 +575,58 @@ class ZiaEngine:
                 return r.choices[0].message.content + menu
             except Exception as e:
                 return 'No pude generar la lista rápida por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
+        elif s == 'compra_mercadona' or u.get('state') == 'compra_mercadona':
+            data = u['data']
+            perfil_usuario = self._profile_for_prompt(data)
+            prompt = (
+                'Eres ZIA nutricionista. Recomienda 10-15 productos saludables ready-to-eat de Mercadona '
+                'con alternativas sanas reales, adaptados al objetivo y restricciones del usuario. Perfil: '
+                + perfil_usuario
+                + '. Organiza por secciones, incluye cuándo usar cada producto y evita ultraprocesados de baja calidad. '
+                'Responde en español con emojis y tono práctico.'
+            )
+            menu = '\n\n---\n' + self._menu_principal_text(data)
+            u['state'] = 'menu_principal'
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                    messages=[
+                        {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=650,
+                    temperature=0.7,
+                    timeout=25,
+                )
+                return r.choices[0].message.content + menu
+            except Exception as e:
+                return 'No pude generar la compra fácil de Mercadona por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
+        elif s == 'mejorar':
+            ml = normalize_text(m)
+            if m.strip() == '1' or 'plan' in ml or 'semanal' in ml:
+                u['state'] = 'mejorar_1'
+                return self.process_message(user_id, message)
+            if m.strip() == '2' or 'pasado' in ml or 'reset' in ml or 'finde' in ml:
+                u['state'] = 'mejorar_2'
+                return '¡Oye, que un día no define tu camino! 😊 Lo importante es que quieres volver y eso ya es mucho.\n\nCuéntame, ¿qué ha pasado? Sin juicios 🙌'
+            if m.strip() == '3' or 'evento' in ml or 'boda' in ml or 'viaje' in ml:
+                u['state'] = 'mejorar_3'
+                return '¡Qué emocionante! 🎯 ¿Para cuándo es el evento y qué quieres conseguir?\n_Ejemplo: boda en 3 semanas, quiero perder 3kg_'
+            if m.strip() == '4' or 'dieta' in ml or 'keto' in ml or 'vegana' in ml or 'colesterol' in ml:
+                u['state'] = 'mejorar_4'
+                return '¿Qué dieta específica quieres trabajar? 🥗\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterránea\n4️⃣ Ayuno 16:8\n5️⃣ Vegetariana\n6️⃣ Colesterol'
+            if m.strip() == '5' or 'progreso' in ml or 'semana' in ml:
+                u['state'] = 'progreso_semanal'
+                return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Energía, digestión, ánimo?'
+            return 'No te he entendido 😊 Elige una opción:\n\n1️⃣ 📅 Plan semanal completo\n2️⃣ 😅 Me he pasado el finde, quiero resetear\n3️⃣ 🎯 Tengo un evento en X días\n4️⃣ 🥗 Dieta específica (keto, vegana, colesterol...)\n5️⃣ 📊 Mi progreso semanal'
+        elif s == 'mejorar_1':
+            super_nombre = u['data'].get('supermercado', 'Mercadona')
+            u['state'] = 'plan_listo'
+            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal completo para ' + super_nombre + '. Dame un momento... ⏳'
+            msgs = self._generar_plan_partes(u['data'])
+            u['plan'] = '\n\n'.join(msgs[1:])
+            u['plan_count'] = u.get('plan_count', 0) + 1
+            return [mensaje_espera] + msgs
         elif s == 'eligiendo_super':
             SUPER_URLS = {
                 'mercadona': 'https://tienda.mercadona.es',
@@ -624,7 +659,7 @@ class ZiaEngine:
                 return [msg1, msg2]
             else:
                 return 'Escribe: Mercadona, Lidl, Aldi, Carrefour, Dia, Consum, Supercor o El Corte Inglés.'
-        elif s == 'opcion1':
+        elif s == 'que_como':
             text, image_url = self._retail_text_and_image_url(message)
             if not image_url and isinstance(message, dict):
                 for key in ('MediaUrl0', 'media_url', 'imageUrl', 'image_url'):
@@ -659,7 +694,7 @@ class ZiaEngine:
                 return r.choices[0].message.content + menu
             except Exception as e:
                 return 'No pude proponerte opciones ahora mismo por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
-        elif s == 'opcion3':
+        elif s == 'mejorar_2':
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
@@ -686,7 +721,7 @@ class ZiaEngine:
                 return r.choices[0].message.content + menu
             except Exception as e:
                 return 'No pude generar el reset de 2 días por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
-        elif s == 'opcion4':
+        elif s == 'mejorar_3':
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
@@ -713,6 +748,42 @@ class ZiaEngine:
                 return r.choices[0].message.content + menu
             except Exception as e:
                 return 'No pude generar el plan para tu evento por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
+        elif s == 'mejorar_4':
+            dietas = {
+                '1': 'keto',
+                '2': 'vegana',
+                '3': 'mediterránea',
+                '4': 'ayuno 16:8',
+                '5': 'vegetariana',
+                '6': 'colesterol',
+            }
+            dieta = dietas.get(m.strip(), m.strip().lower())
+            data = u['data']
+            data['dieta_especial'] = dieta
+            perfil_usuario = self._profile_for_prompt(data)
+            prompt = (
+                'Eres ZIA nutricionista. Genera un plan específico de dieta '
+                + dieta
+                + ' adaptado al perfil del usuario. Incluye pautas claras, ejemplo de 1 día con desayuno, comida y cena, alimentos recomendados y alimentos a evitar. Perfil: '
+                + perfil_usuario
+                + '. Responde en español con emojis, máximo 450 palabras.'
+            )
+            menu = '\n\n---\n' + self._menu_principal_text(data)
+            u['state'] = 'menu_principal'
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                    messages=[
+                        {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=850,
+                    temperature=0.7,
+                    timeout=30,
+                )
+                return r.choices[0].message.content + menu
+            except Exception as e:
+                return 'No pude generar la dieta específica por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
         elif s == 'esperando_foto_nevera':
             text, image_url = self._retail_text_and_image_url(message)
             if not image_url and isinstance(message, dict):
