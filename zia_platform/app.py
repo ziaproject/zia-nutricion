@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import base64
+import time
 
 import requests
 from flask import Flask, request, Response
@@ -49,6 +50,7 @@ def send_extra_messages(to: str, messages: list):
 
         twilio = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         for msg in messages:
+            time.sleep(2)
             if pause_fn:
                 pause_fn()
             twilio.messages.create(
@@ -73,6 +75,28 @@ def process_photo_in_background(to: str, message_arg: dict, plan_type: str):
         send_extra_messages(to, messages)
     except Exception as e:
         logger.error(f"❌ Error procesando foto en background: {str(e)}", exc_info=True)
+
+
+def process_delayed_reply_in_background(to: str, message_arg: dict, plan_type: str):
+    """Espera brevemente y envía la respuesta pesada por Twilio."""
+    try:
+        time.sleep(1)
+        reply = engine.process_message(
+            user_id=to,
+            message=message_arg,
+            plan_type=plan_type
+        )
+        messages = reply if isinstance(reply, list) else [reply]
+        if messages and messages[0].startswith('Perfecto! 🌿 Estoy preparando'):
+            messages = messages[1:]
+        if messages:
+            send_extra_messages(to, messages)
+    except Exception as e:
+        logger.error(f"❌ Error procesando respuesta en background: {str(e)}", exc_info=True)
+        send_extra_messages(
+            to,
+            ["No pude generar la respuesta por un error o timeout. Intentalo de nuevo en unos minutos."]
+        )
 
 
 @app.route('/webhook', methods=['POST'])
@@ -125,7 +149,8 @@ def webhook():
                 logger.error("Error descargando imagen para retail-asesor: %s", e, exc_info=True)
                 return Response('', status=200)
 
-        user_state = getattr(engine, '_users', {}).get(sender, {}).get('state')
+        user = engine._get_user(sender)
+        user_state = user.get('state')
         if media_url and user_state in ('esperando_foto_analitica', 'esperando_foto_nevera'):
             t = threading.Thread(
                 target=process_photo_in_background,
@@ -136,6 +161,29 @@ def webhook():
 
             resp = MessagingResponse()
             resp.message("Dame un momento, estoy analizando la foto 📸")
+            return str(resp)
+
+        if user_state in ('supermercado', 'modo_deporte'):
+            super_nombre = user.get('data', {}).get(
+                'supermercado',
+                incoming_msg or 'tu supermercado'
+            )
+            if user_state == 'supermercado':
+                super_map = {
+                    '1': 'Mercadona', '2': 'Lidl', '3': 'Aldi', '4': 'Carrefour',
+                    '5': 'Dia', '6': 'Consum', '7': 'Supercor', '8': 'El Corte Ingles'
+                }
+                super_nombre = super_map.get(incoming_msg.strip(), incoming_msg.strip()) if incoming_msg.strip() else 'Mercadona'
+            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
+            t = threading.Thread(
+                target=process_delayed_reply_in_background,
+                args=(sender, message_arg, plan_type),
+                daemon=True
+            )
+            t.start()
+
+            resp = MessagingResponse()
+            resp.message(mensaje_espera)
             return str(resp)
 
         reply = engine.process_message(
