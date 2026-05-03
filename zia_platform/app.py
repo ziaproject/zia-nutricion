@@ -77,6 +77,25 @@ def process_photo_in_background(to: str, message_arg: dict, plan_type: str):
         logger.error(f"❌ Error procesando foto en background: {str(e)}", exc_info=True)
 
 
+def process_reply_skip_first_in_background(to: str, message_arg: dict, plan_type: str):
+    """Genera una respuesta pesada y envía todo salvo el primer mensaje."""
+    try:
+        reply = engine.process_message(
+            user_id=to,
+            message=message_arg,
+            plan_type=plan_type
+        )
+        messages = reply if isinstance(reply, list) else [reply]
+        if len(messages) > 1:
+            send_extra_messages(to, messages[1:])
+    except Exception as e:
+        logger.error(f"❌ Error procesando respuesta en background: {str(e)}", exc_info=True)
+        send_extra_messages(
+            to,
+            ["No pude generar la respuesta por un error o timeout. Intentalo de nuevo en unos minutos."]
+        )
+
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     try:
@@ -141,6 +160,24 @@ def webhook():
             resp.message("Dame un momento, estoy analizando la foto 📸")
             return str(resp)
 
+        if user_state == 'supermercado':
+            super_map = {
+                '1': 'Mercadona', '2': 'Lidl', '3': 'Aldi', '4': 'Carrefour',
+                '5': 'Dia', '6': 'Consum', '7': 'Supercor', '8': 'El Corte Ingles'
+            }
+            super_nombre = super_map.get(incoming_msg.strip(), incoming_msg.strip()) if incoming_msg.strip() else 'Mercadona'
+            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
+            t = threading.Thread(
+                target=process_reply_skip_first_in_background,
+                args=(sender, message_arg, plan_type),
+                daemon=True
+            )
+            t.start()
+
+            resp = MessagingResponse()
+            resp.message(mensaje_espera)
+            return str(resp)
+
         reply = engine.process_message(
             user_id=sender,
             message=message_arg,
@@ -152,6 +189,8 @@ def webhook():
         if isinstance(reply, list):
             primer_mensaje = reply[0]
             mensajes_extra = reply[1:]
+            resp = MessagingResponse()
+            resp.message(primer_mensaje)
 
             if mensajes_extra:
                 t = threading.Thread(
@@ -161,8 +200,6 @@ def webhook():
                 )
                 t.start()
 
-            resp = MessagingResponse()
-            resp.message(primer_mensaje)
             return str(resp)
         else:
             logger.info(f"✅ Respuesta generada ({len(reply)} chars)")

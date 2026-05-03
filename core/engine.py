@@ -26,6 +26,13 @@ def normalize_text(text):
     return ''.join(c for c in value if not unicodedata.combining(c)).strip()
 
 
+COACH_TONE = (
+    'Eres ZIA, coach nutricional motivadora y cercana. Usa siempre un tono positivo, '
+    'empático y motivador. Incluye frases de ánimo. Celebra los logros del usuario. '
+    'Nunca respondas con listas frías - usa un tono de coach que inspira.'
+)
+
+
 def is_reset(m):
     return m.strip().lower() in RESET_WORDS
 
@@ -511,7 +518,7 @@ class ZiaEngine:
                         messages=[
                             {
                                 'role': 'system',
-                                'content': 'Eres ZIA nutricionista. Responde en español con emojis.',
+                                'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.',
                             },
                             {'role': 'user', 'content': prompt_h},
                         ],
@@ -542,7 +549,7 @@ class ZiaEngine:
                     '3️⃣ Mejorar digestión\n'
                     '4️⃣ Dormir mejor\n'
                     '5️⃣ Reforzar defensas\n'
-                    '6️⃣ 🔥 Perder peso'
+                    '6️⃣ Perder peso'
                 )
             return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'eligiendo_super':
@@ -660,7 +667,7 @@ class ZiaEngine:
                     messages=[
                         {
                             'role': 'system',
-                            'content': 'Eres ZIA nutricionista. Responde en espanol con emojis.',
+                            'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en espanol con emojis.',
                         },
                         {'role': 'user', 'content': prompt},
                     ],
@@ -695,7 +702,7 @@ class ZiaEngine:
                     messages=[
                         {
                             'role': 'system',
-                            'content': 'Eres ZIA nutricionista. Responde en español con emojis.',
+                            'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.',
                         },
                         {'role': 'user', 'content': prompt},
                     ],
@@ -723,7 +730,7 @@ class ZiaEngine:
                 r = self.openai.chat.completions.create(
                     model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
                     messages=[
-                        {'role': 'system', 'content': 'Eres ZIA nutricionista. Responde en espanol con emojis.'},
+                        {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en espanol con emojis.'},
                         {'role': 'user', 'content': prompt},
                     ],
                     max_tokens=600,
@@ -779,7 +786,7 @@ class ZiaEngine:
                 r = self.openai.chat.completions.create(
                     model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
                     messages=[
-                        {'role': 'system', 'content': 'Eres ZIA nutricionista. Responde en espanol con emojis.'},
+                        {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en espanol con emojis.'},
                         {'role': 'user', 'content': prompt},
                     ],
                     max_tokens=700,
@@ -789,7 +796,12 @@ class ZiaEngine:
                 u['state'] = 'menu_principal'
                 return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
             except Exception as e:
-                return 'No pude generar recomendaciones de suplementos por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
+                u['state'] = 'menu_principal'
+                return (
+                    'No pude generar recomendaciones de suplementos ahora mismo por un error o timeout. '
+                    'Aun asi, podemos seguir avanzando juntos 💪 Intentalo de nuevo en unos minutos.'
+                    '\n\n---\n' + self._menu_principal_text(data)
+                )
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
@@ -831,7 +843,7 @@ class ZiaEngine:
             r = self.openai.chat.completions.create(
                 model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
                 messages=[
-                    {'role': 'system', 'content': 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis. Maximo 180 palabras.'},
+                    {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis. Maximo 180 palabras.'},
                     {'role': 'user', 'content': prompt}
                 ],
                 max_tokens=400,
@@ -886,7 +898,7 @@ class ZiaEngine:
             )
 
         model = self.config.get('ai', {}).get('model', 'gpt-4o-mini')
-        system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
+        system = COACH_TONE + ' Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
 
         prompt1 = (
             'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Lunes:* como primera palabra. '
@@ -993,7 +1005,7 @@ class ZiaEngine:
         )
         if nevera_foto:
             system_nevera = (
-                'Eres ZIA nutricionista. Analiza esta nevera/despensa y propón 3 recetas rápidas en menos de 20 minutos con lo que ves. '
+                COACH_TONE + ' Eres ZIA nutricionista. Analiza esta nevera/despensa y propón 3 recetas rápidas en menos de 20 minutos con lo que ves. '
                 'Responde en español con emojis. Incluye ingredientes que faltan con precio orientativo en euros.'
             )
             system_nevera += (
@@ -1023,7 +1035,7 @@ class ZiaEngine:
                 return reply
             except Exception as e:
                 return 'No pude responder por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
-        system = ('Eres ZIA de ' + company + '. Perfil: ' + perfil_usuario
+        system = (COACH_TONE + ' Eres ZIA de ' + company + '. Perfil: ' + perfil_usuario
                   + '. Plan actual: ' + plan
                   + '. Carrito: ' + checkout
                   + '. Ayuda con modificaciones y preguntas. Usa emojis. MAXIMO 100 palabras. Espanol.')
