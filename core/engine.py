@@ -978,17 +978,13 @@ class ZiaEngine:
             except Exception as e:
                 return 'Error generando parte del plan: ' + str(e)[:60]
 
-        partes = []
-        for prompt, max_tok, suffix in [
-            (prompt1, 650, ''),
-            (prompt2, 650, ''),
-            (prompt3, 450, suffix3),
-            (prompt4, 1000, suffix4),
-        ]:
-            cuerpo = _call(prompt, max_tok).rstrip()
-            partes.append(cuerpo + suffix)
-        intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
-        return [intro] + partes
+        lunes_mie = _call(prompt1, 650).rstrip()
+        jue_sab = _call(prompt2, 650).rstrip()
+        domingo = _call(prompt3, 450).rstrip() + suffix3
+        lista = _call(prompt4, 1000).rstrip() + suffix4
+        partes = [lunes_mie, jue_sab, domingo, lista]
+        print('ZIA plan partes generadas:', len(partes))
+        return partes
 
     def _gpt_libre(self, message, u):
         company = self.config['branding']['company_name']
