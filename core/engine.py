@@ -911,6 +911,9 @@ class ZiaEngine:
         system = 'Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
 
         prompt1 = (
+            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Lunes:* como primera palabra. '
+            'Nada antes. Genera SOLO Lunes, Martes y Miércoles con Desayuno, Comida y Cena. '
+            'PARA en la Cena del Miércoles. '
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Lunes, Martes y Miercoles. '
             'PROHIBIDO incluir Jueves, Viernes, Sabado o Domingo. '
             'Empieza con *Lunes:* Cada dia: Desayuno, Comida y Cena. '
@@ -918,6 +921,9 @@ class ZiaEngine:
             + perfil
         )
         prompt2 = (
+            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Jueves:* como primera palabra. '
+            'Nada antes. Genera SOLO Jueves, Viernes y Sábado con Desayuno, Comida y Cena. '
+            'PARA en la Cena del Sábado. '
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Jueves, Viernes y Sabado. '
             'PROHIBIDO incluir Lunes, Martes, Miercoles o Domingo. '
             'Empieza directamente con *Jueves:* Cada dia: Desayuno, Comida y Cena. '
@@ -925,6 +931,8 @@ class ZiaEngine:
             + perfil
         )
         prompt3 = (
+            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Domingo:* como primera palabra. '
+            'Nada antes. Genera SOLO el Domingo con Desayuno, Comida y Cena. '
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE el Domingo. '
             'PROHIBIDO incluir cualquier otro dia de la semana. '
             'PROHIBIDO incluir lista de la compra o precios. '
@@ -934,7 +942,7 @@ class ZiaEngine:
         )
         prompt4 = (
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE la LISTA DE LA COMPRA '
-            'para los 7 dias (Lunes a Domingo). PROHIBIDO incluir menus o dias de la semana. '
+            'completa para los 7 dias (Lunes a Domingo). PROHIBIDO incluir menus o dias de la semana. '
             'El TOTAL ESTIMADO NO puede superar ' + presupuesto + ' euros. '
             'Si los productos superan el presupuesto reduce cantidades o elige alternativas mas baratas. '
             'Organiza por categorias con cantidades y precios para ' + super_nombre + '. '
