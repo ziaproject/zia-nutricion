@@ -746,42 +746,41 @@ class ZiaEngine:
                 )
         elif s == 'suplementos':
             data = u['data']
-            perfil_usuario = self._profile_for_prompt(data)
-            ml = normalize_text(m)
-            opciones = {
-                '1': 'Me falta energía',
-                '2': 'Quiero ganar músculo',
-                '3': 'Mejorar digestión',
-                '4': 'Dormir mejor',
-                '5': 'Reforzar defensas',
-                '6': 'Perder peso',
-            }
-            opcion = m.strip()
-            if opcion not in opciones:
-                if 'perder peso' in ml or 'adelgazar' in ml or 'bajar peso' in ml:
-                    opcion = '6'
-                elif 'energia' in ml or 'cansancio' in ml or 'falta energia' in ml:
-                    opcion = '1'
-                elif 'musculo' in ml:
-                    opcion = '2'
-                elif 'digestion' in ml or 'estomago' in ml:
-                    opcion = '3'
-                elif 'dormir' in ml or 'sueno' in ml or 'insomnio' in ml:
-                    opcion = '4'
-                elif 'defensas' in ml or 'inmunidad' in ml or 'resfriado' in ml:
-                    opcion = '5'
-            necesidad = opciones.get(opcion, m.strip() or 'orientacion general sobre suplementos')
-            extra = ''
-            if opcion == '6':
-                extra = ' Para perdida de peso incluye L-carnitina, CLA, proteina, fibra y te verde.'
+            ml = normalize_text(m.strip())
+            num = m.strip()
+            if num == '1' or 'energi' in ml or 'cansancio' in ml:
+                opcion = 'energia'
+            elif num == '2' or 'musculo' in ml or 'proteina' in ml:
+                opcion = 'musculo'
+            elif num == '3' or 'digest' in ml or 'estomago' in ml or 'intestin' in ml:
+                opcion = 'digestion'
+            elif num == '4' or 'dormir' in ml or 'sueño' in ml or 'sueno' in ml or 'insomnio' in ml:
+                opcion = 'sueno'
+            elif num == '5' or 'defensa' in ml or 'inmunidad' in ml or 'resfriado' in ml:
+                opcion = 'defensas'
+            elif num == '6' or 'perder' in ml or 'adelgazar' in ml or 'peso' in ml or 'grasa' in ml:
+                opcion = 'peso'
+            else:
+                opcion = None
+            if opcion is None:
+                objetivo_suplementos = m.strip() or 'orientación general sobre suplementos'
+            else:
+                objetivo_suplementos = opcion
             prompt = (
-                'Eres ZIA nutricionista. Recomienda suplementos especificos para esta necesidad: '
-                + necesidad
-                + '. Perfil: '
-                + perfil_usuario
-                + '. Incluye dosis orientativas, consejos practicos y advertencias de seguridad basicas. '
-                + extra
-                + ' Indica que es orientativo y no sustituye consejo medico. Maximo 350 palabras.'
+                'Eres ZIA, experta en nutrición y suplementación deportiva. El usuario quiere '
+                + objetivo_suplementos
+                + '. Dame los 4-5 mejores suplementos específicos para este objetivo con:\n'
+                '- Nombre del suplemento y para qué sirve\n'
+                '- Dosis recomendada diaria\n'
+                '- Precio orientativo en España (€/mes)\n'
+                '- Cuándo tomarlo (antes/después entreno, con comida, etc)\n'
+                'Para perder peso: L-carnitina, CLA, té verde, proteína whey, fibra\n'
+                'Para energía: vitamina B12, hierro, magnesio, CoQ10, vitamina D\n'
+                'Para músculo: creatina monohidrato, proteína whey, BCAA, glutamina, ZMA\n'
+                'Para digestión: probióticos, enzimas digestivas, aloe vera, jengibre, fibra\n'
+                'Para sueño: melatonina, magnesio, valeriana, triptófano, ashwagandha\n'
+                'Para defensas: vitamina C, zinc, equinácea, vitamina D, probióticos\n'
+                'Responde en español con emojis. Tono experto pero cercano. Añade frase motivacional al final.'
             )
             try:
                 r = self.openai.chat.completions.create(
@@ -955,12 +954,12 @@ class ZiaEngine:
             '2️⃣ Comparar precios con otros supermercados'
         )
 
-        def _call(prompt, max_tok):
+        def _call(prompt, max_tok, system_prompt=system):
             try:
                 r = self.openai.chat.completions.create(
                     model=model,
                     messages=[
-                        {'role': 'system', 'content': system},
+                        {'role': 'system', 'content': system_prompt},
                         {'role': 'user', 'content': prompt},
                     ],
                     max_tokens=max_tok,
@@ -974,7 +973,8 @@ class ZiaEngine:
         lunes_mie = _call(prompt1, 650).rstrip()
         jue_sab = _call(prompt2, 650).rstrip()
         domingo = _call(prompt3, 450).rstrip() + suffix3
-        lista = _call(prompt4, 1000).rstrip() + suffix4
+        lista_system = 'Eres ZIA nutricionista. Genera SOLO la lista de la compra organizada por categorías con cantidades y precios. Sin motivación ni texto extra.'
+        lista = _call(prompt4, 1000, lista_system).rstrip() + suffix4
         partes = [lunes_mie, jue_sab, domingo, lista]
         print('ZIA plan partes generadas:', len(partes))
         intro = 'Aqui tienes tu plan semanal de Lunes a Domingo'
