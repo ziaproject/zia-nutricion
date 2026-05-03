@@ -253,10 +253,11 @@ class ZiaEngine:
             super_nombre = SUPER_MAP.get(m.strip(), m.strip()) if m.strip() else 'Mercadona'
             u['data']['supermercado'] = super_nombre
             u['state'] = 'plan_listo'
+            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
             msgs = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(msgs[1:])
             u['plan_count'] = u.get('plan_count', 0) + 1
-            return msgs
+            return [mensaje_espera] + msgs
         elif s == 'plan_listo':
             ml = m.lower()
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
