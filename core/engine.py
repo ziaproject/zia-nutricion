@@ -734,6 +734,8 @@ class ZiaEngine:
             u['data']['dieta_especial'] = dieta
             data = u['data']
             company = self.config['branding']['company_name']
+            super_nombre = data.get('supermercado', 'tu supermercado')
+            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
             prompt = (
                 'Eres ZIA nutricionista de '
                 + company
@@ -773,13 +775,15 @@ class ZiaEngine:
                     '6️⃣ 🏋️ Nutricion deportiva\n'
                     '7️⃣ 🩺 Analisis de mi analitica'
                 )
-                return r.choices[0].message.content + menu
+                return [mensaje_espera, r.choices[0].message.content + menu]
             except Exception as e:
-                return 'Error generando plan de dieta: ' + str(e)[:50]
+                return 'No pude generar el plan de dieta por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         elif s == 'modo_deporte':
             u['data']['info_deporte'] = m.strip()
             data = u['data']
             company = self.config['branding']['company_name']
+            super_nombre = data.get('supermercado', 'tu supermercado')
+            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
             prompt = (
                 'Eres ZIA nutricionista deportiva de '
                 + company
@@ -822,9 +826,9 @@ class ZiaEngine:
                     '6️⃣ 🏋️ Nutricion deportiva\n'
                     '7️⃣ 🩺 Analisis de mi analitica'
                 )
-                return r.choices[0].message.content + menu
+                return [mensaje_espera, r.choices[0].message.content + menu]
             except Exception as e:
-                return 'Error generando plan deportivo: ' + str(e)[:50]
+                return 'No pude generar el plan deportivo por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
