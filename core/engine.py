@@ -310,11 +310,11 @@ class ZiaEngine:
             super_nombre = self._supermercado_nombre(m)
             u['data']['supermercado'] = super_nombre
             u['state'] = 'plan_listo'
-            self._send_immediate_message(user_id, 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳')
+            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
             msgs = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(msgs[1:])
             u['plan_count'] = u.get('plan_count', 0) + 1
-            return msgs
+            return [mensaje_espera] + msgs
         elif s == 'plan_listo':
             ml = m.lower()
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
@@ -341,9 +341,7 @@ class ZiaEngine:
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Foto nevera\n'
                     '4️⃣ 🧠 Mejorar habitos\n'
-                    '5️⃣ 🥗 Dieta especifica\n'
-                    '6️⃣ 🏋️ Nutricion deportiva\n'
-                    '7️⃣ 🩺 Analisis analitica'
+                    '5️⃣ 🥗 Dieta especifica'
                 )
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
@@ -400,9 +398,7 @@ class ZiaEngine:
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Foto nevera\n'
                     '4️⃣ 🧠 Mejorar habitos\n'
-                    '5️⃣ 🥗 Dieta especifica\n'
-                    '6️⃣ 🏋️ Nutricion deportiva\n'
-                    '7️⃣ 🩺 Analisis analitica'
+                    '5️⃣ 🥗 Dieta especifica'
                 )
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
@@ -418,12 +414,6 @@ class ZiaEngine:
                 return (
                     'Que tipo de dieta quieres?\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterranea\n'
                     '4️⃣ Ayuno 16:8\n5️⃣ Vegetariana'
-                )
-            if m.strip() == '6' or any(k in ml for k in ('deporte', 'gym', 'musculo')):
-                u['state'] = 'modo_deporte'
-                return (
-                    'Que deporte practicas y cuantos dias a la semana? Indica tambien tu objetivo: '
-                    'ganar musculo, perder grasa o mejorar rendimiento 💪'
                 )
             return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'confirmando_compra':
@@ -459,9 +449,7 @@ class ZiaEngine:
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Foto nevera\n'
                     '4️⃣ 🧠 Mejorar habitos\n'
-                    '5️⃣ 🥗 Dieta especifica\n'
-                    '6️⃣ 🏋️ Nutricion deportiva\n'
-                    '7️⃣ 🩺 Analisis analitica'
+                    '5️⃣ 🥗 Dieta especifica'
                 )
                 u['state'] = 'menu_principal'
                 return [msg1, msg2]
@@ -493,11 +481,6 @@ class ZiaEngine:
                 return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'menu_principal':
             ml = m.lower()
-            if m.strip() == '7' or 'analitica' in ml or 'analisis' in ml or 'sangre' in ml:
-                u['state'] = 'esperando_foto_analitica'
-                return (
-                    'Enviame una foto de tu analitica de sangre y la interpreto nutricionalmente para adaptar tu plan 🩺'
-                )
             company = self.config['branding']['company_name']
             data = u['data']
             if m.strip() == '1' or 'recetas' in ml or 'comer' in ml:
@@ -551,9 +534,7 @@ class ZiaEngine:
                         '2️⃣ 🛒 Hacer la compra inteligente\n'
                         '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                         '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                        '6️⃣ 🏋️ Nutricion deportiva\n'
-                        '7️⃣ 🩺 Analisis de mi analitica'
+                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
                     )
                     return r.choices[0].message.content + menu
                 except Exception:
@@ -563,12 +544,6 @@ class ZiaEngine:
                 return (
                     'Que tipo de dieta quieres?\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterranea\n'
                     '4️⃣ Ayuno 16:8\n5️⃣ Vegetariana'
-                )
-            if m.strip() == '6' or 'deporte' in ml or 'gym' in ml:
-                u['state'] = 'modo_deporte'
-                return (
-                    'Que deporte practicas y cuantos dias a la semana? Indica tambien tu objetivo: '
-                    'ganar musculo, perder grasa o mejorar rendimiento 💪'
                 )
             return self._gpt_libre(message if isinstance(message, dict) else m, u)
         elif s == 'eligiendo_super':
@@ -605,9 +580,7 @@ class ZiaEngine:
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                     '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                    '6️⃣ 🏋️ Nutricion deportiva\n'
-                    '7️⃣ 🩺 Analisis de mi analitica'
+                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
                 )
                 return [msg1, msg2]
             else:
@@ -670,74 +643,13 @@ class ZiaEngine:
                         '2️⃣ 🛒 Hacer la compra inteligente\n'
                         '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                         '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                        '6️⃣ 🏋️ Nutricion deportiva\n'
-                        '7️⃣ 🩺 Analisis de mi analitica'
+                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
                     )
                     return r.choices[0].message.content + menu
                 except Exception as e:
                     return 'No pude analizar la foto: ' + str(e)[:80]
             else:
                 return 'No he recibido la foto. Enviamela directamente como imagen 📸'
-        elif s == 'esperando_foto_analitica':
-            text, image_url = self._retail_text_and_image_url(message)
-            if not image_url and isinstance(message, dict):
-                for key in ('MediaUrl0', 'media_url', 'imageUrl', 'image_url'):
-                    if message.get(key):
-                        image_url = message.get(key)
-                        break
-            if image_url:
-                data = u.get('data', {})
-                nombre = data.get('nombre', '')
-                restricciones = data.get('restricciones', 'Ninguna')
-                objetivo = data.get('objetivo', '')
-                try:
-                    import requests as _req
-                    import base64 as _b64
-                    twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
-                    twilio_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
-                    if str(image_url).startswith('data:'):
-                        data_url = image_url
-                    else:
-                        img_response = _req.get(image_url, auth=(twilio_sid, twilio_token), timeout=15)
-                        img_b64 = _b64.b64encode(img_response.content).decode('utf-8')
-                        content_type = img_response.headers.get('Content-Type', 'image/jpeg')
-                        data_url = 'data:' + content_type + ';base64,' + img_b64
-                    prompt_analitica = (
-                        'Eres ZIA, nutricionista experta. Analiza esta analitica de sangre y: '
-                        '1) Identifica valores fuera de rango (colesterol, glucosa, vitaminas, hierro, etc) '
-                        '2) Explica en lenguaje sencillo que significa cada valor alterado '
-                        '3) Da recomendaciones nutricionales especificas para mejorar esos valores '
-                        '4) Indica alimentos que debe aumentar y alimentos que debe reducir '
-                        'Perfil: ' + nombre + ', objetivo: ' + objetivo + ', restricciones: ' + restricciones + '. '
-                        'Responde en espanol con emojis. Tono cercano y motivador. '
-                        'IMPORTANTE: Indica que esto es orientativo y no sustituye consejo medico.'
-                    )
-                    r = self.openai.chat.completions.create(
-                        model='gpt-4o',
-                        messages=[{'role': 'user', 'content': [
-                            {'type': 'text', 'text': prompt_analitica},
-                            {'type': 'image_url', 'image_url': {'url': data_url}}
-                        ]}],
-                        max_tokens=600,
-                        timeout=25
-                    )
-                    menu = (
-                        '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
-                        '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                        '2️⃣ 🛒 Hacer la compra inteligente\n'
-                        '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                        '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                        '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                        '6️⃣ 🏋️ Nutricion deportiva\n'
-                        '7️⃣ 🩺 Analisis de mi analitica'
-                    )
-                    u['state'] = 'menu_principal'
-                    return r.choices[0].message.content + menu
-                except Exception as e:
-                    return 'No pude analizar la analitica: ' + str(e)[:80]
-            else:
-                return 'No he recibido la foto. Enviame una imagen de tu analitica de sangre 🩺'
         elif s == 'recetas_rapidas':
             data = u['data']
             nombre = data.get('nombre', '')
@@ -762,9 +674,7 @@ class ZiaEngine:
                 '2️⃣ 🛒 Hacer la compra inteligente\n'
                 '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                 '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                '6️⃣ 🏋️ Nutricion deportiva\n'
-                '7️⃣ 🩺 Analisis de mi analitica'
+                '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
             )
             u['state'] = 'menu_principal'
             try:
@@ -792,7 +702,6 @@ class ZiaEngine:
             company = self.config['branding']['company_name']
             super_nombre = data.get('supermercado', 'tu supermercado')
             mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
-            self._send_immediate_message(user_id, mensaje_espera)
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
                 'Eres ZIA nutricionista de '
@@ -825,60 +734,11 @@ class ZiaEngine:
                     '2️⃣ 🛒 Hacer la compra inteligente\n'
                     '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                     '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                    '6️⃣ 🏋️ Nutricion deportiva\n'
-                    '7️⃣ 🩺 Analisis de mi analitica'
+                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
                 )
-                return r.choices[0].message.content + menu
+                return [mensaje_espera, r.choices[0].message.content + menu]
             except Exception as e:
                 return 'No pude generar el plan de dieta por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
-        elif s == 'modo_deporte':
-            u['data']['info_deporte'] = m.strip()
-            data = u['data']
-            company = self.config['branding']['company_name']
-            super_nombre = data.get('supermercado', 'tu supermercado')
-            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
-            self._send_immediate_message(user_id, mensaje_espera)
-            perfil_usuario = self._profile_for_prompt(data)
-            prompt = (
-                'Eres ZIA nutricionista deportiva de '
-                + company
-                + '. El usuario practica: '
-                + m.strip()
-                + '. Genera un plan de nutricion deportiva semanal con comidas pre y post entreno, '
-                'macros diarios (proteinas, carbohidratos, grasas, calorias). Perfil: '
-                + perfil_usuario
-                + '. Usa emojis. Maximo 400 palabras.'
-            )
-            try:
-                r = self.openai.chat.completions.create(
-                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
-                    messages=[
-                        {
-                            'role': 'system',
-                            'content': 'Eres ZIA nutricionista deportiva. Responde en español con emojis.',
-                        },
-                        {'role': 'user', 'content': prompt},
-                    ],
-                    max_tokens=800,
-                    temperature=0.7,
-                    timeout=30,
-                )
-                u['state'] = 'menu_principal'
-                nombre = data.get('nombre', '')
-                menu = (
-                    '\n\n---\n' + ((('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?')) + '\n\n'
-                    '1️⃣ 🍽️ Comer mejor hoy (recetas rapidas)\n'
-                    '2️⃣ 🛒 Hacer la compra inteligente\n'
-                    '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
-                    '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                    '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                    '6️⃣ 🏋️ Nutricion deportiva\n'
-                    '7️⃣ 🩺 Analisis de mi analitica'
-                )
-                return r.choices[0].message.content + menu
-            except Exception as e:
-                return 'No pude generar el plan deportivo por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         else:
             u['state'] = 'welcome'
             return 'Escribe *Hola* para empezar 👋'
@@ -1078,9 +938,7 @@ class ZiaEngine:
                 '2️⃣ 🛒 Hacer la compra inteligente\n'
                 '3️⃣ 📸 Cocinar con lo que tengo (foto nevera)\n'
                 '4️⃣ 🧠 Mejorar mi alimentacion (habitos)\n'
-                '5️⃣ 🥗 Dieta especifica (keto, vegana...)\n'
-                '6️⃣ 🏋️ Nutricion deportiva\n'
-                '7️⃣ 🩺 Analisis de mi analitica'
+                '5️⃣ 🥗 Dieta especifica (keto, vegana...)'
             )
         nevera_foto = (image_url is not None) or any(
             w in tl for w in ('nevera', 'frigo', 'tengo en casa', 'foto')
