@@ -637,29 +637,26 @@ class ZiaEngine:
         elif s == 'mejorar':
             ml = normalize_text(m)
             if m.strip() == '1' or 'plan' in ml or 'semanal' in ml:
-                u['state'] = 'mejorar_1'
-                return self.process_message(user_id, message)
+                super_nombre = u['data'].get('supermercado', 'Mercadona')
+                u['state'] = 'plan_listo'
+                mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal completo para ' + super_nombre + '. Dame un momento... ⏳'
+                msgs = self._generar_plan_partes(u['data'])
+                u['plan'] = '\n\n'.join(msgs[1:])
+                u['plan_count'] = u.get('plan_count', 0) + 1
+                return [mensaje_espera] + msgs
             if m.strip() == '2' or 'pasado' in ml or 'reset' in ml or 'finde' in ml:
-                u['state'] = 'mejorar_2'
+                u['state'] = 'mejorar_reset'
                 return '¡Oye, que un día no define tu camino! 😊 Lo importante es que quieres volver y eso ya es mucho.\n\nCuéntame, ¿qué ha pasado? Sin juicios 🙌'
             if m.strip() == '3' or 'evento' in ml or 'boda' in ml or 'viaje' in ml:
-                u['state'] = 'mejorar_3'
+                u['state'] = 'mejorar_evento'
                 return '¡Qué emocionante! 🎯 ¿Para cuándo es el evento y qué quieres conseguir?\n_Ejemplo: boda en 3 semanas, quiero perder 3kg_'
             if m.strip() == '4' or 'dieta' in ml or 'keto' in ml or 'vegana' in ml or 'colesterol' in ml:
-                u['state'] = 'mejorar_4'
-                return '¿Qué dieta específica quieres trabajar? 🥗\n\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterránea\n4️⃣ Ayuno 16:8\n5️⃣ Vegetariana\n6️⃣ Colesterol'
-            if m.strip() == '5' or 'progreso' in ml or 'semana' in ml:
-                u['state'] = 'progreso_semanal'
+                u['state'] = 'mejorar_dieta'
+                return '¿Qué tipo de dieta quieres? 🥗\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterránea\n4️⃣ Ayuno 16:8\n5️⃣ Vegetariana\n6️⃣ Colesterol bajo'
+            if m.strip() == '5' or 'progreso' in ml:
+                u['state'] = 'mejorar_progreso'
                 return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Energía, digestión, ánimo?'
             return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'mejorar')
-        elif s == 'mejorar_1':
-            super_nombre = u['data'].get('supermercado', 'Mercadona')
-            u['state'] = 'plan_listo'
-            mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal completo para ' + super_nombre + '. Dame un momento... ⏳'
-            msgs = self._generar_plan_partes(u['data'])
-            u['plan'] = '\n\n'.join(msgs[1:])
-            u['plan_count'] = u.get('plan_count', 0) + 1
-            return [mensaje_espera] + msgs
         elif s == 'eligiendo_super':
             SUPER_URLS = {
                 'mercadona': 'https://tienda.mercadona.es',
@@ -727,16 +724,12 @@ class ZiaEngine:
                 return r.choices[0].message.content + menu
             except Exception as e:
                 return 'No pude proponerte opciones ahora mismo por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
-        elif s == 'mejorar_2':
+        elif s == 'mejorar_reset':
             data = u['data']
-            perfil_usuario = self._profile_for_prompt(data)
             prompt = (
-                'Eres ZIA nutricionista. El usuario se ha pasado o ha comido mal y cuenta: '
+                'Eres ZIA coach nutricional cercana. El usuario dice: '
                 + m.strip()
-                + '. Genera un plan reset de 2 días con tono motivador, sin culpa ni drama. '
-                'Incluye desayuno, comida, cena, agua, paseo/movimiento suave y 3 consejos prácticos. Perfil: '
-                + perfil_usuario
-                + '. Máximo 300 palabras. Responde en español con emojis.'
+                + '. Responde sin juzgar, con empatía y humor suave. Da un plan reset de 2 días muy concreto con desayuno, comida y cena para volver a la rutina. Máximo 150 palabras. Emojis.'
             )
             menu = '\n\n---\n' + self._menu_principal_text(data)
             u['state'] = 'menu_principal'
@@ -753,17 +746,13 @@ class ZiaEngine:
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
-                return 'No pude generar el reset de 2 días por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
-        elif s == 'mejorar_3':
+                return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'mejorar_reset')
+        elif s == 'mejorar_evento':
             data = u['data']
-            perfil_usuario = self._profile_for_prompt(data)
             prompt = (
-                'Eres ZIA nutricionista. El usuario tiene un evento y dice: '
+                'Eres ZIA coach nutricional. El usuario tiene este evento: '
                 + m.strip()
-                + '. Genera un plan específico con fecha objetivo: estrategia nutricional, entrenamiento/movimiento, hidratación, expectativas realistas y próximos pasos. '
-                'No prometas pérdidas irreales. Perfil: '
-                + perfil_usuario
-                + '. Máximo 350 palabras. Responde en español con emojis.'
+                + '. Crea un plan detallado y motivador con: objetivo diario de calorías, alimentos que debe priorizar, alimentos que debe evitar, consejo de hidratación, y frase motivacional final. Máximo 200 palabras. Emojis.'
             )
             menu = '\n\n---\n' + self._menu_principal_text(data)
             u['state'] = 'menu_principal'
@@ -780,15 +769,15 @@ class ZiaEngine:
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
-                return 'No pude generar el plan para tu evento por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
-        elif s == 'mejorar_4':
+                return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'mejorar_evento')
+        elif s == 'mejorar_dieta':
             dietas = {
                 '1': 'keto',
                 '2': 'vegana',
                 '3': 'mediterránea',
                 '4': 'ayuno 16:8',
                 '5': 'vegetariana',
-                '6': 'colesterol',
+                '6': 'colesterol bajo',
             }
             dieta = dietas.get(m.strip(), m.strip().lower())
             data = u['data']
@@ -797,7 +786,7 @@ class ZiaEngine:
             prompt = (
                 'Eres ZIA nutricionista. Genera un plan específico de dieta '
                 + dieta
-                + ' adaptado al perfil del usuario. Incluye pautas claras, ejemplo de 1 día con desayuno, comida y cena, alimentos recomendados y alimentos a evitar. Perfil: '
+                + ' adaptado al perfil del usuario. Genera un plan semanal específico con pautas claras, desayunos, comidas y cenas, alimentos recomendados y alimentos a evitar. Perfil: '
                 + perfil_usuario
                 + '. Responde en español con emojis, máximo 450 palabras.'
             )
@@ -816,7 +805,33 @@ class ZiaEngine:
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
-                return 'No pude generar la dieta específica por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
+                return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'mejorar_dieta')
+        elif s == 'mejorar_progreso':
+            data = u['data']
+            perfil_usuario = self._profile_for_prompt(data)
+            prompt = (
+                'Eres ZIA coach nutricional motivadora. El usuario cuenta cómo le ha ido esta semana: '
+                + m.strip()
+                + '. Analiza con empatía, celebra avances, detecta 2 ajustes prácticos para la semana siguiente y cierra con ánimo. Perfil: '
+                + perfil_usuario
+                + '. Máximo 180 palabras. Emojis.'
+            )
+            menu = '\n\n---\n' + self._menu_principal_text(data)
+            u['state'] = 'menu_principal'
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                    messages=[
+                        {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                        {'role': 'user', 'content': prompt},
+                    ],
+                    max_tokens=450,
+                    temperature=0.7,
+                    timeout=25,
+                )
+                return r.choices[0].message.content + menu
+            except Exception as e:
+                return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'mejorar_progreso')
         elif s == 'esperando_foto_nevera':
             text, image_url = self._retail_text_and_image_url(message)
             if not image_url and isinstance(message, dict):
