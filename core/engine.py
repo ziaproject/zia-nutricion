@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import unicodedata
 from openai import OpenAI
 
 def load_client_config(client_id):
@@ -17,7 +18,12 @@ def get_engine(client_id=None):
         _cache[client_id] = ZiaEngine(client_id)
     return _cache[client_id]
 
-RESET_WORDS = RESET_WORDS = ['inicio','reset','reiniciar','start','menu','nuevo']
+RESET_WORDS = ['inicio','reset','reiniciar','start','menu','nuevo']
+
+
+def normalize_text(text):
+    value = unicodedata.normalize('NFKD', str(text or '').lower())
+    return ''.join(c for c in value if not unicodedata.combining(c)).strip()
 
 
 def is_reset(m):
@@ -80,6 +86,50 @@ class ZiaEngine:
     def get_welcome_message(self):
         return self.config['bot']['welcome_message']
 
+    def _send_immediate_message(self, to, body):
+        try:
+            from twilio.rest import Client as TwilioClient
+
+            sid = os.environ.get('TWILIO_ACCOUNT_SID')
+            token = os.environ.get('TWILIO_AUTH_TOKEN')
+            from_number = os.environ.get('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886')
+            if not sid or not token:
+                return
+            TwilioClient(sid, token).messages.create(body=body, from_=from_number, to=to)
+        except Exception as e:
+            print('No pude enviar mensaje inmediato:', str(e)[:80])
+
+    def _profile_for_prompt(self, data):
+        descripcion = data.get('descripcion_grupo', '').strip()
+        if descripcion and data.get('personas') != '1 persona':
+            return descripcion
+        partes = [
+            data.get('nombre', ''),
+            data.get('genero', ''),
+            data.get('edad', ''),
+            data.get('peso', ''),
+            data.get('altura', ''),
+            data.get('objetivo', ''),
+            data.get('restricciones', 'Ninguna'),
+        ]
+        return ', '.join([p for p in partes if p])
+
+    def _supermercado_nombre(self, value):
+        super_map = {
+            '1': 'Mercadona', 'mercadona': 'Mercadona',
+            '2': 'Lidl', 'lidl': 'Lidl',
+            '3': 'Aldi', 'aldi': 'Aldi',
+            '4': 'Carrefour', 'carrefour': 'Carrefour',
+            '5': 'Dia', 'dia': 'Dia',
+            '6': 'Consum', 'consum': 'Consum',
+            '7': 'Supercor', 'supercor': 'Supercor',
+            '8': 'El Corte Ingles', 'el corte ingles': 'El Corte Ingles',
+        }
+        raw = str(value or '').strip()
+        if not raw:
+            return 'Mercadona'
+        return super_map.get(normalize_text(raw), raw)
+
     def _retail_text_and_image_url(self, message):
         if isinstance(message, str):
             return message.strip(), None
@@ -135,28 +185,39 @@ class ZiaEngine:
             u['state'] = 'tipo_plan'
             return 'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\nEn 2 minutos te preparo tu menu semanal personalizado con productos naturales y ecologicos + lista de la compra lista para el carrito 🛒\n\nPara quien es el plan?\n\n  👤 Plan individual (solo para mi)\n  👫 Plan en pareja (2 personas)\n  👨‍👩‍👧‍👦 Plan familiar (3 o más personas)'
         elif s == 'tipo_plan':
-            ml = m.strip().lower()
-            if '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml:
+            ml = normalize_text(m)
+            if (
+                'familia' in ml or 'familiar' in ml or 'mis hijos' in ml
+                or 'somos 3' in ml or 'somos 4' in ml or 'somos 5' in ml
+                or ml in ['3', '4', '5'] or 'tres' in ml
+            ):
                 u['data']['personas'] = 'familia (3 o mas personas)'
                 u['data']['num_personas'] = 4
                 u['state'] = 'datos_familia'
                 return 'Perfecto. Describeme a la familia en un mensaje libre: cuantas personas sois, edades aproximadas, objetivos y restricciones si las hay.'
-            if 'solo' in ml or 'mi' in ml or '1' in ml:
-                u['data']['personas'] = '1 persona'
-                u['data']['num_personas'] = 1
-                u['state'] = 'datos'
-                return 'Perfecto. Para empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
             if '2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml:
                 u['data']['personas'] = '2 personas'
                 u['data']['num_personas'] = 2
                 u['state'] = 'datos_pareja'
                 return 'Perfecto. Describeme a las 2 personas en un mensaje libre: nombres, genero, edad, peso, altura, objetivo y restricciones si las hay.'
+            if (
+                'individual' in ml or 'yo solo' in ml or 'una persona' in ml
+                or 'solo' in ml or ml == '1' or '1 persona' in ml or ml == 'mi'
+            ):
+                u['data']['personas'] = '1 persona'
+                u['data']['num_personas'] = 1
+                u['state'] = 'datos'
+                return 'Perfecto. Para empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
             return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'datos_pareja':
+            if len(m.split()) < 5:
+                return 'Necesito un poco mas de detalle 😊 Describeme a las 2 personas: edades, objetivos, restricciones y cualquier dato importante.'
             u['data']['descripcion_grupo'] = m
             u['state'] = 'presupuesto'
             return ('Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
         elif s == 'datos_familia':
+            if len(m.split()) < 5:
+                return 'Necesito un poco mas de detalle 😊 Cuéntame cuantas personas sois, edades aproximadas, objetivos y restricciones.'
             u['data']['descripcion_grupo'] = m
             u['state'] = 'presupuesto'
             return ('Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
@@ -194,10 +255,10 @@ class ZiaEngine:
             return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
         elif s == 'objetivo':
             opts = {'1':'Perder peso','2':'Ganar musculo','3':'Mas energia y vitalidad','4':'Comer mas sano','5':'Mejorar la digestion'}
-            ml = m.strip().lower()
+            ml = normalize_text(m)
             elegido = opts.get(m.strip(), None)
             if not elegido:
-                if 'peso' in ml or 'grasa' in ml: elegido = 'Perder peso'
+                if 'peso' in ml or 'grasa' in ml or 'adelgazar' in ml or 'estar en forma' in ml: elegido = 'Perder peso'
                 elif 'musculo' in ml or 'muscu' in ml: elegido = 'Ganar musculo'
                 elif 'energia' in ml: elegido = 'Mas energia y vitalidad'
                 elif 'sano' in ml or 'salud' in ml: elegido = 'Comer mas sano'
@@ -209,7 +270,7 @@ class ZiaEngine:
             return 'Como es vuestra relacion con la cocina? 🍳\n\n  ⚡ Poco tiempo, recetas rapidas\n  👨‍🍳 Me gusta cocinar\n  🥗 Solo platos sencillos\n  📦 Batch cooking (preparar el domingo)'
         elif s == 'cocina':
             opts = {'1':'Poco tiempo, recetas rapidas','2':'Me gusta cocinar','3':'Solo platos sencillos','4':'Batch cooking'}
-            ml = m.strip().lower()
+            ml = normalize_text(m)
             elegido = opts.get(m.strip(), None)
             if not elegido:
                 if 'poco' in ml or 'rapido' in ml or 'tiempo' in ml: elegido = 'Poco tiempo, recetas rapidas'
@@ -226,7 +287,7 @@ class ZiaEngine:
                 '1': 'Ninguna', '2': 'Vegano/Vegetariano', '3': 'Sin gluten',
                 '4': 'Sin lactosa', '5': 'Sin pescado'
             }
-            ml = m.strip().lower()
+            ml = normalize_text(m)
             elegido = opts.get(m.strip(), None)
             if not elegido:
                 if 'ninguna' in ml or 'no' == ml: elegido = 'Ninguna'
@@ -246,13 +307,10 @@ class ZiaEngine:
             u['state'] = 'supermercado'
             return '🏪 En que supermercado sueles comprar?\n\n  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n_O escribe el nombre directamente_'
         elif s == 'supermercado':
-            SUPER_MAP = {
-                '1': 'Mercadona', '2': 'Lidl', '3': 'Aldi', '4': 'Carrefour',
-                '5': 'Dia', '6': 'Consum', '7': 'Supercor', '8': 'El Corte Ingles'
-            }
-            super_nombre = SUPER_MAP.get(m.strip(), m.strip()) if m.strip() else 'Mercadona'
+            super_nombre = self._supermercado_nombre(m)
             u['data']['supermercado'] = super_nombre
             u['state'] = 'plan_listo'
+            self._send_immediate_message(user_id, 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳')
             msgs = self._generar_plan_partes(u['data'])
             u['plan'] = '\n\n'.join(msgs[1:])
             u['plan_count'] = u.get('plan_count', 0) + 1
@@ -272,10 +330,11 @@ class ZiaEngine:
                     'el corte ingles': 'https://www.elcorteingles.es/supermercado',
                     'el corte inglés': 'https://www.elcorteingles.es/supermercado',
                 }
-                sk = super_nombre.strip().lower()
+                sk = normalize_text(super_nombre)
                 url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
                 nombre = u['data'].get('nombre', '')
-                msg1 = 'Perfecto, ' + nombre + '! Tu link para ' + super_nombre + ':\n\n' + url + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
+                saludo = ('Perfecto, ' + nombre + '!') if nombre else 'Perfecto! 🌿'
+                msg1 = saludo + ' Tu link para ' + super_nombre + ':\n\n' + url + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
                 msg2 = (
                     (('Que quieres hacer ahora, ' + nombre + '?') if nombre else '¿Que quieres hacer ahora?') + '\n\n'
                     '1️⃣ 🍽️ Comer mejor hoy\n'
@@ -324,7 +383,7 @@ class ZiaEngine:
                 'el corte ingles': 'https://www.elcorteingles.es/supermercado',
                 'el corte inglés': 'https://www.elcorteingles.es/supermercado',
             }
-            super_key_pl = m.strip().lower()
+            super_key_pl = normalize_text(m)
             if super_key_pl in SUPER_URLS:
                 url = SUPER_URLS.get(super_key_pl, 'https://tienda.mercadona.es')
                 nombre = u['data'].get('nombre', '')
@@ -383,12 +442,12 @@ class ZiaEngine:
             nombre = u['data'].get('nombre', '')
             ml = m.strip().lower()
             if ml in ['1', 'si', 'sí', 'confirmar', 'confirmo', 'dale', 'ok', 'vale', 'yes', 'claro']:
-                sk = str(super_nombre).strip().lower().replace('í', 'i').replace('é', 'e')
+                sk = normalize_text(super_nombre)
                 url = SUPER_URLS.get(sk, 'https://tienda.mercadona.es')
+                saludo = ('Perfecto, ' + nombre + '!') if nombre else 'Perfecto! 🌿'
                 msg1 = (
-                    'Perfecto, '
-                    + nombre
-                    + '! Tu link para '
+                    saludo
+                    + ' Tu link para '
                     + super_nombre
                     + ':\n\n'
                     + url
@@ -525,16 +584,17 @@ class ZiaEngine:
                 'el corte inglés': 'https://www.elcorteingles.es/supermercado',
             }
             nombre = u['data'].get('nombre', '')
-            super_key = m.strip().lower()
+            super_key = normalize_text(m)
             url = SUPER_URLS.get(super_key, None)
             if url:
-                u['data']['supermercado'] = m.strip()
+                super_nombre = self._supermercado_nombre(m)
+                u['data']['supermercado'] = super_nombre
                 u['state'] = 'menu_principal'
+                saludo = ('Perfecto, ' + nombre + '!') if nombre else 'Perfecto! 🌿'
                 msg1 = (
-                    'Perfecto, '
-                    + nombre
-                    + '! Aqui tienes tu link para '
-                    + m.strip()
+                    saludo
+                    + ' Aqui tienes tu link para '
+                    + super_nombre
                     + ':\n\n'
                     + url
                     + '\n\nQue disfrutes de tu semana saludable! 💪🥗'
@@ -568,12 +628,15 @@ class ZiaEngine:
                     import base64 as _b64
                     twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
                     twilio_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
-                    img_response = _req.get(
-                        image_url, auth=(twilio_sid, twilio_token), timeout=15
-                    )
-                    img_b64 = _b64.b64encode(img_response.content).decode('utf-8')
-                    content_type = img_response.headers.get('Content-Type', 'image/jpeg')
-                    data_url = f'data:{content_type};base64,{img_b64}'
+                    if str(image_url).startswith('data:'):
+                        data_url = image_url
+                    else:
+                        img_response = _req.get(
+                            image_url, auth=(twilio_sid, twilio_token), timeout=15
+                        )
+                        img_b64 = _b64.b64encode(img_response.content).decode('utf-8')
+                        content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+                        data_url = f'data:{content_type};base64,{img_b64}'
                     r = self.openai.chat.completions.create(
                         model='gpt-4o',
                         messages=[
@@ -631,17 +694,15 @@ class ZiaEngine:
                 try:
                     import requests as _req
                     import base64 as _b64
-                    from PIL import Image as _PIL
-                    import io as _io
                     twilio_sid = os.environ.get('TWILIO_ACCOUNT_SID', '')
                     twilio_token = os.environ.get('TWILIO_AUTH_TOKEN', '')
-                    img_response = _req.get(image_url, auth=(twilio_sid, twilio_token), timeout=15)
-                    img = _PIL.open(_io.BytesIO(img_response.content)).convert('RGB')
-                    buf = _io.BytesIO()
-                    img.save(buf, format='JPEG')
-                    img_b64 = _b64.b64encode(buf.getvalue()).decode('utf-8')
-                    content_type = 'image/jpeg'
-                    data_url = 'data:image/jpeg;base64,' + img_b64
+                    if str(image_url).startswith('data:'):
+                        data_url = image_url
+                    else:
+                        img_response = _req.get(image_url, auth=(twilio_sid, twilio_token), timeout=15)
+                        img_b64 = _b64.b64encode(img_response.content).decode('utf-8')
+                        content_type = img_response.headers.get('Content-Type', 'image/jpeg')
+                        data_url = 'data:' + content_type + ';base64,' + img_b64
                     prompt_analitica = (
                         'Eres ZIA, nutricionista experta. Analiza esta analitica de sangre y: '
                         '1) Identifica valores fuera de rango (colesterol, glucosa, vitaminas, hierro, etc) '
@@ -681,6 +742,7 @@ class ZiaEngine:
             data = u['data']
             nombre = data.get('nombre', '')
             company = self.config['branding']['company_name']
+            perfil_usuario = self._profile_for_prompt(data)
             prompt = (
                 'Eres ZIA nutricionista de '
                 + company
@@ -690,12 +752,7 @@ class ZiaEngine:
                 + '. '
                 'Propón 3 recetas rapidas en menos de 20 minutos adaptadas a su perfil. '
                 'Perfil: '
-                + nombre
-                + ', objetivo: '
-                + data.get('objetivo', '')
-                + ', '
-                'restricciones: '
-                + data.get('restricciones', 'Ninguna')
+                + perfil_usuario
                 + '. '
                 'Usa emojis. Maximo 300 palabras. Responde en espanol.'
             )
@@ -726,7 +783,7 @@ class ZiaEngine:
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
-                return 'Error: ' + str(e)[:50]
+                return 'No pude generar las recetas por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         elif s == 'eligiendo_dieta':
             dietas = {'1': 'keto', '2': 'vegana', '3': 'mediterranea', '4': 'ayuno 16:8', '5': 'vegetariana'}
             dieta = dietas.get(m.strip(), m.strip().lower())
@@ -735,17 +792,15 @@ class ZiaEngine:
             company = self.config['branding']['company_name']
             super_nombre = data.get('supermercado', 'tu supermercado')
             mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
+            self._send_immediate_message(user_id, mensaje_espera)
+            perfil_usuario = self._profile_for_prompt(data)
             prompt = (
                 'Eres ZIA nutricionista de '
                 + company
                 + '. Genera un plan semanal de dieta '
                 + dieta
                 + ' completo de Lunes a Domingo con Desayuno, Comida y Cena. Perfil: '
-                + data.get('nombre', '')
-                + ', objetivo: '
-                + data.get('objetivo', '')
-                + ', restricciones: '
-                + data.get('restricciones', 'Ninguna')
+                + perfil_usuario
                 + '. Usa emojis. Maximo 400 palabras.'
             )
             try:
@@ -774,7 +829,7 @@ class ZiaEngine:
                     '6️⃣ 🏋️ Nutricion deportiva\n'
                     '7️⃣ 🩺 Analisis de mi analitica'
                 )
-                return [mensaje_espera, r.choices[0].message.content + menu]
+                return r.choices[0].message.content + menu
             except Exception as e:
                 return 'No pude generar el plan de dieta por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         elif s == 'modo_deporte':
@@ -783,6 +838,8 @@ class ZiaEngine:
             company = self.config['branding']['company_name']
             super_nombre = data.get('supermercado', 'tu supermercado')
             mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
+            self._send_immediate_message(user_id, mensaje_espera)
+            perfil_usuario = self._profile_for_prompt(data)
             prompt = (
                 'Eres ZIA nutricionista deportiva de '
                 + company
@@ -790,13 +847,7 @@ class ZiaEngine:
                 + m.strip()
                 + '. Genera un plan de nutricion deportiva semanal con comidas pre y post entreno, '
                 'macros diarios (proteinas, carbohidratos, grasas, calorias). Perfil: '
-                + data.get('nombre', '')
-                + ', peso: '
-                + data.get('peso', '70')
-                + 'kg, objetivo: '
-                + data.get('objetivo', '')
-                + ', restricciones: '
-                + data.get('restricciones', 'Ninguna')
+                + perfil_usuario
                 + '. Usa emojis. Maximo 400 palabras.'
             )
             try:
@@ -825,7 +876,7 @@ class ZiaEngine:
                     '6️⃣ 🏋️ Nutricion deportiva\n'
                     '7️⃣ 🩺 Analisis de mi analitica'
                 )
-                return [mensaje_espera, r.choices[0].message.content + menu]
+                return r.choices[0].message.content + menu
             except Exception as e:
                 return 'No pude generar el plan deportivo por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         else:
@@ -1008,6 +1059,7 @@ class ZiaEngine:
         checkout = self.config.get('integrations',{}).get('cart',{}).get('checkout_url', self.config['branding']['website'])
         data = u['data']
         plan = u.get('plan','')[:200] if u.get('plan') else ''
+        perfil_usuario = self._profile_for_prompt(data)
         if isinstance(message, dict):
             text = (message.get('text') or '').strip()
             image_url = message.get('image_url')
@@ -1039,9 +1091,7 @@ class ZiaEngine:
                 'Responde en español con emojis. Incluye ingredientes que faltan con precio orientativo en euros.'
             )
             system_nevera += (
-                ' Perfil: ' + data.get('nombre', '')
-                + ', objetivo ' + data.get('objetivo', '')
-                + ', restricciones ' + data.get('restricciones', 'Ninguna') + '.'
+                ' Perfil: ' + perfil_usuario + '.'
             )
             user_parts = [{'type': 'text', 'text': text or 'Analiza esta imagen de mi nevera o despensa.'}]
             if image_url is not None:
@@ -1066,10 +1116,8 @@ class ZiaEngine:
                 u['history'] = history
                 return reply
             except Exception as e:
-                return 'Error: ' + str(e)[:50]
-        system = ('Eres ZIA de ' + company + '. Perfil: ' + data.get('nombre','')
-                  + ', objetivo: ' + data.get('objetivo','')
-                  + ', restricciones: ' + data.get('restricciones','Ninguna')
+                return 'No pude responder por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
+        system = ('Eres ZIA de ' + company + '. Perfil: ' + perfil_usuario
                   + '. Plan actual: ' + plan
                   + '. Carrito: ' + checkout
                   + '. Ayuda con modificaciones y preguntas. Usa emojis. MAXIMO 100 palabras. Espanol.')
@@ -1089,7 +1137,7 @@ class ZiaEngine:
             u['history'] = history
             return reply
         except Exception as e:
-            return 'Error: ' + str(e)[:50]
+            return 'No pude responder por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
     def _process_retail_asesor(self, user_id, message):
         u = self._get_user(user_id)
         history = u.get('history', [])
