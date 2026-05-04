@@ -117,6 +117,7 @@ class ZiaEngine:
             data.get('peso', ''),
             data.get('altura', ''),
             data.get('objetivo', ''),
+            data.get('pasos', ''),
             data.get('restricciones', 'Ninguna'),
         ]
         return ', '.join([p for p in partes if p])
@@ -231,7 +232,7 @@ class ZiaEngine:
                 u['data']['personas'] = '2 personas'
                 u['data']['num_personas'] = 2
                 u['state'] = 'datos_pareja'
-                return 'Perfecto. Describeme a las 2 personas en un mensaje libre: nombres, genero, edad, peso, altura, objetivo y restricciones si las hay.'
+                return 'Perfecto 👫 Dos preguntas rápidas:\n\n¿Coméis juntos normalmente o tenéis horarios distintos?\n\n1️⃣ Comemos juntos casi siempre\n2️⃣ Solo coincidimos en cenas o fines de semana\n3️⃣ Cada uno come por su lado pero compartimos compra'
             if (
                 'individual' in ml or 'yo solo' in ml or 'una persona' in ml
                 or 'solo' in ml or ml == '1' or '1 persona' in ml or ml == 'mi'
@@ -242,8 +243,20 @@ class ZiaEngine:
                 return 'Perfecto. Para empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
             return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'datos_pareja':
+            ml = normalize_text(m)
+            if m.strip() == '1' or 'juntos' in ml or 'siempre' in ml:
+                u['data']['pareja_horario'] = 'juntos'
+            elif m.strip() == '2' or 'cenas' in ml or 'finde' in ml or 'fin de semana' in ml:
+                u['data']['pareja_horario'] = 'finde'
+            elif m.strip() == '3' or 'separado' in ml or 'cada uno' in ml:
+                u['data']['pareja_horario'] = 'separado'
+            else:
+                return 'No te he entendido 😊 Elige una opción:\n\n1️⃣ Comemos juntos casi siempre\n2️⃣ Solo coincidimos en cenas o fines de semana\n3️⃣ Cada uno come por su lado pero compartimos compra'
+            u['state'] = 'pareja_horario'
+            return '¿Y qué quiere mejorar cada uno? Cuéntamelo en un mensaje 😊\n\n_Ejemplo: Yo quiero perder peso y no como gluten. Mi pareja quiere ganar músculo y come de todo_'
+        elif s == 'pareja_horario':
             if len(m.split()) < 5:
-                return 'Necesito un poco mas de detalle 😊 Describeme a las 2 personas: edades, objetivos, restricciones y cualquier dato importante.'
+                return 'Necesito un poco más de detalle 😊 Cuéntame qué quiere mejorar cada uno y si hay restricciones.'
             u['data']['descripcion_grupo'] = m
             u['state'] = 'presupuesto'
             return ('Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
@@ -298,8 +311,35 @@ class ZiaEngine:
             if not elegido:
                 return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
             u['data']['objetivo'] = elegido
+            u['state'] = 'pasos'
+            return '¿Cuántos pasos das al día aproximadamente? 👟\n\n1️⃣ Menos de 5.000 (muy sedentario)\n2️⃣ Entre 5.000 y 8.000 (moderado)\n3️⃣ Entre 8.000 y 12.000 (activo)\n4️⃣ Más de 12.000 (muy activo)'
+        elif s == 'pasos':
+            ml = normalize_text(m)
+            pasos = None
+            tag = None
+            respuesta = None
+            if m.strip() == '1' or 'sedentario' in ml or 'menos' in ml or '5000' in ml or 'poco' in ml:
+                pasos = 'menos de 5000'
+                tag = 'sedentario'
+                respuesta = 'Tranquilo/a, empezamos desde donde estás 🙌 Con pequeños cambios en tu alimentación vas a notar la diferencia enseguida.'
+            elif m.strip() == '2' or 'moderado' in ml or '8000' in ml:
+                pasos = '5000-8000'
+                tag = 'moderado'
+                respuesta = 'Bien 👟 Ya hay movimiento. Vamos a potenciarlo con la alimentación correcta.'
+            elif m.strip() == '3' or '12000' in ml or '10000' in ml or ('activo' in ml and 'muy activo' not in ml):
+                pasos = '8000-12000'
+                tag = 'activo'
+                respuesta = '🔥 Buen ritmo. Vamos a optimizar tu nutrición para que cada paso cuente más.'
+            elif m.strip() == '4' or 'muy activo' in ml or 'mas de 12000' in ml:
+                pasos = 'mas de 12000'
+                tag = 'muy_activo'
+                respuesta = '💪 Eres una máquina. Vamos a trabajar en rendimiento y recuperación.'
+            if not pasos:
+                return 'No te he entendido 😊 Elige una opción:\n\n1️⃣ Menos de 5.000 (muy sedentario)\n2️⃣ Entre 5.000 y 8.000 (moderado)\n3️⃣ Entre 8.000 y 12.000 (activo)\n4️⃣ Más de 12.000 (muy activo)'
+            u['data']['pasos'] = pasos
+            u['data']['pasos_tag'] = tag
             u['state'] = 'cocina'
-            return '¿Cómo es tu relación con la cocina? 🍳\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
+            return respuesta + '\n\n' + '¿Cómo es tu relación con la cocina? 🍳\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
         elif s == 'cocina':
             ml = normalize_text(m)
             elegido = None
@@ -314,46 +354,21 @@ class ZiaEngine:
             if not elegido:
                 return 'No te he entendido 😊 Elige una opcion:\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
             u['data']['cocina'] = elegido
-            u['state'] = 'actividad'
-            return 'Quiero entender cómo te mueves en tu día a día 👀\nNo para juzgarte… sino para ayudarte a sentirte mejor.\n\n¿Cuál se parece más a ti ahora mismo?\n\n1️⃣ Paso muchas horas sentado y me cuesta activarme\n2️⃣ Me muevo algo, pero sin rutina clara\n3️⃣ Entreno algunos días y quiero mejorar\n4️⃣ El deporte ya es parte de mi vida'
-        elif s == 'actividad':
+            u['state'] = 'num_comidas'
+            return '¿Cuántas veces comes al día? 🍽️\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
+        elif s == 'num_comidas':
             ml = normalize_text(m)
             elegido = None
-            tag = None
-            respuesta = None
-            if m.strip() == '1' or 'sentado' in ml or 'sedentario' in ml:
-                elegido = 'Paso muchas horas sentado y me cuesta activarme'
-                tag = 'sedentario'
-                respuesta = 'Perfecto, empezamos desde una base real 🙌 Con solo 15 min al día puedes empezar a notar cambios. Vamos a prepararte algo muy fácil.'
-            elif m.strip() == '2' or 'algo' in ml or 'rutina' in ml:
-                elegido = 'Me muevo algo, pero sin rutina clara'
-                tag = 'crear_habito'
-                respuesta = 'Bien 👀 ya hay movimiento. Ahora vamos a darle estructura para que empieces a notar resultados de verdad.'
-            elif m.strip() == '3' or 'entreno' in ml or 'algunos' in ml:
-                elegido = 'Entreno algunos días y quiero mejorar'
-                tag = 'optimizar'
-                respuesta = '🔥 Buen nivel. Vamos a optimizar lo que ya haces para que cada esfuerzo cuente más.'
-            elif m.strip() == '4' or 'deporte' in ml or 'activo' in ml:
-                elegido = 'El deporte ya es parte de mi vida'
-                tag = 'performance'
-                respuesta = '🔥 Se nota que te lo tomas en serio. Vamos a trabajar en rendimiento, recuperación y detalle fino.'
+            if m.strip() == '1' or '2 veces' in ml or 'dos' in ml or '☀️' in m:
+                elegido = '2 veces al día'
+            elif m.strip() == '2' or '3 veces' in ml or 'tres' in ml or '🌤️' in m:
+                elegido = '3 veces al día'
+            elif m.strip() == '4' or 'ayuno' in ml or 'intermitente' in ml or '🌙' in m:
+                elegido = 'Ayuno intermitente'
+            elif m.strip() in ['3', '5'] or '4 veces' in ml or '5 veces' in ml or 'snack' in ml or '⛅' in m:
+                elegido = '4-5 veces con snacks'
             if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Paso muchas horas sentado y me cuesta activarme\n2️⃣ Me muevo algo, pero sin rutina clara\n3️⃣ Entreno algunos días y quiero mejorar\n4️⃣ El deporte ya es parte de mi vida'
-            u['data']['actividad'] = elegido
-            u['data']['actividad_tag'] = tag
-            u['state'] = 'restricciones'
-            return respuesta + '\n\nTeneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
-        elif s == 'num_comidas':
-            opts = {'1': '2 veces al día', '2': '3 veces al día', '3': '4-5 veces con snacks', '4': 'Ayuno intermitente'}
-            ml = normalize_text(m)
-            elegido = opts.get(m.strip(), None)
-            if not elegido:
-                if 'ayuno' in ml or 'intermitente' in ml: elegido = 'Ayuno intermitente'
-                elif '4' in ml or '5' in ml or 'snack' in ml: elegido = '4-5 veces con snacks'
-                elif '3' in ml: elegido = '3 veces al día'
-                elif '2' in ml: elegido = '2 veces al día'
-            if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ 2 veces al día\n2️⃣ 3 veces al día\n3️⃣ 4-5 veces con snacks\n4️⃣ Ayuno intermitente'
+                return 'No te he entendido 😊 Elige una opcion:\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
             u['data']['num_comidas'] = elegido
             u['state'] = 'restricciones'
             return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
@@ -1132,7 +1147,7 @@ class ZiaEngine:
             peso = float(data.get('peso', 70))
         except Exception:
             peso = 70
-        actividad_norm = normalize_text(data.get('actividad', ''))
+        actividad_norm = normalize_text(data.get('actividad', '') + ' ' + data.get('pasos_tag', ''))
         agua_litros = peso * 0.035
         if 'activo' in actividad_norm:
             agua_litros += 0.5
@@ -1176,7 +1191,7 @@ class ZiaEngine:
                 'PERFIL GRUPAL: ' + descripcion_grupo + '. '
                 'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
-                'Actividad: ' + data.get('actividad', '') + '. '
+                'Pasos diarios: ' + data.get('pasos', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 + pauta_nutricional +
                 cocina_minima +
@@ -1192,7 +1207,7 @@ class ZiaEngine:
                 'Objetivo: ' + data.get('objetivo', '') + '. '
                 'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
-                'Actividad: ' + data.get('actividad', '') + '. '
+                'Pasos diarios: ' + data.get('pasos', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 + pauta_nutricional +
                 cocina_minima +
@@ -1317,6 +1332,83 @@ class ZiaEngine:
             image_url = None
         tl = text.lower()
         ml = tl
+        m_norm = normalize_text(text)
+        special_prompt = None
+        if any(p in m_norm for p in ['no se que cenar', 'no se que comer', 'que ceno', 'que como']):
+            special_prompt = (
+                'El usuario no sabe qué comer o cenar. Propón 3 opciones rápidas adaptadas a este perfil: '
+                + perfil_usuario
+                + '. Incluye ingredientes sencillos, tiempo aproximado y una recomendación principal.'
+            )
+        elif any(p in m_norm for p in ['nevera vacia', 'no tengo nada', 'caducado', 'se me ha caducado']):
+            special_prompt = (
+                'El usuario tiene la nevera vacía o productos caducados. Crea una lista de emergencia de 15 productos básicos adaptada a su perfil: '
+                + perfil_usuario
+                + '. Organiza por secciones y prioriza productos versátiles.'
+            )
+        elif any(p in m_norm for p in ['glovo', 'uber eats', 'siempre pido', 'delivery']):
+            special_prompt = (
+                'El usuario suele pedir delivery. Entiende por qué puede pasar, sin juzgar, y da una alternativa más fácil y rápida que pedir comida. Perfil: '
+                + perfil_usuario
+                + '. Incluye 3 opciones de supermercado o montaje rápido.'
+            )
+        elif any(p in m_norm for p in ['me lo cargo el finde', 'finde malo', 'me he pasado']):
+            special_prompt = (
+                'El usuario siente que se ha pasado el fin de semana. Responde sin juicios y crea un plan reset de 2 días motivador, con comidas concretas. Perfil: '
+                + perfil_usuario
+            )
+        elif any(p in m_norm for p in ['sin lista', 'gasto mucho', 'gasto el doble']):
+            special_prompt = (
+                'El usuario compra sin lista o gasta demasiado. Genera una lista pre-generada basada en su perfil: '
+                + perfil_usuario
+                + '. Máximo 15 productos, organizada por secciones y con enfoque práctico.'
+            )
+        elif any(p in m_norm for p in ['no me llega', 'muy caro', 'presupuesto justo', 'poco dinero']):
+            special_prompt = (
+                'El usuario tiene presupuesto justo. Crea un plan económico real bajo 40€/semana adaptado a su perfil: '
+                + perfil_usuario
+                + '. Incluye alimentos baratos, saciantes y combinaciones simples.'
+            )
+        elif any(p in m_norm for p in ['turnos', 'horario irregular', 'trabajo de noche']):
+            special_prompt = (
+                'El usuario tiene turnos u horario irregular. Crea un plan flexible sin horario fijo adaptado a su perfil: '
+                + perfil_usuario
+                + '. Incluye opciones para antes, durante y después del turno.'
+            )
+        elif any(p in m_norm for p in ['viajo mucho', 'de viaje', 'hotel']):
+            special_prompt = (
+                'El usuario viaja mucho. Crea un plan portable y opciones saludables en restaurante/hotel adaptadas a su perfil: '
+                + perfil_usuario
+                + '. Da soluciones concretas y fáciles.'
+            )
+        elif any(p in m_norm for p in ['no come verdura', 'mis hijos', 'no le gusta']):
+            special_prompt = (
+                'El usuario necesita que alguien coma más verdura sin notarla. Propón recetas donde no se nota la verdura y trucos prácticos. Perfil: '
+                + perfil_usuario
+            )
+        elif any(p in m_norm for p in ['no veo resultados', 'me desanimo', 'no funciona', 'no sirve']):
+            special_prompt = (
+                'El usuario no ve resultados y está desanimado. Celebra su esfuerzo, ajusta expectativas y da un plan concreto de próximos pasos. Perfil: '
+                + perfil_usuario
+            )
+        if special_prompt:
+            try:
+                r = self.openai.chat.completions.create(
+                    model=self.config.get('ai',{}).get('model','gpt-4o-mini'),
+                    messages=[
+                        {
+                            'role': 'system',
+                            'content': 'Eres ZIA, nutricionista experta Y coach motivacional. Respondes siempre con empatía, sin juzgar, con soluciones concretas y prácticas. Tono cercano, motivador y experto. Máximo 150 palabras. Emojis.',
+                        },
+                        {'role': 'user', 'content': special_prompt},
+                    ],
+                    max_tokens=350,
+                    temperature=0.7,
+                    timeout=20,
+                )
+                return r.choices[0].message.content
+            except Exception as e:
+                return 'No pude responder por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
         if any(w in ml for w in ['gracias', 'thank', 'perfecto', 'genial', 'ok', 'vale', 'listo']):
             nombre = data.get('nombre', '')
             u['state'] = 'menu_principal'
