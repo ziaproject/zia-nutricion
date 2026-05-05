@@ -232,7 +232,7 @@ class ZiaEngine:
             data.get('peso', ''),
             data.get('altura', ''),
             data.get('objetivo', ''),
-            data.get('pasos', ''),
+            data.get('actividad', ''),
             data.get('restricciones', 'Ninguna'),
         ]
         return ', '.join([p for p in partes if p])
@@ -379,7 +379,7 @@ class ZiaEngine:
                 u['data']['num_personas'] = 1
                 u['state'] = 'datos'
                 return 'Perfecto. Para empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
-            return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
+            return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'datos_pareja':
             ml = normalize_text(m)
             if m.strip() == '1' or 'juntos' in ml or 'siempre' in ml:
@@ -389,7 +389,7 @@ class ZiaEngine:
             elif m.strip() == '3' or 'separado' in ml or 'cada uno' in ml:
                 u['data']['pareja_horario'] = 'separado'
             else:
-                return 'No te he entendido 😊 Elige una opción:\n\n1️⃣ Comemos juntos casi siempre\n2️⃣ Solo coincidimos en cenas o fines de semana\n3️⃣ Cada uno come por su lado pero compartimos compra'
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Comemos juntos casi siempre\n2️⃣ Solo coincidimos en cenas o fines de semana\n3️⃣ Cada uno come por su lado pero compartimos compra'
             u['state'] = 'pareja_horario'
             return '¿Y qué quiere mejorar cada uno? Cuéntamelo en un mensaje 😊\n\n_Ejemplo: Yo quiero perder peso y no como gluten. Mi pareja quiere ganar músculo y come de todo_'
         elif s == 'pareja_horario':
@@ -426,7 +426,7 @@ class ZiaEngine:
                 elif '2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml: elegido = '2 personas'
                 elif '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml: elegido = 'familia (3 o mas personas)'
             if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
             u['data']['personas'] = elegido
             if elegido == '1 persona':
                 u['data']['num_personas'] = 1
@@ -447,35 +447,35 @@ class ZiaEngine:
                 elif 'sano' in ml or 'salud' in ml: elegido = 'Comer mas sano'
                 elif 'digest' in ml: elegido = 'Mejorar la digestion'
             if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
             u['data']['objetivo'] = elegido
             u['state'] = 'pasos'
-            return '¿Cuántos pasos das al día aproximadamente? 👟\n\n1️⃣ Menos de 5.000 (muy sedentario)\n2️⃣ Entre 5.000 y 8.000 (moderado)\n3️⃣ Entre 8.000 y 12.000 (activo)\n4️⃣ Más de 12.000 (muy activo)'
+            return '¿Cuánto ejercicio haces? 🏃\n1️⃣ Nada o casi nada\n2️⃣ 1-2 días por semana\n3️⃣ 3-4 días por semana\n4️⃣ Todos los días'
         elif s == 'pasos':
             ml = normalize_text(m)
-            pasos = None
+            actividad = None
             tag = None
             respuesta = None
-            if m.strip() == '1' or 'sedentario' in ml or 'menos' in ml or '5000' in ml or 'poco' in ml:
-                pasos = 'menos de 5000'
+            if m.strip() == '1' or 'nada' in ml or 'casi nada' in ml:
+                actividad = 'Nada o casi nada'
                 tag = 'sedentario'
                 respuesta = 'Tranquilo/a, empezamos desde donde estás 🙌 Con pequeños cambios en tu alimentación vas a notar la diferencia enseguida.'
-            elif m.strip() == '2' or 'moderado' in ml or '8000' in ml:
-                pasos = '5000-8000'
+            elif m.strip() == '2' or '1-2' in ml or '1 2' in ml or '1 dia' in ml or '2 dias' in ml:
+                actividad = '1-2 días por semana'
                 tag = 'moderado'
                 respuesta = 'Bien 👟 Ya hay movimiento. Vamos a potenciarlo con la alimentación correcta.'
-            elif m.strip() == '3' or '12000' in ml or '10000' in ml or ('activo' in ml and 'muy activo' not in ml):
-                pasos = '8000-12000'
+            elif m.strip() == '3' or '3-4' in ml or '3 4' in ml or '3 dias' in ml or '4 dias' in ml:
+                actividad = '3-4 días por semana'
                 tag = 'activo'
                 respuesta = '🔥 Buen ritmo. Vamos a optimizar tu nutrición para que cada paso cuente más.'
-            elif m.strip() == '4' or 'muy activo' in ml or 'mas de 12000' in ml:
-                pasos = 'mas de 12000'
+            elif m.strip() == '4' or 'todos' in ml or 'diario' in ml or 'cada dia' in ml:
+                actividad = 'Todos los días'
                 tag = 'muy_activo'
                 respuesta = '💪 Eres una máquina. Vamos a trabajar en rendimiento y recuperación.'
-            if not pasos:
-                return 'No te he entendido 😊 Elige una opción:\n\n1️⃣ Menos de 5.000 (muy sedentario)\n2️⃣ Entre 5.000 y 8.000 (moderado)\n3️⃣ Entre 8.000 y 12.000 (activo)\n4️⃣ Más de 12.000 (muy activo)'
-            u['data']['pasos'] = pasos
-            u['data']['pasos_tag'] = tag
+            if not actividad:
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Nada o casi nada\n2️⃣ 1-2 días por semana\n3️⃣ 3-4 días por semana\n4️⃣ Todos los días'
+            u['data']['actividad'] = actividad
+            u['data']['actividad_tag'] = tag
             u['state'] = 'cocina'
             return respuesta + '\n\n' + '¿Cómo es tu relación con la cocina? 🍳\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
         elif s == 'cocina':
@@ -490,7 +490,7 @@ class ZiaEngine:
             elif m.strip() == '4' or 'batch' in ml or 'domingo' in ml or 'preparo' in ml:
                 elegido = 'Batch cooking'
             if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
             u['data']['cocina'] = elegido
             u['state'] = 'num_comidas'
             return '¿Cuántas veces comes al día? 🍽️\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
@@ -506,7 +506,7 @@ class ZiaEngine:
             elif m.strip() in ['3', '5'] or '4 veces' in ml or '5 veces' in ml or 'snack' in ml or '⛅' in m:
                 elegido = '4-5 veces con snacks'
             if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
             u['data']['num_comidas'] = elegido
             u['state'] = 'restricciones'
             return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
@@ -525,7 +525,7 @@ class ZiaEngine:
                 elif 'pescado' in ml: elegido = 'Sin pescado'
                 elif m.strip(): elegido = m.strip()
             if not elegido:
-                return 'No te he entendido 😊 Elige una opcion:\n\n✅ Ninguna\n🌱 Vegano/Vegetariano\n🌾 Sin gluten\n🥛 Sin lactosa\n🐟 Sin pescado\n✏️ Otra (escribela)'
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n✅ Ninguna\n🌱 Vegano/Vegetariano\n🌾 Sin gluten\n🥛 Sin lactosa\n🐟 Sin pescado\n✏️ Otra (escribela)'
             u['data']['restricciones'] = elegido
             u['state'] = 'presupuesto'
             return ('Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
@@ -1285,7 +1285,7 @@ class ZiaEngine:
             peso = float(data.get('peso', 70))
         except Exception:
             peso = 70
-        actividad_norm = normalize_text(data.get('actividad', '') + ' ' + data.get('pasos_tag', ''))
+        actividad_norm = normalize_text(data.get('actividad', '') + ' ' + data.get('actividad_tag', ''))
         agua_litros = peso * 0.035
         if 'activo' in actividad_norm:
             agua_litros += 0.5
@@ -1329,7 +1329,7 @@ class ZiaEngine:
                 'PERFIL GRUPAL: ' + descripcion_grupo + '. '
                 'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
-                'Pasos diarios: ' + data.get('pasos', '') + '. '
+                'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 + pauta_nutricional +
                 cocina_minima +
@@ -1345,7 +1345,7 @@ class ZiaEngine:
                 'Objetivo: ' + data.get('objetivo', '') + '. '
                 'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
-                'Pasos diarios: ' + data.get('pasos', '') + '. '
+                'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
                 + pauta_nutricional +
                 cocina_minima +
