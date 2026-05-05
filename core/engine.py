@@ -228,7 +228,11 @@ class ZiaEngine:
     def _profile_for_prompt(self, data):
         descripcion = data.get('descripcion_grupo', '').strip()
         if descripcion and data.get('personas') != '1 persona':
-            return descripcion
+            suf = ''
+            io = (data.get('intolerancias') or '').strip()
+            if io and normalize_text(io) != 'ninguna':
+                suf = ' Intolerancias/alergias: ' + io + '.'
+            return descripcion + suf
         partes = [
             data.get('nombre', ''),
             data.get('genero', ''),
@@ -238,6 +242,7 @@ class ZiaEngine:
             data.get('objetivo', ''),
             data.get('actividad', ''),
             data.get('restricciones', 'Ninguna'),
+            'Intolerancias: ' + data.get('intolerancias', 'ninguna'),
         ]
         return ', '.join([p for p in partes if p])
 
@@ -260,27 +265,428 @@ class ZiaEngine:
             return 'Mercadona'
         return super_map.get(norm, raw)
 
-    def _menu_principal_text(self, data):
+    def _menu_principal_body_text(self):
         return (
-            'Ahora dime qué necesitas HOY 👇\n\n'
-            '1️⃣ ⏱️ No tengo tiempo, hazme la compra rápida\n'
-            '2️⃣ 🍽️ ¿Qué como o ceno? (escribe o manda foto de tu nevera)\n'
-            '3️⃣ 💪 Quiero mejorar mi alimentación\n'
-            '4️⃣ 🛒 Comida preparada (lista para comer)\n'
+            '¿Qué necesitas hoy? 👇\n\n'
+            '1️⃣ 🛒 Hazme la lista de la compra\n'
+            '2️⃣ 💰 Quiero ahorrar esta semana\n'
+            '3️⃣ 🍽️ ¿Qué como con lo que tengo?\n'
+            '4️⃣ 📅 Planifícame la semana\n'
             '5️⃣ 💊 Suplementación'
         )
 
+    def _menu_principal_text(self, data):
+        return self._menu_principal_body_text()
+
+    def _menu_opcion_numero(self, m):
+        raw = (m or '').strip()
+        if not raw:
+            return None
+        if raw[0] in '12345':
+            return raw[0]
+        for i, ic in enumerate(['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'], start=1):
+            if ic in raw:
+                return str(i)
+        norm = normalize_text(raw)
+        if norm in ('1', '2', '3', '4', '5'):
+            return norm
+        return None
+
+    def _normalizar_perfil_menu(self, data):
+        if not str(data.get('restricciones') or '').strip():
+            data['restricciones'] = 'Ninguna'
+        if not str(data.get('intolerancias') or '').strip():
+            data['intolerancias'] = 'ninguna'
+
+    def _perfil_es_grupo(self, data):
+        return bool(data.get('descripcion_grupo', '').strip()) and data.get('personas') != '1 persona'
+
+    def _primer_campo_perfil_faltante(self, data, requiere_bio=False):
+        if self._perfil_es_grupo(data):
+            for k in ('presupuesto', 'supermercado'):
+                if not str(data.get(k) or '').strip():
+                    return k
+            return None
+        for k in ('objetivo', 'cocina', 'presupuesto', 'supermercado'):
+            if not str(data.get(k) or '').strip():
+                return k
+        if requiere_bio:
+            for k in ('genero', 'edad', 'peso', 'altura'):
+                if not str(data.get(k) or '').strip():
+                    return k
+        return None
+
+    def _pregunta_campo_perfil(self, campo):
+        preguntas = {
+            'objetivo': (
+                '¿Cuál es tu objetivo nutricional ahora? 🎯\n'
+                '_Ej.: perder peso, mantener, ganar músculo, más energía…_'
+            ),
+            'cocina': (
+                '¿Cómo es tu relación con la cocina? 🍳\n\n'
+                '⚡ Poco tiempo, recetas rápidas (máx 15 min)\n'
+                '🛋️ Cocina para vagos (precocinados y listos)\n'
+                '👨‍🍳 Me gusta cocinar\n'
+                '📦 Batch cooking (preparo el domingo)'
+            ),
+            'presupuesto': (
+                '¿Cuánto quieres gastar a la semana en la compra? 💶\n'
+                '_Escribe un número en euros, ej: 60_'
+            ),
+            'supermercado': (
+                '🏪 ¿En qué supermercado sueles comprar?\n\n'
+                '1️⃣ Mercadona  2️⃣ Lidl  3️⃣ Aldi  4️⃣ Carrefour\n'
+                '5️⃣ Dia  6️⃣ Consum  7️⃣ Supercor  8️⃣ El Corte Inglés\n\n'
+                '_O escribe el nombre_'
+            ),
+            'genero': 'Para ajustar calorías: ¿eres hombre o mujer?',
+            'edad': '¿Cuántos años tienes?',
+            'peso': '¿Cuánto pesas aprox.? (kg)',
+            'altura': '¿Cuánto mides? (cm)',
+        }
+        return preguntas.get(campo, 'Cuéntame ese dato y seguimos 😊')
+
+    def _guardar_campo_perfil_menu(self, u, m, campo):
+        data = u['data']
+        ml = normalize_text(m)
+        raw = (m or '').strip()
+        if not raw:
+            return False
+        if campo == 'presupuesto':
+            nums = re.findall(r'\d+', m)
+            if nums:
+                data['presupuesto'] = nums[0]
+                return True
+            return False
+        if campo == 'supermercado':
+            data['supermercado'] = self._supermercado_nombre(m)
+            return True
+        if campo == 'objetivo':
+            data['objetivo'] = raw
+            return True
+        if campo == 'cocina':
+            if raw == '1' or any(w in ml for w in ['poco', 'poca', 'poco tiempo', 'no tengo tiempo', 'rapido', '15 min', '15min']):
+                data['cocina'] = 'Poco tiempo, recetas rápidas'
+            elif raw == '2' or any(w in ml for w in ['vago', 'vagos', 'precocinado', 'listo', 'facil', 'no me gusta cocinar', 'odio cocinar']):
+                data['cocina'] = 'Cocina para vagos'
+            elif raw == '3' or any(w in ml for w in ['me gusta', 'gusta', 'cocinar', 'cocino', 'disfruto']):
+                data['cocina'] = 'Me gusta cocinar'
+            elif raw == '4' or any(w in ml for w in ['batch', 'domingo', 'preparo', 'semana', 'tuppers', 'taper']):
+                data['cocina'] = 'Batch cooking'
+            else:
+                if len(raw) > 3:
+                    data['cocina'] = raw
+                    return True
+                return False
+            return True
+        if campo == 'genero':
+            if any(w in ml for w in ('hombre', 'masculino', 'chico', 'varon')):
+                data['genero'] = 'Hombre'
+                return True
+            if any(w in ml for w in ('mujer', 'femenino', 'chica')):
+                data['genero'] = 'Mujer'
+                return True
+            return False
+        if campo == 'edad':
+            for n in re.findall(r'\d+', m):
+                v = int(n)
+                if 14 <= v <= 100:
+                    data['edad'] = str(v)
+                    return True
+            return False
+        if campo == 'peso':
+            for n in re.findall(r'\d+', m):
+                v = int(n)
+                if 35 <= v <= 250:
+                    data['peso'] = str(v)
+                    return True
+            return False
+        if campo == 'altura':
+            for n in re.findall(r'\d+', m):
+                v = int(n)
+                if 120 <= v <= 230:
+                    data['altura'] = str(v)
+                    return True
+            return False
+        return False
+
+    def _arrancar_accion_menu(self, user_id, u, message, accion):
+        self._normalizar_perfil_menu(u['data'])
+        req_bio = accion == 'plan_semana'
+        campo = self._primer_campo_perfil_faltante(u['data'], req_bio)
+        if campo:
+            u['state'] = 'menu_esperando_perfil'
+            u['data']['_menu_accion_pendiente'] = accion
+            u['data']['_menu_requiere_bio'] = req_bio
+            u['data']['_menu_campo_perfil'] = campo
+            return self._pregunta_campo_perfil(campo)
+        u['data'].pop('_menu_accion_pendiente', None)
+        u['data'].pop('_menu_requiere_bio', None)
+        u['data'].pop('_menu_campo_perfil', None)
+        return self._ejecutar_accion_menu_principal(user_id, u, message, accion)
+
+    def _ejecutar_accion_menu_principal(self, user_id, u, message, accion):
+        data = u['data']
+        if accion == 'lista_compra':
+            return self._respuesta_lista_compra_openai(u)
+        if accion == 'ahorrar':
+            u['state'] = 'menu_principal'
+            return self._respuesta_ahorrar_openai(u)
+        if accion == 'que_tengo':
+            u['state'] = 'menu_que_tengo'
+            return (
+                'Dime qué tienes en la nevera o despensa (o mándame una foto) '
+                'y te digo qué puedes comer 🥕📸'
+            )
+        if accion == 'plan_semana':
+            u['state'] = 'plan_listo'
+            super_nombre = data.get('supermercado', 'Mercadona')
+            mensaje_espera = (
+                'Perfecto! 🌿 Estoy preparando tu plan semanal para '
+                + super_nombre
+                + '. Dame un momento... ⏳'
+            )
+            msgs = self._generar_plan_partes(data)
+            u['plan'] = '\n\n'.join(msgs[1:])
+            u['plan_count'] = u.get('plan_count', 0) + 1
+            return [mensaje_espera] + msgs
+        if accion == 'suplementos':
+            u['state'] = 'menu_principal'
+            return self._respuesta_suplementos_desde_perfil(u)
+        u['state'] = 'menu_principal'
+        return self._menu_principal_text(data)
+
+    def _respuesta_lista_compra_openai(self, u):
+        data = u['data']
+        self._normalizar_perfil_menu(data)
+        perfil_usuario = self._profile_for_prompt(data)
+        sup = data.get('supermercado', 'Mercadona')
+        pres = data.get('presupuesto', '65')
+        cocina = data.get('cocina', '')
+        prompt = (
+            'Eres ZIA nutricionista. Haz la LISTA DE LA COMPRA para TODA UNA SEMANA '
+            'alineada con este perfil: '
+            + perfil_usuario
+            + '. Estilo de cocina: '
+            + cocina
+            + '. Supermercado habitual: '
+            + sup
+            + '. Presupuesto orientativo máximo: '
+            + str(pres)
+            + ' €/semana (respeta precios razonables). '
+            'Organiza por zonas del super (fruta/verdura, frescos, despensa). '
+            'Cantidades orientativas. Sin menú día a día; solo la lista. '
+            'Incluye especias/condimentos básicos si faltan. '
+            'Español, emojis, máximo 280 palabras.'
+        )
+        menu = '\n\n---\n' + self._menu_principal_text(data)
+        u['state'] = 'menu_principal'
+        try:
+            r = self.openai.chat.completions.create(
+                model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                messages=[
+                    {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                    {'role': 'user', 'content': prompt},
+                ],
+                max_tokens=700,
+                temperature=0.7,
+                timeout=28,
+            )
+            return r.choices[0].message.content + menu
+        except Exception:
+            return (
+                'No pude generar la lista ahora por un error o timeout. Inténtalo en unos minutos.'
+                + menu
+            )
+
+    def _respuesta_ahorrar_openai(self, u):
+        data = u['data']
+        self._normalizar_perfil_menu(data)
+        perfil_usuario = self._profile_for_prompt(data)
+        sup = data.get('supermercado', 'Mercadona')
+        pres = data.get('presupuesto', '65')
+        cocina = data.get('cocina', '')
+        prompt = (
+            'Eres ZIA nutricionista. El usuario quiere AHORRAR esta semana en la compra. '
+            'Perfil: '
+            + perfil_usuario
+            + '. Cocina: '
+            + cocina
+            + '. Supermercado: '
+            + sup
+            + '. Presupuesto máximo: '
+            + str(pres)
+            + ' €/semana.\n'
+            'Devuelve: (1) 7 ideas de comidas baratas y repetibles, (2) trucos concretos de ahorro '
+            'en ese super, (3) mini lista de compra prioritaria bajo presupuesto. '
+            'Sin pedir más datos. Tono motivador. Español, emojis, máximo 280 palabras.'
+        )
+        menu = '\n\n---\n' + self._menu_principal_text(data)
+        try:
+            r = self.openai.chat.completions.create(
+                model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                messages=[
+                    {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                    {'role': 'user', 'content': prompt},
+                ],
+                max_tokens=700,
+                temperature=0.7,
+                timeout=28,
+            )
+            return r.choices[0].message.content + menu
+        except Exception:
+            return (
+                'No pude preparar el plan de ahorro ahora. Inténtalo en unos minutos.'
+                + menu
+            )
+
+    def _respuesta_suplementos_desde_perfil(self, u):
+        data = u['data']
+        self._normalizar_perfil_menu(data)
+        perfil_usuario = self._profile_for_prompt(data)
+        prompt = (
+            'Eres ZIA, experta en suplementación. Recomienda suplementos alineados con este perfil: '
+            + perfil_usuario
+            + '. Objetivo declarado: '
+            + data.get('objetivo', '')
+            + '. Restricciones: '
+            + data.get('restricciones', 'Ninguna')
+            + '. Intolerancias: '
+            + data.get('intolerancias', 'ninguna')
+            + '.\n'
+            'Entrega 4-5 suplementos concretos con: nombre, para qué sirve respecto a su objetivo, '
+            'dosis orientativa, mejor momento del día y precio aproximado €/mes en España. '
+            'Termina con un aviso breve de consultar a médico o farmacéutico si toma medicación o tiene patologías. '
+            'Español, emojis, máximo 260 palabras.'
+        )
+        menu = '\n\n---\n' + self._menu_principal_text(data)
+        try:
+            r = self.openai.chat.completions.create(
+                model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
+                messages=[
+                    {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                    {'role': 'user', 'content': prompt},
+                ],
+                max_tokens=750,
+                temperature=0.7,
+                timeout=28,
+            )
+            return r.choices[0].message.content + menu
+        except Exception:
+            return (
+                'No pude generar recomendaciones de suplementos ahora. Inténtalo en unos minutos.'
+                + menu
+            )
+
+    def _intolerancias_pregunta_text(self):
+        return (
+            '¿Tienes alguna intolerancia o alergia? 🚨\n\n'
+            '✅ Ninguna\n'
+            '🥛 Intolerancia a la lactosa\n'
+            '🌾 Intolerancia al gluten (celiaquía)\n'
+            '🥜 Alergia a frutos secos\n'
+            '🥚 Alergia al huevo\n'
+            '🦐 Alergia al marisco\n'
+            '✏️ Otra (escríbela)'
+        )
+
+    def _parse_intolerancias_seleccion(self, m):
+        raw = (m or '').strip()
+        if not raw:
+            return None
+        expanded = (
+            raw.replace(' y ', ',')
+            .replace(';', ',')
+            .replace('/', ',')
+        )
+        parts = [p.strip() for p in expanded.split(',') if p.strip()]
+        if not parts:
+            return None
+        tags = []
+        explicit_ninguna = False
+
+        def add_tag(label):
+            if label not in tags:
+                tags.append(label)
+
+        for part in parts:
+            p = part.strip()
+            ml = normalize_text(p)
+            if not p:
+                continue
+            low = p.lower()
+            if low.startswith('otra') and ':' in p:
+                rest = p.split(':', 1)[1].strip()
+                if rest:
+                    add_tag(rest)
+                continue
+            n = p if re.fullmatch(r'[1-6]', p) else None
+            if n == '1' or p == '✅' or ml in ('no', 'nada', 'ninguna', 'ninguno', 'cero'):
+                explicit_ninguna = True
+                continue
+            if n == '2' or '🥛' in p or any(
+                k in ml for k in ('lactosa', 'lacteo', 'lacteos', 'sin lactosa')
+            ):
+                add_tag('Intolerancia a la lactosa')
+                continue
+            if n == '3' or '🌾' in p or any(
+                k in ml for k in ('gluten', 'celiaco', 'celiaca', 'celiaquia', 'trigo', 'sin gluten')
+            ):
+                add_tag('Intolerancia al gluten (celiaquía)')
+                continue
+            if n == '4' or '🥜' in p or any(
+                k in ml
+                for k in (
+                    'frutos secos',
+                    'fruto seco',
+                    'nueces',
+                    'cacahuete',
+                    'cacahuetes',
+                    'almendra',
+                    'almendras',
+                )
+            ):
+                add_tag('Alergia a frutos secos')
+                continue
+            if n == '5' or '🥚' in p or 'huevo' in ml or 'huevos' in ml:
+                add_tag('Alergia al huevo')
+                continue
+            if n == '6' or '🦐' in p or any(
+                k in ml
+                for k in (
+                    'marisco',
+                    'mariscos',
+                    'crustaceo',
+                    'crustaceos',
+                    'molusco',
+                    'moluscos',
+                    'gamba',
+                    'gambas',
+                    'langostino',
+                    'langostinos',
+                )
+            ):
+                add_tag('Alergia al marisco')
+                continue
+            if ml in ('otra', 'otro', 'otras', 'otros'):
+                continue
+            add_tag(p)
+
+        if tags:
+            return ', '.join(tags)
+        if explicit_ninguna:
+            return 'ninguna'
+        ml_all = normalize_text(raw)
+        if ml_all in ('no', 'nada', 'ninguna', 'ninguno') or any(
+            w in ml_all for w in ('como de todo', 'ninguna alergia', 'sin alergias')
+        ):
+            return 'ninguna'
+        return None
+
     def _returning_user_menu_text(self, data):
         nombre = data.get('nombre', '').strip()
-        saludo = '¡Hola ' + nombre + '! 👋 ¿Qué hacemos hoy?' if nombre else '¡Hola! 👋 ¿Qué hacemos hoy?'
-        return (
-            saludo + '\n'
-            '1️⃣ ⏱️ No tengo tiempo, hazme la compra rápida\n'
-            '2️⃣ 🍽️ ¿Qué como o ceno?\n'
-            '3️⃣ 💪 Quiero mejorar mi alimentación\n'
-            '4️⃣ 🛒 Comida preparada\n'
-            '5️⃣ 💊 Suplementación'
-        )
+        saludo = '¡Hola ' + nombre + '! 👋\n\n' if nombre else '¡Hola! 👋\n\n'
+        return saludo + self._menu_principal_body_text()
 
     def _welcome_plan_text(self, company):
         return (
@@ -356,8 +762,18 @@ class ZiaEngine:
             self.reset_user(user_id)
             u = self._get_user(user_id)
         s = u['state']
-        if s in ['menu_principal', 'plan_listo'] and normalize_text(m) in ['hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'inicio', 'menu']:
+        if s in [
+            'menu_principal',
+            'plan_listo',
+            'menu_que_tengo',
+            'menu_esperando_perfil',
+        ] and normalize_text(m) in [
+            'hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'inicio', 'menu',
+        ]:
             u['state'] = 'menu_principal'
+            u['data'].pop('_menu_accion_pendiente', None)
+            u['data'].pop('_menu_requiere_bio', None)
+            u['data'].pop('_menu_campo_perfil', None)
             return self._returning_user_menu_text(u.get('data', {}))
         if s == 'welcome':
             u['state'] = 'tipo_plan'
@@ -544,6 +960,16 @@ class ZiaEngine:
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n✅ Ninguna\n🌱 Vegano/Vegetariano\n🌾 Sin gluten\n🥛 Sin lactosa\n🐟 Sin pescado\n✏️ Otra (escribela)'
             u['data']['restricciones'] = elegido
+            u['state'] = 'intolerancias'
+            return self._intolerancias_pregunta_text()
+        elif s == 'intolerancias':
+            parsed = self._parse_intolerancias_seleccion(m)
+            if not parsed:
+                return (
+                    '¡Casi! ¿Cuál de estas se aplica a ti? 😊 (puedes elegir varias, separadas por comas)\n\n'
+                    + self._intolerancias_pregunta_text()
+                )
+            u['data']['intolerancias'] = parsed
             u['state'] = 'presupuesto'
             return ('Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
         elif s == 'presupuesto':
@@ -703,51 +1129,55 @@ class ZiaEngine:
                 return '\n'.join(lineas)
             else:
                 return self._gpt_libre(message if isinstance(message, dict) else m, u)
-        elif s == 'menu_principal':
-            ml = normalize_text(m)
-            company = self.config['branding']['company_name']
-            data = u['data']
-            if (
-                m.strip() == '1' or 'tiempo' in ml or 'rapido' in ml
-                or 'lista' in ml or 'sin tiempo' in ml
-            ):
-                u['state'] = 'compra_rapida'
-                m = 'compra rápida en 20 minutos'
+        elif s == 'menu_esperando_perfil':
+            campo = u['data'].get('_menu_campo_perfil')
+            accion = u['data'].get('_menu_accion_pendiente')
+            req_bio = u['data'].get('_menu_requiere_bio', False)
+            if not campo or not accion:
+                u['state'] = 'menu_principal'
+                return self._menu_principal_text(u['data'])
+            if not self._guardar_campo_perfil_menu(u, m, campo):
+                return (
+                    self._pregunta_campo_perfil(campo)
+                    + '\n\n_No lo he pillado bien, ¿lo repetimos?_ 😊'
+                )
+            self._normalizar_perfil_menu(u['data'])
+            siguiente = self._primer_campo_perfil_faltante(u['data'], req_bio)
+            if siguiente:
+                u['data']['_menu_campo_perfil'] = siguiente
+                return self._pregunta_campo_perfil(siguiente)
+            u['data'].pop('_menu_campo_perfil', None)
+            accion_final = u['data'].pop('_menu_accion_pendiente', None)
+            u['data'].pop('_menu_requiere_bio', None)
+            if not accion_final:
+                u['state'] = 'menu_principal'
+                return self._menu_principal_text(u['data'])
+            return self._ejecutar_accion_menu_principal(user_id, u, message, accion_final)
+        elif s == 'menu_que_tengo':
+            text, image_url = self._retail_text_and_image_url(message)
+            if not image_url and isinstance(message, dict):
+                for key in ('MediaUrl0', 'media_url', 'imageUrl', 'image_url'):
+                    if message.get(key):
+                        image_url = message.get(key)
+                        break
+            if image_url:
+                u['state'] = 'esperando_foto_nevera'
                 return self.process_message(user_id, message)
-            if (
-                m.strip() == '2' or 'como' in ml or 'ceno' in ml
-                or 'hambre' in ml or 'nevera' in ml or 'foto' in ml
-            ):
-                u['state'] = 'que_como'
-                return '¿Es para comer o cenar? 🍽️ Y si tienes foto de tu nevera mándamela, si no cuéntame qué tienes en casa 📸'
-            elif (
-                m.strip() == '3' or 'mejorar' in ml or 'plan' in ml or 'dieta' in ml
-                or 'evento' in ml or 'boda' in ml or 'reset' in ml or 'pasado' in ml
-            ):
-                u['state'] = 'mejorar'
-                return '¿Qué quieres mejorar? 👇\n\n1️⃣ 📅 Plan semanal completo\n2️⃣ 😅 Me he pasado el finde, quiero resetear\n3️⃣ 🎯 Tengo un evento en X días\n4️⃣ 🥗 Dieta específica (keto, vegana, colesterol...)\n5️⃣ 📊 Mi progreso semanal'
-            elif (
-                m.strip() == '4' or 'comida preparada' in ml or 'preparada' in ml
-                or 'lista para comer' in ml or 'precocinado' in ml
-                or 'mercadona' in ml or 'compra facil' in ml
-            ):
-                u['state'] = 'compra_mercadona'
-                m = 'comida preparada lista para comer'
-                return self.process_message(user_id, message)
-            elif m.strip() == '5' or 'suplemento' in ml or 'vitamina' in ml or 'proteina' in ml:
-                u['state'] = 'suplementos'
-                u['data']['suplementos_med_checked'] = False
-                u['data']['suplementos_pending_query'] = m.strip() if m.strip() != '5' else ''
-                return "Antes de recomendarte suplementos, ¿tomas alguna medicación habitualmente? Algunos suplementos pueden interactuar. Si no tomas nada, escribe 'no'."
-            return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'menu_principal')
-        if s == 'compra_rapida' or u.get('state') == 'compra_rapida':
             data = u['data']
+            user_txt = (text or m).strip()
+            if not user_txt:
+                return 'Cuéntame qué ingredientes tienes o mándame una foto 📸'
+            self._normalizar_perfil_menu(data)
             perfil_usuario = self._profile_for_prompt(data)
             prompt = (
-                'Eres ZIA nutricionista. Genera una lista de la compra rápida e inmediata basada en este perfil: '
+                'Eres ZIA nutricionista. El usuario solo tiene estos alimentos en casa: '
+                + user_txt
+                + '. Propón 3 comidas posibles usando sobre todo esos ingredientes '
+                '(aceite, sal y especias básicas sí puedes asumirlos). '
+                'Perfil: '
                 + perfil_usuario
-                + '. Máximo 15 productos esenciales. Organiza por secciones. No generes plan semanal. '
-                'Incluye cantidades orientativas y opciones prácticas para comprar en 20 minutos. Responde en español con emojis.'
+                + '. Respeta restricciones e intolerancias al pie de la letra. '
+                'Recetas ≤25 min. Tono cercano. Español con emojis.'
             )
             menu = '\n\n---\n' + self._menu_principal_text(data)
             u['state'] = 'menu_principal'
@@ -758,13 +1188,87 @@ class ZiaEngine:
                         {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
                         {'role': 'user', 'content': prompt},
                     ],
-                    max_tokens=500,
+                    max_tokens=650,
                     temperature=0.7,
-                    timeout=25,
+                    timeout=28,
                 )
                 return r.choices[0].message.content + menu
-            except Exception as e:
-                return 'No pude generar la lista rápida por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
+            except Exception:
+                return (
+                    'No pude proponerte ideas ahora. Inténtalo en unos minutos.'
+                    + menu
+                )
+        elif s == 'menu_principal':
+            ml = normalize_text(m)
+            data = u['data']
+            self._normalizar_perfil_menu(data)
+            mn = self._menu_opcion_numero(m)
+            if mn == '1' or (
+                mn is None and (
+                    'lista de la compra' in ml
+                    or ('lista' in ml and 'plan' not in ml and 'semanal' not in ml)
+                    or ('compra' in ml and 'ahorr' not in ml and 'preparada' not in ml and 'facil' not in ml)
+                    or 'carrito' in ml
+                )
+            ):
+                return self._arrancar_accion_menu(user_id, u, message, 'lista_compra')
+            if mn == '2' or (
+                mn is None and any(
+                    x in ml for x in ('ahorr', 'barato', 'econo', 'gastar menos', 'poco dinero')
+                )
+            ):
+                return self._arrancar_accion_menu(user_id, u, message, 'ahorrar')
+            if mn == '3' or (
+                mn is None and any(
+                    x in ml
+                    for x in (
+                        'con lo que tengo',
+                        'lo que tengo',
+                        'que tengo',
+                        'qué tengo',
+                        'que como',
+                        'qué como',
+                        'despensa',
+                        'nevera',
+                        'ingredientes',
+                        'tengo en casa',
+                    )
+                )
+            ):
+                return self._arrancar_accion_menu(user_id, u, message, 'que_tengo')
+            if mn == '4' or (
+                mn is None and (
+                    any(
+                        x in ml
+                        for x in (
+                            'planifica',
+                            'planificame',
+                            'plan semanal',
+                            'menu semanal',
+                            'organiza la semana',
+                        )
+                    )
+                    or ('plan' in ml and 'semanal' in ml)
+                )
+            ):
+                return self._arrancar_accion_menu(user_id, u, message, 'plan_semana')
+            if mn == '5' or (
+                mn is None and any(x in ml for x in ('suplement', 'vitamina', 'proteina', 'proteína'))
+            ):
+                return self._arrancar_accion_menu(user_id, u, message, 'suplementos')
+            if mn is None and any(
+                x in ml for x in ('comida preparada', 'precocinado', 'lista para comer', 'compra facil')
+            ):
+                u['state'] = 'compra_mercadona'
+                return self.process_message(user_id, 'comida preparada lista para comer')
+            if mn is None and any(
+                x in ml for x in ('mejorar aliment', 'reset', 'finde', 'evento', 'boda', 'progreso semanal')
+            ):
+                u['state'] = 'mejorar'
+                return '¿Qué quieres mejorar? 👇\n\n1️⃣ 📅 Plan semanal completo\n2️⃣ 😅 Me he pasado el finde, quiero resetear\n3️⃣ 🎯 Tengo un evento en X días\n4️⃣ 🥗 Dieta específica (keto, vegana, colesterol...)\n5️⃣ 📊 Mi progreso semanal'
+            return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'menu_principal')
+        if s == 'compra_rapida' or u.get('state') == 'compra_rapida':
+            return self._respuesta_lista_compra_openai(u)
         elif s == 'compra_mercadona' or u.get('state') == 'compra_mercadona':
             data = u['data']
             perfil_usuario = self._profile_for_prompt(data)
@@ -1012,6 +1516,7 @@ class ZiaEngine:
             if image_url:
                 data = u.get('data', {})
                 restricciones = data.get('restricciones', 'Ninguna')
+                intolerancias = data.get('intolerancias', 'ninguna')
                 nombre = data.get('nombre', '')
                 try:
                     import requests as _req
@@ -1041,6 +1546,8 @@ class ZiaEngine:
                                             + nombre
                                             + '. Restricciones: '
                                             + restricciones
+                                            + '. Intolerancias/alergias: '
+                                            + intolerancias
                                             + '. Responde en español con emojis. Al final indica 2-3 ingredientes '
                                             'que faltan con precio orientativo en euros.'
                                         ),
@@ -1267,6 +1774,7 @@ class ZiaEngine:
                   'Plan para: ' + personas + '\n'
                   'Objetivo: ' + data.get('objetivo','') + '\n'
                   'Restricciones: ' + data.get('restricciones','Ninguna') + '\n'
+                  'Intolerancias/alergias: ' + data.get('intolerancias', 'ninguna') + '\n'
                   'Presupuesto: ' + data.get('presupuesto','') + ' euros/semana\n\n'
                   + catalogo +
                   '\nGENERA (MUY CORTO, maximo 180 palabras):\n'
@@ -1319,6 +1827,23 @@ class ZiaEngine:
             'Si sin lactosa, PROHIBIDO lácteos en ningún día. '
             'Al final de cada día añade exactamente: 💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad. '
         )
+        intol = (data.get('intolerancias') or 'ninguna').strip()
+        intol_norm = normalize_text(intol)
+        if intol_norm and intol_norm != 'ninguna':
+            pauta_nutricional += (
+                'CRÍTICO intolerancias/alergias declaradas (' + intol + '): '
+                'PROHIBIDO incluir alimentos que las contradigan o trazas no seguras. '
+            )
+            if any(x in intol_norm for x in ('gluten', 'celia', 'trigo', 'avena')):
+                pauta_nutricional += 'Sin gluten estricto: ningún trigo, cebada, centeno ni avena no certificada GF. '
+            if 'lactosa' in intol_norm or 'lacteo' in intol_norm:
+                pauta_nutricional += 'Sin lácteos con lactosa. '
+            if 'huevo' in intol_norm:
+                pauta_nutricional += 'Sin huevo ni mayonesa con huevo. '
+            if 'frutos secos' in intol_norm or 'cacahu' in intol_norm or 'nueces' in intol_norm or 'almendra' in intol_norm:
+                pauta_nutricional += 'Sin frutos secos y evita trazas. '
+            if 'marisco' in intol_norm or 'crustaceo' in intol_norm or 'molusco' in intol_norm:
+                pauta_nutricional += 'Sin marisco, crustáceos ni moluscos. '
         cocina_minima = ''
         if data.get('cocina') == 'Cocina para vagos':
             cocina_minima = (
@@ -1348,6 +1873,7 @@ class ZiaEngine:
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
+                'Intolerancias/alergias: ' + data.get('intolerancias', 'ninguna') + '. '
                 + pauta_nutricional +
                 cocina_minima +
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
@@ -1361,6 +1887,7 @@ class ZiaEngine:
                 'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
                 'Objetivo: ' + data.get('objetivo', '') + '. '
                 'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
+                'Intolerancias/alergias: ' + data.get('intolerancias', 'ninguna') + '. '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
