@@ -260,10 +260,10 @@ class ZiaEngine:
     def _profile_for_prompt(self, data):
         descripcion = data.get('descripcion_grupo', '').strip()
         if descripcion and data.get('personas') != '1 persona':
+            rtxt = (data.get('restricciones') or '').strip()
             suf = ''
-            io = (data.get('intolerancias') or '').strip()
-            if io and normalize_text(io) != 'ninguna':
-                suf = ' Intolerancias/alergias: ' + io + '.'
+            if rtxt and normalize_text(rtxt) not in ('ninguna', 'no'):
+                suf = ' Restricciones/alergias: ' + rtxt + '.'
             return descripcion + suf
         partes = [
             data.get('nombre', ''),
@@ -273,8 +273,7 @@ class ZiaEngine:
             data.get('altura', ''),
             data.get('objetivo', ''),
             data.get('actividad', ''),
-            data.get('restricciones', 'Ninguna'),
-            'Intolerancias: ' + data.get('intolerancias', 'ninguna'),
+            'Restricciones/alergias: ' + data.get('restricciones', 'Ninguna'),
         ]
         return ', '.join([p for p in partes if p])
 
@@ -332,8 +331,6 @@ class ZiaEngine:
     def _normalizar_perfil_menu(self, data):
         if not str(data.get('restricciones') or '').strip():
             data['restricciones'] = 'Ninguna'
-        if not str(data.get('intolerancias') or '').strip():
-            data['intolerancias'] = 'ninguna'
 
     def _perfil_es_grupo(self, data):
         return bool(data.get('descripcion_grupo', '').strip()) and data.get('personas') != '1 persona'
@@ -556,7 +553,7 @@ class ZiaEngine:
             'Productos típicos que encuentras en Mercadona.\n'
             'PROHIBIDO: recetas, consejos, trucos de ahorro, párrafos intro o cierre, más de 10 productos. '
             'PROHIBIDO usar guiones - o * o # o viñetas con cuadrado. Solo saltos de línea y emojis.\n'
-            'Sin texto antes de la primera línea de producto. Respeta restricciones e intolerancias del perfil.'
+            'Sin texto antes de la primera línea de producto. Respeta las restricciones del perfil.'
         )
         system_ahorro = (
             COACH_TONE + ' Devuelve EXCLUSIVamente la lista pedida (máx. 10 productos). '
@@ -592,8 +589,6 @@ class ZiaEngine:
             + data.get('objetivo', '')
             + '. Restricciones: '
             + data.get('restricciones', 'Ninguna')
-            + '. Intolerancias: '
-            + data.get('intolerancias', 'ninguna')
             + '.\n'
             'Entrega 4-5 suplementos concretos con: nombre, para qué sirve respecto a su objetivo, '
             'dosis orientativa, mejor momento del día y precio aproximado €/mes en España. '
@@ -619,26 +614,28 @@ class ZiaEngine:
                 + menu
             )
 
-    def _intolerancias_pregunta_text(self):
+    def _restricciones_combinadas_pregunta_text(self):
         return (
-            '¿Tienes alguna intolerancia o alergia? 🚨\n\n'
+            '¿Tienes alguna restricción o intolerancia alimentaria? 🚨\n\n'
             '✅ Ninguna\n'
-            '🥛 Intolerancia a la lactosa\n'
-            '🌾 Intolerancia al gluten (celiaquía)\n'
-            '🥜 Alergia a frutos secos\n'
+            '🌱 Vegano/Vegetariano\n'
+            '🌾 Sin gluten / Celiaquía\n'
+            '🥛 Sin lactosa\n'
             '🥚 Alergia al huevo\n'
+            '🥜 Alergia a frutos secos\n'
             '🦐 Alergia al marisco\n'
-            '✏️ Otra (escríbela)'
+            '🐟 Sin pescado\n'
+            '✏️ Otra (escríbela)\n'
+            'Puedes elegir varias separadas por coma.'
         )
 
-    def _parse_intolerancias_seleccion(self, m):
+    def _parse_restricciones_combinadas(self, m):
         raw = (m or '').strip()
         if not raw:
             return None
         expanded = (
             raw.replace(' y ', ',')
             .replace(';', ',')
-            .replace('/', ',')
         )
         parts = [p.strip() for p in expanded.split(',') if p.strip()]
         if not parts:
@@ -661,21 +658,29 @@ class ZiaEngine:
                 if rest:
                     add_tag(rest)
                 continue
-            n = p if re.fullmatch(r'[1-6]', p) else None
+            n = p if re.fullmatch(r'[1-9]', p) else None
             if n == '1' or p == '✅' or ml in ('no', 'nada', 'ninguna', 'ninguno', 'cero'):
                 explicit_ninguna = True
                 continue
-            if n == '2' or '🥛' in p or any(
-                k in ml for k in ('lactosa', 'lacteo', 'lacteos', 'sin lactosa')
+            if n == '2' or '🌱' in p or any(
+                w in ml for w in ('vegan', 'vegano', 'vegana', 'vegetarian', 'vegetariano', 'plant based', 'sin carne')
             ):
-                add_tag('Intolerancia a la lactosa')
+                add_tag('Vegano/Vegetariano')
                 continue
             if n == '3' or '🌾' in p or any(
-                k in ml for k in ('gluten', 'celiaco', 'celiaca', 'celiaquia', 'trigo', 'sin gluten')
+                w in ml for w in ('gluten', 'celiaco', 'celiaca', 'celiaquia', 'trigo', 'sin gluten')
             ):
-                add_tag('Intolerancia al gluten (celiaquía)')
+                add_tag('Sin gluten / Celiaquía')
                 continue
-            if n == '4' or '🥜' in p or any(
+            if n == '4' or '🥛' in p or any(
+                k in ml for k in ('lactosa', 'lacteo', 'lacteos', 'sin lactosa', 'leche')
+            ):
+                add_tag('Sin lactosa')
+                continue
+            if n == '5' or '🥚' in p or 'huevo' in ml or 'huevos' in ml:
+                add_tag('Alergia al huevo')
+                continue
+            if n == '6' or '🥜' in p or any(
                 k in ml
                 for k in (
                     'frutos secos',
@@ -689,10 +694,7 @@ class ZiaEngine:
             ):
                 add_tag('Alergia a frutos secos')
                 continue
-            if n == '5' or '🥚' in p or 'huevo' in ml or 'huevos' in ml:
-                add_tag('Alergia al huevo')
-                continue
-            if n == '6' or '🦐' in p or any(
+            if n == '7' or '🦐' in p or any(
                 k in ml
                 for k in (
                     'marisco',
@@ -709,19 +711,25 @@ class ZiaEngine:
             ):
                 add_tag('Alergia al marisco')
                 continue
-            if ml in ('otra', 'otro', 'otras', 'otros'):
+            if n == '8' or '🐟' in p or (
+                any(k in ml for k in ('sin pescado', 'no pescado', 'no como pescado'))
+                or ('pescado' in ml and 'marisco' not in ml and 'alergia' not in ml)
+            ):
+                add_tag('Sin pescado')
+                continue
+            if n == '9' or ml in ('otra', 'otro', 'otras', 'otros'):
                 continue
             add_tag(p)
 
         if tags:
             return ', '.join(tags)
         if explicit_ninguna:
-            return 'ninguna'
+            return 'Ninguna'
         ml_all = normalize_text(raw)
         if ml_all in ('no', 'nada', 'ninguna', 'ninguno') or any(
             w in ml_all for w in ('como de todo', 'ninguna alergia', 'sin alergias')
         ):
-            return 'ninguna'
+            return 'Ninguna'
         return None
 
     def _returning_user_menu_text(self, data):
@@ -1002,39 +1010,15 @@ class ZiaEngine:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
             u['data']['num_comidas'] = elegido
             u['state'] = 'restricciones'
-            return 'Teneis alguna restriccion alimentaria? 🚫\n\n  ✅ Ninguna\n  🌱 Vegano/Vegetariano\n  🌾 Sin gluten\n  🥛 Sin lactosa\n  🐟 Sin pescado\n  ✏️ Otra (escribela)'
+            return self._restricciones_combinadas_pregunta_text()
         elif s == 'restricciones':
-            opts = {
-                '1': 'Ninguna', '2': 'Vegano/Vegetariano', '3': 'Sin gluten',
-                '4': 'Sin lactosa', '5': 'Sin pescado'
-            }
-            ml = normalize_text(m)
-            elegido = opts.get(m.strip(), None)
-            if not elegido:
-                if any(w == ml for w in ['no', 'nada', 'ninguna', 'ninguno']) or 'como todo' in ml:
-                    elegido = 'Ninguna'
-                elif any(w in ml for w in ['vegan', 'vegetarian', 'plant based', 'sin carne']):
-                    elegido = 'Vegano/Vegetariano'
-                elif any(w in ml for w in ['gluten', 'celiac', 'trigo']):
-                    elegido = 'Sin gluten'
-                elif any(w in ml for w in ['lactosa', 'lacteo', 'leche', 'queso']):
-                    elegido = 'Sin lactosa'
-                elif any(w in ml for w in ['pescado', 'marisco', 'atun']):
-                    elegido = 'Sin pescado'
-                elif m.strip(): elegido = m.strip()
-            if not elegido:
-                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n✅ Ninguna\n🌱 Vegano/Vegetariano\n🌾 Sin gluten\n🥛 Sin lactosa\n🐟 Sin pescado\n✏️ Otra (escribela)'
-            u['data']['restricciones'] = elegido
-            u['state'] = 'intolerancias'
-            return self._intolerancias_pregunta_text()
-        elif s == 'intolerancias':
-            parsed = self._parse_intolerancias_seleccion(m)
+            parsed = self._parse_restricciones_combinadas(m)
             if not parsed:
                 return (
-                    '¡Casi! ¿Cuál de estas se aplica a ti? 😊 (puedes elegir varias, separadas por comas)\n\n'
-                    + self._intolerancias_pregunta_text()
+                    '¡Casi! ¿Cuál de estas te aplica? 😊\n\n'
+                    + self._restricciones_combinadas_pregunta_text()
                 )
-            u['data']['intolerancias'] = parsed
+            u['data']['restricciones'] = parsed
             u['state'] = 'presupuesto'
             return (
                 'Cuanto quieres gastar a la semana en la compra?\n\n'
@@ -1249,7 +1233,7 @@ class ZiaEngine:
                 '(aceite, sal y especias básicas sí puedes asumirlos). '
                 'Perfil: '
                 + perfil_usuario
-                + '. Respeta restricciones e intolerancias al pie de la letra. '
+                + '. Respeta las restricciones y alergias del perfil al pie de la letra. '
                 'Recetas ≤25 min. Tono cercano. Español con emojis.'
             )
             menu = self._append_menu_footer(data)
@@ -1592,7 +1576,6 @@ class ZiaEngine:
             if image_url:
                 data = u.get('data', {})
                 restricciones = data.get('restricciones', 'Ninguna')
-                intolerancias = data.get('intolerancias', 'ninguna')
                 nombre = data.get('nombre', '')
                 try:
                     import requests as _req
@@ -1620,10 +1603,8 @@ class ZiaEngine:
                                             'Eres ZIA nutricionista. Analiza esta nevera y propón 3 recetas rapidas '
                                             'en menos de 20 minutos para '
                                             + nombre
-                                            + '. Restricciones: '
+                                            + '. Restricciones y alergias (respétalas): '
                                             + restricciones
-                                            + '. Intolerancias/alergias: '
-                                            + intolerancias
                                             + '. Responde en español con emojis. Al final indica 2-3 ingredientes '
                                             'que faltan con precio orientativo en euros.'
                                         ),
@@ -1849,8 +1830,7 @@ class ZiaEngine:
                   + data.get('altura','') + 'cm, ' + str(cal) + ' kcal/dia\n'
                   'Plan para: ' + personas + '\n'
                   'Objetivo: ' + data.get('objetivo','') + '\n'
-                  'Restricciones: ' + data.get('restricciones','Ninguna') + '\n'
-                  'Intolerancias/alergias: ' + data.get('intolerancias', 'ninguna') + '\n'
+                  'Restricciones y alergias: ' + data.get('restricciones','Ninguna') + '\n'
                   'Presupuesto: ' + data.get('presupuesto','') + ' euros/semana\n\n'
                   + catalogo +
                   '\nGENERA (MUY CORTO, maximo 180 palabras):\n'
@@ -1903,11 +1883,11 @@ class ZiaEngine:
             'Si sin lactosa, PROHIBIDO lácteos en ningún día. '
             'Al final de cada día añade exactamente: 💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad. '
         )
-        intol = (data.get('intolerancias') or 'ninguna').strip()
+        intol = (data.get('restricciones') or 'Ninguna').strip()
         intol_norm = normalize_text(intol)
-        if intol_norm and intol_norm != 'ninguna':
+        if intol_norm and intol_norm not in ('ninguna', 'no', 'nada'):
             pauta_nutricional += (
-                'CRÍTICO intolerancias/alergias declaradas (' + intol + '): '
+                'CRÍTICO restricciones/alergias declaradas (' + intol + '): '
                 'PROHIBIDO incluir alimentos que las contradigan o trazas no seguras. '
             )
             if any(x in intol_norm for x in ('gluten', 'celia', 'trigo', 'avena')):
@@ -1949,7 +1929,7 @@ class ZiaEngine:
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
-                'Intolerancias/alergias: ' + data.get('intolerancias', 'ninguna') + '. '
+                'Restricciones y alergias: ' + data.get('restricciones', 'Ninguna') + '. '
                 + pauta_nutricional +
                 cocina_minima +
                 'Adapta TODAS las cantidades para ' + str(num_personas) + ' persona(s). '
@@ -1962,8 +1942,7 @@ class ZiaEngine:
                 + data.get('altura', '') + 'cm, ' + str(cal) + ' kcal/dia. '
                 'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
                 'Objetivo: ' + data.get('objetivo', '') + '. '
-                'Restricciones: ' + data.get('restricciones', 'Ninguna') + '. '
-                'Intolerancias/alergias: ' + data.get('intolerancias', 'ninguna') + '. '
+                'Restricciones y alergias: ' + data.get('restricciones', 'Ninguna') + '. '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
