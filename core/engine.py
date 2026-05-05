@@ -296,6 +296,47 @@ class ZiaEngine:
             return 'Mercadona'
         return super_map.get(norm, raw)
 
+    def _marca_blanca_instruccion_ahorro(self, super_nombre):
+        """Texto para el prompt de lista económica: marca blanca por cadena o productos baratos de temporada."""
+        s = (super_nombre or '').strip()
+        canon = {
+            'Mercadona': (
+                'Supermercado: Mercadona. Prioriza SIEMPRE marca Hacendado (despensa, lácteos, congelados, bebidas…) '
+                'y Deliplus en frescos (carne, pescado, charcutería) cuando aplique.'
+            ),
+            'Lidl': (
+                'Supermercado: Lidl. Prioriza SIEMPRE la marca blanca Lidl: Milbona (lácteos), Dulano (embutidos), '
+                'Chef Select, Freshona, Crownfield, etc., según el tipo de producto.'
+            ),
+            'Aldi': (
+                'Supermercado: Aldi. Prioriza SIEMPRE Aldi Cuisine y el resto de marcas propias Aldi (lácteos estilo Milbona propios de Aldi, etc.).'
+            ),
+            'Carrefour': (
+                'Supermercado: Carrefour. Prioriza SIEMPRE marca blanca Carrefour: Simpl (económica), Carrefour Classic, '
+                'Carrefour Bio o línea del distribuidor equivalente según el producto.'
+            ),
+            'Dia': (
+                'Supermercado: Dia. Prioriza SIEMPRE marca DIA, Díper y gama económica de la cadena.'
+            ),
+            'Consum': (
+                'Supermercado: Consum. Prioriza SIEMPRE marca blanca Consum.'
+            ),
+            'Supercor': (
+                'Supermercado: Supercor. Prioriza marcas propias del grupo / gama económica de la tienda y productos de temporada a buen precio.'
+            ),
+            'El Corte Ingles': (
+                'Supermercado: El Corte Inglés. Prioriza marca propia El Corte Inglés (incl. líneas económicas de la cadena).'
+            ),
+        }
+        if s in canon:
+            return canon[s]
+        return (
+            'Supermercado indicado por el usuario: '
+            + s
+            + '. No hay una marca blanca genérica fija para esta cadena: prioriza productos económicos de temporada, '
+            'segunda marca o marca del distribuidor más barata que suelas encontrar ahí, con precios realistas para esa tienda.'
+        )
+
     def _menu_principal_body_text(self):
         return (
             '¿Qué necesitas hoy? 👇\n\n'
@@ -537,27 +578,50 @@ class ZiaEngine:
         data = u['data']
         self._normalizar_perfil_menu(data)
         perfil_usuario = self._profile_for_prompt(data)
-        pres = data.get('presupuesto', '65')
+        pres_raw = data.get('presupuesto', '65')
+        try:
+            pres_max = float(str(pres_raw).replace(',', '.'))
+        except (TypeError, ValueError):
+            pres_max = 65.0
+        if abs(pres_max - round(pres_max)) < 1e-9:
+            pres_max_str = str(int(round(pres_max)))
+        else:
+            pres_max_str = ('%.2f' % pres_max).replace('.', ',').rstrip('0').rstrip(',')
+        sup = data.get('supermercado', 'Mercadona')
         cocina = data.get('cocina', '')
+        marca_bloque = self._marca_blanca_instruccion_ahorro(sup)
         prompt = (
-            'SOLO una lista de la compra corta y económica para cubrir parte de la semana. '
-            'Máximo 10 productos en total (máximo 10 líneas). '
-            'Perfil: '
+            'Eres ZIA nutricionista. Genera SOLO la lista de la compra económica pedida, sin introducción ni párrafos extra.\n\n'
+            + marca_bloque
+            + '\n\n'
+            'Perfil nutricional y restricciones: '
             + perfil_usuario
-            + '. Cocina: '
+            + '\nEstilo de cocina: '
             + cocina
-            + '. La suma aproximada de los precios NO debe superar '
-            + str(pres)
+            + '\n\n'
+            'REQUISITOS:\n'
+            '- Como máximo 12 productos ESENCIALES (12 líneas como máximo), suficientes para encajar con el objetivo nutricional del perfil.\n'
+            '- Cada línea debe nombrar explícitamente la marca blanca indicada arriba (ej. Hacendado arroz integral 1 kg) o, si no aplica, un producto económico de temporada en esa cadena.\n'
+            '- Precio aproximado por línea realista en ese supermercado en España (~2025-2026), en € (ej. ~1,20 €).\n'
+            '- La suma de los precios aproximados NO puede superar '
+            + pres_max_str
+            + ' € (presupuesto semanal del usuario). Ajusta cantidades o formatos si hace falta.\n'
+            '- Formato por línea: emoji + nombre del producto con marca + cantidad/unidad + precio aprox.\n'
+            '- Tras las líneas de producto, añade UNA última línea y solo esta, exactamente en este estilo (sustituye X,X por la suma, comma decimal en español):\n'
+            '  💰 Total estimado: X,X€ de tu presupuesto de '
+            + pres_max_str
+            + '€\n'
+            '  La suma debe ser menor o igual a '
+            + pres_max_str
             + ' €.\n'
-            'Cada línea: un emoji distinto + nombre del producto + cantidad breve + precio aproximado en Mercadona España (ej. ~1,15 €). '
-            'Productos típicos que encuentras en Mercadona.\n'
-            'PROHIBIDO: recetas, consejos, trucos de ahorro, párrafos intro o cierre, más de 10 productos. '
-            'PROHIBIDO usar guiones - o * o # o viñetas con cuadrado. Solo saltos de línea y emojis.\n'
-            'Sin texto antes de la primera línea de producto. Respeta las restricciones del perfil.'
+            'PROHIBIDO: recetas, consejos, trucos, comparar con otros supers, markdown, guiones - o * o #, viñetas con cuadrado. '
+            'Sin texto antes del primer producto. Respeta alergias y restricciones del perfil.'
         )
         system_ahorro = (
-            COACH_TONE + ' Devuelve EXCLUSIVamente la lista pedida (máx. 10 productos). '
-            'Sin markdown, sin guiones como lista, sin cuadraditos. Una línea por producto con emoji.'
+            COACH_TONE + ' Devuelve EXCLUSIVAMENTE la lista: máximo 12 líneas de producto, cada una con emoji + nombre con marca blanca '
+            '+ cantidad + precio aprox (~X,XX €), y al final UNA línea: "💰 Total estimado: SUM€ de tu presupuesto de '
+            + pres_max_str
+            + '€" donde SUM es la suma y no supera ese presupuesto. Sin markdown ni texto extra.'
         )
         menu = self._append_menu_footer(data, ahorro=True)
         try:
@@ -567,8 +631,8 @@ class ZiaEngine:
                     {'role': 'system', 'content': system_ahorro},
                     {'role': 'user', 'content': prompt},
                 ],
-                max_tokens=420,
-                temperature=0.45,
+                max_tokens=750,
+                temperature=0.4,
                 timeout=28,
             )
             return r.choices[0].message.content + menu
