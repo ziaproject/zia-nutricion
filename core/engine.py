@@ -90,6 +90,10 @@ class ZiaEngine:
     def _supabase_config(self):
         return self.config.get('integrations', {}).get('supabase', {})
 
+    def _supabase_users_table(self):
+        table = self._supabase_config().get('table_users') or 'usuarios'
+        return 'usuarios' if table == 'users' else table
+
     def _supabase_enabled(self):
         cfg = self._supabase_config()
         return bool(
@@ -136,7 +140,7 @@ class ZiaEngine:
         if not self._supabase_enabled():
             return fallback
         try:
-            table = self._supabase_config().get('table_users', 'users')
+            table = self._supabase_users_table()
             user_id = str(uid)
             suffix = '?id=eq.' + urllib.parse.quote(user_id, safe='') + '&select=*'
             rows = self._supabase_request('GET', table, suffix) or []
@@ -162,7 +166,7 @@ class ZiaEngine:
         if not self._supabase_enabled():
             return
         try:
-            table = self._supabase_config().get('table_users', 'users')
+            table = self._supabase_users_table()
             user_id = str(uid)
             full_payload = {
                 'id': user_id,
