@@ -294,6 +294,9 @@ class ZiaEngine:
         norm = normalize_text(raw)
         if any(w in norm for w in ['cualquiera', 'me da igual', 'no se', 'normal', 'super']):
             return 'Mercadona'
+        dmen = self._menu_opcion_numero(raw, max_digit=8)
+        if dmen and dmen in super_map:
+            return super_map[dmen]
         return super_map.get(norm, raw)
 
     def _marca_blanca_instruccion_ahorro(self, super_nombre):
@@ -355,19 +358,101 @@ class ZiaEngine:
             return '\n\n¿Algo más? 👇\n\n' + self._menu_principal_text(data)
         return '\n\n' + self._menu_principal_text(data)
 
-    def _menu_opcion_numero(self, m):
+    def _menu_opcion_numero(self, m, max_digit=9):
         raw = (m or '').strip()
         if not raw:
             return None
-        if raw[0] in '12345':
-            return raw[0]
-        for i, ic in enumerate(['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'], start=1):
-            if ic in raw:
-                return str(i)
+        emoji_idx = [
+            '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣',
+        ]
+        for i in range(min(max_digit, len(emoji_idx))):
+            if emoji_idx[i] in raw:
+                return str(i + 1)
+        mo = re.match(r'^(\d)\s*[\.\):;)]?\s*$', raw)
+        if mo:
+            v = int(mo.group(1))
+            if 1 <= v <= max_digit:
+                return str(v)
         norm = normalize_text(raw)
-        if norm in ('1', '2', '3', '4', '5'):
-            return norm
+        if norm.isdigit() and len(norm) == 1:
+            v = int(norm)
+            if 1 <= v <= max_digit:
+                return norm
         return None
+
+    def _texto_opciones_objetivo(self):
+        return (
+            '1️⃣ Perder peso\n'
+            '2️⃣ Ganar músculo\n'
+            '3️⃣ Más energía y vitalidad\n'
+            '4️⃣ Comer más sano y natural\n'
+            '5️⃣ Mejorar la digestión'
+        )
+
+    def _parse_objetivo_opcion(self, m):
+        opts = {
+            '1': 'Perder peso',
+            '2': 'Ganar musculo',
+            '3': 'Mas energia y vitalidad',
+            '4': 'Comer mas sano',
+            '5': 'Mejorar la digestion',
+        }
+        ml = normalize_text(m)
+        elegido = opts.get((m or '').strip(), None)
+        if not elegido:
+            mn = self._menu_opcion_numero(m, max_digit=5)
+            if mn:
+                elegido = opts.get(mn)
+        if not elegido:
+            if any(w in ml for w in ['peso', 'grasa', 'adelgazar', 'bajar', 'definir', 'perder', 'forma']):
+                elegido = 'Perder peso'
+            elif any(w in ml for w in ['musculo', 'muscu', 'fuerza', 'ganar', 'volumen', 'gym']):
+                elegido = 'Ganar musculo'
+            elif any(w in ml for w in ['energia', 'vitalidad', 'cansancio', 'fatiga', 'rendimiento']):
+                elegido = 'Mas energia y vitalidad'
+            elif any(w in ml for w in ['sano', 'salud', 'mejor', 'bien', 'cuidarme', 'habitos', 'natural']):
+                elegido = 'Comer mas sano'
+            elif any(w in ml for w in ['digest', 'hinch', 'estomago', 'intestinal', 'gases']):
+                elegido = 'Mejorar la digestion'
+        return elegido
+
+    def _pregunta_familia_cuantos_text(self):
+        return (
+            '¿Cuántas personas sois?\n\n'
+            '2️⃣ Dos\n'
+            '3️⃣ Tres\n'
+            '4️⃣ Cuatro\n'
+            '➕ Más de 4\n\n'
+            '(2, 3, 4, 5… o escribe "más de 4")'
+        )
+
+    def _ensure_grupo_nutricion_defaults(self, data):
+        if data.get('personas') == '1 persona':
+            return
+        if not str(data.get('descripcion_grupo', '')).strip():
+            return
+        if not data.get('objetivo'):
+            data['objetivo'] = 'Comer mas sano'
+        if not data.get('actividad'):
+            data['actividad'] = '3-4 días por semana'
+            data['actividad_tag'] = 'activo'
+        if not data.get('cocina'):
+            data['cocina'] = 'Poco tiempo, recetas rápidas'
+        if not data.get('num_comidas'):
+            data['num_comidas'] = '3 veces al día'
+
+    def _descripcion_pareja_actualizada(self, data):
+        h = data.get('pareja_horario', '')
+        o1 = data.get('objetivo', '')
+        o2 = data.get('objetivo_pareja') or o1
+        comen = {
+            'juntos': 'Comen juntos casi siempre',
+            'finde': 'Coinciden sobre todo en cenas o fines de semana',
+            'separado': 'Horarios separados pero comparten la compra',
+        }.get(h, 'Convivencia: ' + str(h))
+        if (data.get('pareja_mismos_objetivos') == 'si') or (o1 == o2):
+            return 'Pareja. ' + comen + '. Objetivo compartido: ' + o1 + '.'
+        return 'Pareja. ' + comen + '. Persona 1: ' + o1 + '. Persona 2: ' + o2 + '.'
 
     def _normalizar_perfil_menu(self, data):
         if not str(data.get('restricciones') or '').strip():
@@ -806,7 +891,8 @@ class ZiaEngine:
             'Para quien es el plan?\n\n'
             '👤 Plan individual\n'
             '👫 Plan pareja\n'
-            '👨‍👩‍👧 Plan familiar'
+            '👨‍👩‍👧 Plan familiar\n\n'
+            '(Responde 1, 2 o 3, o el emoji / nombre de la opción)'
         )
 
     def _gpt_libre_same_state(self, message, u, state):
@@ -880,7 +966,8 @@ class ZiaEngine:
         if is_reset(m):
             self.reset_user(user_id)
             u = self._get_user(user_id)
-        s = u['state']
+        s = str(u.get('state') or 'welcome').strip().lower()
+        u['state'] = s
         if s in [
             'menu_principal',
             'plan_listo',
@@ -899,23 +986,44 @@ class ZiaEngine:
             return self._welcome_plan_text(company)
         elif s == 'tipo_plan':
             ml = normalize_text(m)
+            mn = self._menu_opcion_numero(m, max_digit=3)
             if (
-                'familia' in ml or 'familiar' in ml or 'mis hijos' in ml
-                or 'somos 3' in ml or 'somos 4' in ml or 'somos 5' in ml
-                or ml == '3' or 'tres' in ml
+                mn == '3'
+                or 'familia' in ml
+                or 'familiar' in ml
+                or 'mis hijos' in ml
+                or 'somos 3' in ml
+                or 'somos 4' in ml
+                or 'somos 5' in ml
+                or 'somos 6' in ml
+                or 'plan familiar' in ml
+                or '👨‍👩‍👧' in (m or '')
             ):
-                u['data']['personas'] = 'familia (3 o mas personas)'
-                u['data']['num_personas'] = 4
-                u['state'] = 'datos_familia'
-                return 'Perfecto. Describeme a la familia en un mensaje libre: cuantas personas sois, edades aproximadas, objetivos y restricciones si las hay.'
-            if ml == '2' or 'somos 2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml:
+                u['data']['personas'] = 'plan familiar'
+                u['data'].pop('num_personas', None)
+                u['state'] = 'familia_cuantos'
+                return self._pregunta_familia_cuantos_text()
+            if (
+                mn == '2'
+                or 'somos 2' in ml
+                or 'pareja' in ml
+                or '👫' in (m or '')
+                or ('amigo' in ml and 'familiar' not in ml)
+                or ('dos' in ml and 'personas' in ml and 'familiar' not in ml)
+            ):
                 u['data']['personas'] = '2 personas'
                 u['data']['num_personas'] = 2
                 u['state'] = 'datos_pareja'
                 return 'Perfecto 👫 Dos preguntas rápidas:\n\n¿Coméis juntos normalmente o tenéis horarios distintos?\n\n1️⃣ Comemos juntos casi siempre\n2️⃣ Solo coincidimos en cenas o fines de semana\n3️⃣ Cada uno come por su lado pero compartimos compra'
             if (
-                'individual' in ml or 'yo solo' in ml or 'una persona' in ml
-                or 'solo' in ml or ml == '1' or '1 persona' in ml or ml == 'mi'
+                mn == '1'
+                or 'individual' in ml
+                or 'yo solo' in ml
+                or 'una persona' in ml
+                or '1 persona' in ml
+                or ml == 'mi'
+                or '👤' in (m or '')
+                or ('solo' in ml and 'pareja' not in ml and 'familiar' not in ml and 'somos' not in ml)
             ):
                 u['data']['personas'] = '1 persona'
                 u['data']['num_personas'] = 1
@@ -928,38 +1036,197 @@ class ZiaEngine:
             return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'datos_pareja':
             ml = normalize_text(m)
-            if m.strip() == '1' or 'juntos' in ml or 'siempre' in ml:
+            mn = self._menu_opcion_numero(m, max_digit=3)
+            if mn == '1' or 'juntos' in ml or ('siempre' in ml and 'no siempre' not in ml and 'no todos' not in ml):
                 u['data']['pareja_horario'] = 'juntos'
-            elif m.strip() == '2' or 'cenas' in ml or 'finde' in ml or 'fin de semana' in ml:
+            elif mn == '2' or 'cenas' in ml or 'finde' in ml or 'fin de semana' in ml:
                 u['data']['pareja_horario'] = 'finde'
-            elif m.strip() == '3' or 'separado' in ml or 'cada uno' in ml:
+            elif mn == '3' or 'separado' in ml or 'cada uno' in ml or 'por su lado' in ml:
                 u['data']['pareja_horario'] = 'separado'
             else:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Comemos juntos casi siempre\n2️⃣ Solo coincidimos en cenas o fines de semana\n3️⃣ Cada uno come por su lado pero compartimos compra'
-            u['state'] = 'pareja_horario'
+            u['state'] = 'pareja_mismos_objetivos'
             return (
-                '¿Y qué quiere mejorar cada uno? Cuéntamelo en un mensaje 😊\n\n'
-                'Ejemplo: Yo quiero perder peso y no como gluten. '
-                'Mi pareja quiere ganar músculo y come de todo'
+                '¿Tenéis los mismos objetivos?\n\n'
+                '✅ Sí, los mismos\n'
+                '🔀 No, son diferentes\n\n'
+                '(1 = Sí, 2 = No o descríbelo con tus palabras)'
             )
         elif s == 'pareja_horario':
-            if len(m.split()) < 5:
-                return 'Necesito un poco más de detalle 😊 Cuéntame qué quiere mejorar cada uno y si hay restricciones.'
-            u['data']['descripcion_grupo'] = m
+            u['state'] = 'pareja_mismos_objetivos'
+            return (
+                'Seguimos con unas preguntas más rápidas 👇\n\n'
+                '¿Tenéis los mismos objetivos?\n\n'
+                '✅ Sí, los mismos\n'
+                '🔀 No, son diferentes\n\n'
+                '(1 = Sí, 2 = No)'
+            )
+        elif s == 'pareja_mismos_objetivos':
+            ml = normalize_text(m)
+            mn = self._menu_opcion_numero(m, max_digit=2)
+            if mn == '1' or ml in ('si', 'sí', 'mismos', 'mismo', 'iguales', 'igual', 'los mismos', 'misma', 'claro') or '✅' in (m or ''):
+                u['data']['pareja_mismos_objetivos'] = 'si'
+                u['state'] = 'pareja_objetivo_shared'
+                return (
+                    '¿Cuál es vuestro objetivo principal? 🎯\n\n'
+                    + self._texto_opciones_objetivo()
+                    + '\n\n(Responde 1-5 o descríbelo con tus palabras)'
+                )
+            if mn == '2' or ml in ('no', 'distintos', 'distinto', 'diferentes', 'diferente') or '🔀' in (m or ''):
+                u['data']['pareja_mismos_objetivos'] = 'no'
+                u['state'] = 'pareja_objetivo_a'
+                return (
+                    'Objetivo de la primera persona 🎯\n\n'
+                    + self._texto_opciones_objetivo()
+                    + '\n\n(Responde 1-5 o texto libre)'
+                )
+            return (
+                '¿Tenéis los mismos objetivos?\n\n'
+                '✅ Sí, los mismos\n'
+                '🔀 No, son diferentes\n\n'
+                '(1 = Sí, 2 = No o descríbelo con tus palabras)'
+            )
+        elif s == 'pareja_objetivo_shared':
+            elegido = self._parse_objetivo_opcion(m)
+            if not elegido:
+                return (
+                    '¡Casi! Elige una opción 😊\n\n'
+                    + self._texto_opciones_objetivo()
+                )
+            u['data']['objetivo'] = elegido
+            u['data']['objetivo_pareja'] = elegido
+            u['data']['descripcion_grupo'] = self._descripcion_pareja_actualizada(u['data'])
             u['state'] = 'presupuesto'
             return (
-                'Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n'
+                'Perfecto. ¿Cuánto queréis gastar a la semana en la compra? 💶\n\n'
+                'Escribe la cantidad en euros, ej: 60'
+            )
+        elif s == 'pareja_objetivo_a':
+            elegido = self._parse_objetivo_opcion(m)
+            if not elegido:
+                return (
+                    '¡Casi! Elige objetivo (1-5) 😊\n\n'
+                    + self._texto_opciones_objetivo()
+                )
+            u['data']['objetivo'] = elegido
+            u['state'] = 'pareja_objetivo_b'
+            return (
+                'Objetivo de la segunda persona 🎯\n\n'
+                + self._texto_opciones_objetivo()
+                + '\n\n(Responde 1-5 o texto libre)'
+            )
+        elif s == 'pareja_objetivo_b':
+            elegido = self._parse_objetivo_opcion(m)
+            if not elegido:
+                return (
+                    '¡Casi! Elige objetivo (1-5) 😊\n\n'
+                    + self._texto_opciones_objetivo()
+                )
+            u['data']['objetivo_pareja'] = elegido
+            u['data']['descripcion_grupo'] = self._descripcion_pareja_actualizada(u['data'])
+            u['state'] = 'presupuesto'
+            return (
+                'Perfecto. ¿Cuánto queréis gastar a la semana en la compra? 💶\n\n'
                 'Escribe la cantidad en euros, ej: 60'
             )
         elif s == 'datos_familia':
-            if len(m.split()) < 5:
-                return 'Necesito un poco mas de detalle 😊 Cuéntame cuantas personas sois, edades aproximadas, objetivos y restricciones.'
-            u['data']['descripcion_grupo'] = m
-            u['state'] = 'presupuesto'
+            u['state'] = 'familia_cuantos'
             return (
-                'Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n'
-                'Escribe la cantidad en euros, ej: 60'
+                'Vale, vamos con el formato nuevo 👇\n\n'
+                + self._pregunta_familia_cuantos_text()
             )
+        elif s == 'familia_cuantos':
+            ml = normalize_text(m)
+            raw = (m or '').strip()
+            n = None
+            mas_de_cuatro = (
+                '➕' in (m or '')
+                or 'mas de 4' in ml
+                or 'más de 4' in ml
+                or 'mas cuatro' in ml
+                or raw in ('+', '5+')
+                or ml == '5'
+            )
+            if mas_de_cuatro:
+                if raw.isdigit() and int(raw) >= 5:
+                    n = int(raw)
+                else:
+                    n = 5
+            elif '2️⃣' in (m or '') or raw == '2' or (ml == 'dos' and 'tres' not in ml and 'cuatro' not in ml):
+                n = 2
+            elif '3️⃣' in (m or '') or raw == '3' or ml == 'tres':
+                n = 3
+            elif '4️⃣' in (m or '') or raw == '4' or ml == 'cuatro':
+                n = 4
+            elif raw.isdigit():
+                v = int(raw)
+                if 2 <= v <= 4:
+                    n = v
+                elif v >= 5:
+                    n = v
+            if not n:
+                return '¡Casi! Indica cuántas personas sois 😊\n\n' + self._pregunta_familia_cuantos_text()
+            u['data']['num_personas'] = n
+            u['data']['personas'] = 'familia (' + str(n) + ' personas)'
+            u['state'] = 'familia_ninos'
+            return (
+                '¿Hay niños menores de 12 años?\n\n'
+                '👶 Sí\n'
+                '🙅 No\n\n'
+                '(1 = Sí, 2 = No o escribe sí/no)'
+            )
+        elif s == 'familia_ninos':
+            ml = normalize_text(m)
+            mn = self._menu_opcion_numero(m, max_digit=2)
+            if any(w in ml for w in ('no hay ninos', 'no hay niños', 'sin ninos', 'sin niños', 'sin hijos', 'solo adultos', 'no tenemos hijos')):
+                no = True
+                si = False
+            else:
+                si = (
+                    mn == '1'
+                    or ml in ('si', 'sí', 'sii', 'sip')
+                    or '👶' in (m or '')
+                    or (len(ml) >= 2 and ml.startswith('si') and not ml.startswith('sin'))
+                )
+                no = mn == '2' or ml in ('no', 'nop', 'nope') or '🙅' in (m or '')
+            if not si and not no:
+                if any(
+                    w in ml
+                    for w in (
+                        'nino',
+                        'niño',
+                        'ninos',
+                        'niños',
+                        'hijo',
+                        'hijos',
+                        'menor',
+                        'peque',
+                        'peques',
+                        'bebe',
+                        'bebé',
+                    )
+                ):
+                    si = True
+                elif any(w in ml for w in ('no hay', 'sin hijos', 'solo adultos', 'no tenemos hijos')):
+                    no = True
+            if not si and not no:
+                return (
+                    '¡Casi! ¿Hay niños menores de 12 años?\n\n'
+                    '👶 Sí\n'
+                    '🙅 No\n\n'
+                    '(1 = Sí, 2 = No)'
+                )
+            np = u['data'].get('num_personas', 3)
+            u['data']['familia_ninos_menores'] = 'si' if si else 'no'
+            u['data']['descripcion_grupo'] = (
+                'Familia de '
+                + str(np)
+                + ' personas. '
+                + ('Con' if si else 'Sin')
+                + ' niños menores de 12 años en el hogar.'
+            )
+            u['state'] = 'restricciones'
+            return self._restricciones_combinadas_pregunta_text()
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
@@ -978,13 +1245,27 @@ class ZiaEngine:
             u['state'] = 'personas'
             return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'personas':
-            opts = {'1': '1 persona', '2': '2 personas', '3': 'familia (3 o mas personas)'}
             ml = m.strip().lower()
-            elegido = opts.get(m.strip(), None)
+            mn = self._menu_opcion_numero(m, max_digit=3)
+            opts = {'1': '1 persona', '2': '2 personas', '3': 'familia (3 o mas personas)'}
+            elegido = opts.get(mn) if mn else None
             if not elegido:
-                if 'solo' in ml or 'mi' in ml or 'una' in ml or '1' in ml: elegido = '1 persona'
-                elif '2' in ml or 'dos' in ml or 'pareja' in ml or 'amigo' in ml: elegido = '2 personas'
-                elif '3' in ml or 'familia' in ml or 'familiar' in ml or 'mas' in ml or 'tres' in ml: elegido = 'familia (3 o mas personas)'
+                elegido = opts.get(m.strip(), None)
+            if not elegido:
+                if any(
+                    w in ml
+                    for w in (
+                        'solo para mi',
+                        'solo yo',
+                        'yo solo',
+                        'una persona',
+                    )
+                ) or ml in ('solo', 'mi', '1 persona'):
+                    elegido = '1 persona'
+                elif any(w in ml for w in ('pareja', 'dos personas', 'somos 2', 'amigos', 'amigas')):
+                    elegido = '2 personas'
+                elif any(w in ml for w in ('familia', 'familiar', 'somos 3', 'somos 4', 'hijos')):
+                    elegido = 'familia (3 o mas personas)'
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
             u['data']['personas'] = elegido
@@ -997,20 +1278,7 @@ class ZiaEngine:
             u['state'] = 'objetivo'
             return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
         elif s == 'objetivo':
-            opts = {'1':'Perder peso','2':'Ganar musculo','3':'Mas energia y vitalidad','4':'Comer mas sano','5':'Mejorar la digestion'}
-            ml = normalize_text(m)
-            elegido = opts.get(m.strip(), None)
-            if not elegido:
-                if any(w in ml for w in ['peso', 'grasa', 'adelgazar', 'bajar', 'definir', 'perder', 'forma']):
-                    elegido = 'Perder peso'
-                elif any(w in ml for w in ['musculo', 'muscu', 'fuerza', 'ganar', 'volumen', 'gym']):
-                    elegido = 'Ganar musculo'
-                elif any(w in ml for w in ['energia', 'vitalidad', 'cansancio', 'fatiga', 'rendimiento']):
-                    elegido = 'Mas energia y vitalidad'
-                elif any(w in ml for w in ['sano', 'salud', 'mejor', 'bien', 'cuidarme', 'habitos', 'natural']):
-                    elegido = 'Comer mas sano'
-                elif any(w in ml for w in ['digest', 'hinch', 'estomago', 'intestinal', 'gases']):
-                    elegido = 'Mejorar la digestion'
+            elegido = self._parse_objetivo_opcion(m)
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
             u['data']['objetivo'] = elegido
@@ -1021,19 +1289,20 @@ class ZiaEngine:
             actividad = None
             tag = None
             respuesta = None
-            if m.strip() == '1' or any(w in ml for w in ['nada', 'casi nada', 'poco', 'sedentario', 'no hago']):
+            mn = self._menu_opcion_numero(m, max_digit=4)
+            if mn == '1' or m.strip() == '1' or any(w in ml for w in ['nada', 'casi nada', 'poco', 'sedentario', 'no hago']):
                 actividad = 'Nada o casi nada'
                 tag = 'sedentario'
                 respuesta = 'Tranquilo/a, empezamos desde donde estás 🙌 Con pequeños cambios en tu alimentación vas a notar la diferencia enseguida.'
-            elif m.strip() == '2' or any(w in ml for w in ['1-2', '1 2', '1 dia', '2 dias', 'uno', 'dos', 'alguna vez', 'moderado']):
+            elif mn == '2' or m.strip() == '2' or any(w in ml for w in ['1-2', '1 2', '1 dia', '2 dias', 'uno', 'dos', 'alguna vez', 'moderado']):
                 actividad = '1-2 días por semana'
                 tag = 'moderado'
                 respuesta = 'Bien 👟 Ya hay movimiento. Vamos a potenciarlo con la alimentación correcta.'
-            elif m.strip() == '4' or any(w in ml for w in ['todos', 'diario', 'cada dia', 'a diario', 'siempre', 'muy activo']):
+            elif mn == '4' or m.strip() == '4' or any(w in ml for w in ['todos', 'diario', 'cada dia', 'a diario', 'siempre', 'muy activo']):
                 actividad = 'Todos los días'
                 tag = 'muy_activo'
                 respuesta = '💪 Eres una máquina. Vamos a trabajar en rendimiento y recuperación.'
-            elif m.strip() == '3' or any(w in ml for w in ['3-4', '3 4', '3 dias', '4 dias', 'tres', 'cuatro', 'activo']):
+            elif mn == '3' or m.strip() == '3' or any(w in ml for w in ['3-4', '3 4', '3 dias', '4 dias', 'tres', 'cuatro', 'activo']):
                 actividad = '3-4 días por semana'
                 tag = 'activo'
                 respuesta = '🔥 Buen ritmo. Vamos a optimizar tu nutrición para que cada paso cuente más.'
@@ -1046,13 +1315,14 @@ class ZiaEngine:
         elif s == 'cocina':
             ml = normalize_text(m)
             elegido = None
-            if m.strip() == '1' or any(w in ml for w in ['poco', 'poca', 'poco tiempo', 'no tengo tiempo', 'rapido', '15 min', '15min']):
+            mn = self._menu_opcion_numero(m, max_digit=4)
+            if mn == '1' or m.strip() == '1' or any(w in ml for w in ['poco', 'poca', 'poco tiempo', 'no tengo tiempo', 'rapido', '15 min', '15min']):
                 elegido = 'Poco tiempo, recetas rápidas'
-            elif m.strip() == '2' or any(w in ml for w in ['vago', 'vagos', 'precocinado', 'listo', 'facil', 'no me gusta cocinar', 'odio cocinar']):
+            elif mn == '2' or m.strip() == '2' or any(w in ml for w in ['vago', 'vagos', 'precocinado', 'listo', 'facil', 'no me gusta cocinar', 'odio cocinar']):
                 elegido = 'Cocina para vagos'
-            elif m.strip() == '3' or any(w in ml for w in ['me gusta', 'gusta', 'cocinar', 'cocino', 'bien', 'disfruto']):
+            elif mn == '3' or m.strip() == '3' or any(w in ml for w in ['me gusta', 'gusta', 'cocinar', 'cocino', 'bien', 'disfruto']):
                 elegido = 'Me gusta cocinar'
-            elif m.strip() == '4' or any(w in ml for w in ['batch', 'domingo', 'preparo', 'semana', 'tuppers', 'taper']):
+            elif mn == '4' or m.strip() == '4' or any(w in ml for w in ['batch', 'domingo', 'preparo', 'semana', 'tuppers', 'taper']):
                 elegido = 'Batch cooking'
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
@@ -1062,13 +1332,14 @@ class ZiaEngine:
         elif s == 'num_comidas':
             ml = normalize_text(m)
             elegido = None
-            if m.strip() == '1' or any(w in ml for w in ['2 veces', 'dos', 'poco', 'pocas', 'salto desayuno']) or '☀️' in m:
+            mn = self._menu_opcion_numero(m, max_digit=4)
+            if mn == '1' or m.strip() == '1' or any(w in ml for w in ['2 veces', 'dos', 'poco', 'pocas', 'salto desayuno']) or '☀️' in m:
                 elegido = '2 veces al día'
-            elif m.strip() == '2' or any(w in ml for w in ['3 veces', 'tres', 'normal', 'desayuno comida cena']) or '🌤️' in m:
+            elif mn == '2' or m.strip() == '2' or any(w in ml for w in ['3 veces', 'tres', 'normal', 'desayuno comida cena']) or '🌤️' in m:
                 elegido = '3 veces al día'
-            elif m.strip() == '4' or any(w in ml for w in ['ayuno', 'intermitente', '16/8', '16 8']) or '🌙' in m:
+            elif mn == '4' or m.strip() == '4' or any(w in ml for w in ['ayuno', 'intermitente', '16/8', '16 8']) or '🌙' in m:
                 elegido = 'Ayuno intermitente'
-            elif m.strip() in ['3', '5'] or any(w in ml for w in ['4 veces', '5 veces', 'snack', 'picoteo', 'merienda', 'muchas']) or '⛅' in m:
+            elif mn == '3' or m.strip() in ['3', '5'] or any(w in ml for w in ['4 veces', '5 veces', 'snack', 'picoteo', 'merienda', 'muchas']) or '⛅' in m:
                 elegido = '4-5 veces con snacks'
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
@@ -1920,6 +2191,7 @@ class ZiaEngine:
             return 'Error generando plan: ' + str(e)[:60] + '. Escribe Hola para reintentar.'
 
     def _generar_plan_partes(self, data):
+        self._ensure_grupo_nutricion_defaults(data)
         company = self.config['branding']['company_name']
         cal = calorias(data)
         personas = data.get('personas', '1 persona')
