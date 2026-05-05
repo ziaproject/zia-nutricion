@@ -310,6 +310,11 @@ class ZiaEngine:
     def _menu_principal_text(self, data):
         return self._menu_principal_body_text()
 
+    def _append_menu_footer(self, data, ahorro=False):
+        if ahorro:
+            return '\n\n¿Algo más? 👇\n\n' + self._menu_principal_text(data)
+        return '\n\n' + self._menu_principal_text(data)
+
     def _menu_opcion_numero(self, m):
         raw = (m or '').strip()
         if not raw:
@@ -511,7 +516,7 @@ class ZiaEngine:
             'Incluye especias/condimentos básicos si faltan. '
             'Español, emojis, máximo 280 palabras.'
         )
-        menu = '\n\n---\n' + self._menu_principal_text(data)
+        menu = self._append_menu_footer(data)
         u['state'] = 'menu_principal'
         try:
             r = self.openai.chat.completions.create(
@@ -535,40 +540,44 @@ class ZiaEngine:
         data = u['data']
         self._normalizar_perfil_menu(data)
         perfil_usuario = self._profile_for_prompt(data)
-        sup = data.get('supermercado', 'Mercadona')
         pres = data.get('presupuesto', '65')
         cocina = data.get('cocina', '')
         prompt = (
-            'Eres ZIA nutricionista. El usuario quiere AHORRAR esta semana en la compra. '
+            'SOLO una lista de la compra corta y económica para cubrir parte de la semana. '
+            'Máximo 10 productos en total (máximo 10 líneas). '
             'Perfil: '
             + perfil_usuario
             + '. Cocina: '
             + cocina
-            + '. Supermercado: '
-            + sup
-            + '. Presupuesto máximo: '
+            + '. La suma aproximada de los precios NO debe superar '
             + str(pres)
-            + ' €/semana.\n'
-            'Devuelve: (1) 7 ideas de comidas baratas y repetibles, (2) trucos concretos de ahorro '
-            'en ese super, (3) mini lista de compra prioritaria bajo presupuesto. '
-            'Sin pedir más datos. Tono motivador. Español, emojis, máximo 280 palabras.'
+            + ' €.\n'
+            'Cada línea: un emoji distinto + nombre del producto + cantidad breve + precio aproximado en Mercadona España (ej. ~1,15 €). '
+            'Productos típicos que encuentras en Mercadona.\n'
+            'PROHIBIDO: recetas, consejos, trucos de ahorro, párrafos intro o cierre, más de 10 productos. '
+            'PROHIBIDO usar guiones - o * o # o viñetas con cuadrado. Solo saltos de línea y emojis.\n'
+            'Sin texto antes de la primera línea de producto. Respeta restricciones e intolerancias del perfil.'
         )
-        menu = '\n\n---\n' + self._menu_principal_text(data)
+        system_ahorro = (
+            COACH_TONE + ' Devuelve EXCLUSIVamente la lista pedida (máx. 10 productos). '
+            'Sin markdown, sin guiones como lista, sin cuadraditos. Una línea por producto con emoji.'
+        )
+        menu = self._append_menu_footer(data, ahorro=True)
         try:
             r = self.openai.chat.completions.create(
                 model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
                 messages=[
-                    {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                    {'role': 'system', 'content': system_ahorro},
                     {'role': 'user', 'content': prompt},
                 ],
-                max_tokens=700,
-                temperature=0.7,
+                max_tokens=420,
+                temperature=0.45,
                 timeout=28,
             )
             return r.choices[0].message.content + menu
         except Exception:
             return (
-                'No pude preparar el plan de ahorro ahora. Inténtalo en unos minutos.'
+                'No pude preparar la lista ahora. Inténtalo en unos minutos.'
                 + menu
             )
 
@@ -591,7 +600,7 @@ class ZiaEngine:
             'Termina con un aviso breve de consultar a médico o farmacéutico si toma medicación o tiene patologías. '
             'Español, emojis, máximo 260 palabras.'
         )
-        menu = '\n\n---\n' + self._menu_principal_text(data)
+        menu = self._append_menu_footer(data)
         try:
             r = self.openai.chat.completions.create(
                 model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
@@ -1243,7 +1252,7 @@ class ZiaEngine:
                 + '. Respeta restricciones e intolerancias al pie de la letra. '
                 'Recetas ≤25 min. Tono cercano. Español con emojis.'
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1356,7 +1365,7 @@ class ZiaEngine:
                 'Tono cercano y práctico. Emojis. Máximo 200 palabras.\n'
                 "Al final: 'Todo listo en menos de 5 minutos 🚀'"
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1371,7 +1380,7 @@ class ZiaEngine:
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
-                return 'No pude generar la compra fácil de Mercadona por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
+                return 'No pude generar la compra fácil de Mercadona por un error o timeout. Inténtalo de nuevo en unos minutos.' + self._append_menu_footer(data)
         elif s == 'mejorar':
             ml = normalize_text(m)
             if m.strip() == '1' or 'plan' in ml or 'semanal' in ml:
@@ -1449,7 +1458,7 @@ class ZiaEngine:
                 + perfil_usuario
                 + '. Deben ser realistas, de menos de 20 minutos, con ingredientes simples, cantidades orientativas y tono cercano. Responde en español con emojis.'
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1464,7 +1473,7 @@ class ZiaEngine:
                 )
                 return r.choices[0].message.content + menu
             except Exception as e:
-                return 'No pude proponerte opciones ahora mismo por un error o timeout. Inténtalo de nuevo en unos minutos.\n\n---\n' + self._menu_principal_text(data)
+                return 'No pude proponerte opciones ahora mismo por un error o timeout. Inténtalo de nuevo en unos minutos.' + self._append_menu_footer(data)
         elif s == 'mejorar_reset':
             data = u['data']
             prompt = (
@@ -1472,7 +1481,7 @@ class ZiaEngine:
                 + m.strip()
                 + '. Responde sin juzgar, con empatía y humor suave. Da un plan reset de 2 días muy concreto con desayuno, comida y cena para volver a la rutina. Máximo 150 palabras. Emojis.'
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1495,7 +1504,7 @@ class ZiaEngine:
                 + m.strip()
                 + '. Crea un plan detallado y motivador con: objetivo diario de calorías, alimentos que debe priorizar, alimentos que debe evitar, consejo de hidratación, y frase motivacional final. Máximo 200 palabras. Emojis.'
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1531,7 +1540,7 @@ class ZiaEngine:
                 + perfil_usuario
                 + '. Responde en español con emojis, máximo 450 palabras.'
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1557,7 +1566,7 @@ class ZiaEngine:
                 + perfil_usuario
                 + '. Máximo 180 palabras. Emojis.'
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1627,7 +1636,7 @@ class ZiaEngine:
                         timeout=45,
                     )
                     u['state'] = 'menu_principal'
-                    menu = '\n\n---\n' + self._menu_principal_text(data)
+                    menu = self._append_menu_footer(data)
                     return r.choices[0].message.content + menu
                 except Exception as e:
                     return 'No pude analizar la foto: ' + str(e)[:80]
@@ -1651,7 +1660,7 @@ class ZiaEngine:
                 + '. '
                 'Usa emojis. Maximo 300 palabras. Responde en espanol.'
             )
-            menu = '\n\n---\n' + self._menu_principal_text(data)
+            menu = self._append_menu_footer(data)
             u['state'] = 'menu_principal'
             try:
                 r = self.openai.chat.completions.create(
@@ -1703,7 +1712,7 @@ class ZiaEngine:
                     timeout=30,
                 )
                 u['state'] = 'menu_principal'
-                menu = '\n\n---\n' + self._menu_principal_text(data)
+                menu = self._append_menu_footer(data)
                 return [mensaje_espera, r.choices[0].message.content + menu]
             except Exception as e:
                 return 'No pude generar el plan de dieta por un error o timeout. Intentalo de nuevo en unos minutos. Detalle: ' + str(e)[:80]
@@ -1728,13 +1737,13 @@ class ZiaEngine:
                     timeout=25,
                 )
                 u['state'] = 'menu_principal'
-                return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
+                return r.choices[0].message.content + self._append_menu_footer(data)
             except Exception as e:
                 u['state'] = 'menu_principal'
                 return (
                     'No pude analizar tu progreso ahora mismo por un error o timeout, pero no pasa nada 💪 '
                     'Cuéntamelo de nuevo en unos minutos y lo revisamos juntas.'
-                    '\n\n---\n' + self._menu_principal_text(data)
+                    + self._append_menu_footer(data)
                 )
         elif s == 'suplementos':
             data = u['data']
@@ -1805,13 +1814,13 @@ class ZiaEngine:
                     timeout=25,
                 )
                 u['state'] = 'menu_principal'
-                return r.choices[0].message.content + '\n\n---\n' + self._menu_principal_text(data)
+                return r.choices[0].message.content + self._append_menu_footer(data)
             except Exception as e:
                 u['state'] = 'menu_principal'
                 return (
                     'No pude generar recomendaciones de suplementos ahora mismo por un error o timeout. '
                     'Aun asi, podemos seguir avanzando juntos 💪 Intentalo de nuevo en unos minutos.'
-                    '\n\n---\n' + self._menu_principal_text(data)
+                    + self._append_menu_footer(data)
                 )
         else:
             u['state'] = 'welcome'
