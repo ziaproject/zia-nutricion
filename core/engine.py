@@ -239,19 +239,22 @@ class ZiaEngine:
 
     def _supermercado_nombre(self, value):
         super_map = {
-            '1': 'Mercadona', 'mercadona': 'Mercadona',
-            '2': 'Lidl', 'lidl': 'Lidl',
+            '1': 'Mercadona', 'mercadona': 'Mercadona', 'merca': 'Mercadona',
+            '2': 'Lidl', 'lidl': 'Lidl', 'lid': 'Lidl',
             '3': 'Aldi', 'aldi': 'Aldi',
-            '4': 'Carrefour', 'carrefour': 'Carrefour',
-            '5': 'Dia', 'dia': 'Dia',
+            '4': 'Carrefour', 'carrefour': 'Carrefour', 'carrefur': 'Carrefour', 'carre': 'Carrefour',
+            '5': 'Dia', 'dia': 'Dia', 'día': 'Dia',
             '6': 'Consum', 'consum': 'Consum',
             '7': 'Supercor', 'supercor': 'Supercor',
-            '8': 'El Corte Ingles', 'el corte ingles': 'El Corte Ingles',
+            '8': 'El Corte Ingles', 'el corte ingles': 'El Corte Ingles', 'el corte inglés': 'El Corte Ingles', 'corte ingles': 'El Corte Ingles', 'corte inglés': 'El Corte Ingles',
         }
         raw = str(value or '').strip()
         if not raw:
             return 'Mercadona'
-        return super_map.get(normalize_text(raw), raw)
+        norm = normalize_text(raw)
+        if any(w in norm for w in ['cualquiera', 'me da igual', 'no se', 'normal', 'super']):
+            return 'Mercadona'
+        return super_map.get(norm, raw)
 
     def _menu_principal_text(self, data):
         return (
@@ -441,11 +444,16 @@ class ZiaEngine:
             ml = normalize_text(m)
             elegido = opts.get(m.strip(), None)
             if not elegido:
-                if 'peso' in ml or 'grasa' in ml or 'adelgazar' in ml or 'estar en forma' in ml: elegido = 'Perder peso'
-                elif 'musculo' in ml or 'muscu' in ml: elegido = 'Ganar musculo'
-                elif 'energia' in ml: elegido = 'Mas energia y vitalidad'
-                elif 'sano' in ml or 'salud' in ml: elegido = 'Comer mas sano'
-                elif 'digest' in ml: elegido = 'Mejorar la digestion'
+                if any(w in ml for w in ['peso', 'grasa', 'adelgazar', 'bajar', 'definir', 'perder', 'forma']):
+                    elegido = 'Perder peso'
+                elif any(w in ml for w in ['musculo', 'muscu', 'fuerza', 'ganar', 'volumen', 'gym']):
+                    elegido = 'Ganar musculo'
+                elif any(w in ml for w in ['energia', 'vitalidad', 'cansancio', 'fatiga', 'rendimiento']):
+                    elegido = 'Mas energia y vitalidad'
+                elif any(w in ml for w in ['sano', 'salud', 'mejor', 'bien', 'cuidarme', 'habitos', 'natural']):
+                    elegido = 'Comer mas sano'
+                elif any(w in ml for w in ['digest', 'hinch', 'estomago', 'intestinal', 'gases']):
+                    elegido = 'Mejorar la digestion'
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
             u['data']['objetivo'] = elegido
@@ -456,22 +464,22 @@ class ZiaEngine:
             actividad = None
             tag = None
             respuesta = None
-            if m.strip() == '1' or 'nada' in ml or 'casi nada' in ml:
+            if m.strip() == '1' or any(w in ml for w in ['nada', 'casi nada', 'poco', 'sedentario', 'no hago']):
                 actividad = 'Nada o casi nada'
                 tag = 'sedentario'
                 respuesta = 'Tranquilo/a, empezamos desde donde estás 🙌 Con pequeños cambios en tu alimentación vas a notar la diferencia enseguida.'
-            elif m.strip() == '2' or '1-2' in ml or '1 2' in ml or '1 dia' in ml or '2 dias' in ml:
+            elif m.strip() == '2' or any(w in ml for w in ['1-2', '1 2', '1 dia', '2 dias', 'uno', 'dos', 'alguna vez', 'moderado']):
                 actividad = '1-2 días por semana'
                 tag = 'moderado'
                 respuesta = 'Bien 👟 Ya hay movimiento. Vamos a potenciarlo con la alimentación correcta.'
-            elif m.strip() == '3' or '3-4' in ml or '3 4' in ml or '3 dias' in ml or '4 dias' in ml:
-                actividad = '3-4 días por semana'
-                tag = 'activo'
-                respuesta = '🔥 Buen ritmo. Vamos a optimizar tu nutrición para que cada paso cuente más.'
-            elif m.strip() == '4' or 'todos' in ml or 'diario' in ml or 'cada dia' in ml:
+            elif m.strip() == '4' or any(w in ml for w in ['todos', 'diario', 'cada dia', 'a diario', 'siempre', 'muy activo']):
                 actividad = 'Todos los días'
                 tag = 'muy_activo'
                 respuesta = '💪 Eres una máquina. Vamos a trabajar en rendimiento y recuperación.'
+            elif m.strip() == '3' or any(w in ml for w in ['3-4', '3 4', '3 dias', '4 dias', 'tres', 'cuatro', 'activo']):
+                actividad = '3-4 días por semana'
+                tag = 'activo'
+                respuesta = '🔥 Buen ritmo. Vamos a optimizar tu nutrición para que cada paso cuente más.'
             if not actividad:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Nada o casi nada\n2️⃣ 1-2 días por semana\n3️⃣ 3-4 días por semana\n4️⃣ Todos los días'
             u['data']['actividad'] = actividad
@@ -481,13 +489,13 @@ class ZiaEngine:
         elif s == 'cocina':
             ml = normalize_text(m)
             elegido = None
-            if m.strip() == '1' or 'poco tiempo' in ml or 'rapido' in ml or '15 min' in ml:
+            if m.strip() == '1' or any(w in ml for w in ['poco', 'poca', 'poco tiempo', 'no tengo tiempo', 'rapido', '15 min', '15min']):
                 elegido = 'Poco tiempo, recetas rápidas'
-            elif m.strip() == '2' or 'vago' in ml or 'precocinado' in ml or 'listo' in ml or 'facil' in ml:
+            elif m.strip() == '2' or any(w in ml for w in ['vago', 'vagos', 'precocinado', 'listo', 'facil', 'no me gusta cocinar', 'odio cocinar']):
                 elegido = 'Cocina para vagos'
-            elif m.strip() == '3' or 'gusta' in ml or 'cocinar' in ml or 'cocino' in ml:
+            elif m.strip() == '3' or any(w in ml for w in ['me gusta', 'gusta', 'cocinar', 'cocino', 'bien', 'disfruto']):
                 elegido = 'Me gusta cocinar'
-            elif m.strip() == '4' or 'batch' in ml or 'domingo' in ml or 'preparo' in ml:
+            elif m.strip() == '4' or any(w in ml for w in ['batch', 'domingo', 'preparo', 'semana', 'tuppers', 'taper']):
                 elegido = 'Batch cooking'
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
@@ -497,13 +505,13 @@ class ZiaEngine:
         elif s == 'num_comidas':
             ml = normalize_text(m)
             elegido = None
-            if m.strip() == '1' or '2 veces' in ml or 'dos' in ml or '☀️' in m:
+            if m.strip() == '1' or any(w in ml for w in ['2 veces', 'dos', 'poco', 'pocas', 'salto desayuno']) or '☀️' in m:
                 elegido = '2 veces al día'
-            elif m.strip() == '2' or '3 veces' in ml or 'tres' in ml or '🌤️' in m:
+            elif m.strip() == '2' or any(w in ml for w in ['3 veces', 'tres', 'normal', 'desayuno comida cena']) or '🌤️' in m:
                 elegido = '3 veces al día'
-            elif m.strip() == '4' or 'ayuno' in ml or 'intermitente' in ml or '🌙' in m:
+            elif m.strip() == '4' or any(w in ml for w in ['ayuno', 'intermitente', '16/8', '16 8']) or '🌙' in m:
                 elegido = 'Ayuno intermitente'
-            elif m.strip() in ['3', '5'] or '4 veces' in ml or '5 veces' in ml or 'snack' in ml or '⛅' in m:
+            elif m.strip() in ['3', '5'] or any(w in ml for w in ['4 veces', '5 veces', 'snack', 'picoteo', 'merienda', 'muchas']) or '⛅' in m:
                 elegido = '4-5 veces con snacks'
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
@@ -518,11 +526,16 @@ class ZiaEngine:
             ml = normalize_text(m)
             elegido = opts.get(m.strip(), None)
             if not elegido:
-                if 'ninguna' in ml or 'no' == ml: elegido = 'Ninguna'
-                elif 'vegan' in ml or 'vegetarian' in ml: elegido = 'Vegano/Vegetariano'
-                elif 'gluten' in ml or 'celiac' in ml: elegido = 'Sin gluten'
-                elif 'lactosa' in ml or 'lacteo' in ml or 'leche' in ml: elegido = 'Sin lactosa'
-                elif 'pescado' in ml: elegido = 'Sin pescado'
+                if any(w == ml for w in ['no', 'nada', 'ninguna', 'ninguno']) or 'como todo' in ml:
+                    elegido = 'Ninguna'
+                elif any(w in ml for w in ['vegan', 'vegetarian', 'plant based', 'sin carne']):
+                    elegido = 'Vegano/Vegetariano'
+                elif any(w in ml for w in ['gluten', 'celiac', 'trigo']):
+                    elegido = 'Sin gluten'
+                elif any(w in ml for w in ['lactosa', 'lacteo', 'leche', 'queso']):
+                    elegido = 'Sin lactosa'
+                elif any(w in ml for w in ['pescado', 'marisco', 'atun']):
+                    elegido = 'Sin pescado'
                 elif m.strip(): elegido = m.strip()
             if not elegido:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n✅ Ninguna\n🌱 Vegano/Vegetariano\n🌾 Sin gluten\n🥛 Sin lactosa\n🐟 Sin pescado\n✏️ Otra (escribela)'
