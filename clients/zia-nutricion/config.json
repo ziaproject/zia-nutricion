@@ -102,7 +102,7 @@
       ]
     },
     "stripe": {
-      "enabled": false,
+      "enabled": true,
       "products": {
         "individual": "price_XXXX",
         "pro": "price_XXXX"
@@ -110,7 +110,7 @@
       "upgrade_url": "https://zianutricion.com/#precios"
     },
     "supabase": {
-      "enabled": false,
+      "enabled": true,
       "table_users": "users",
       "table_conversations": "conversations"
     }

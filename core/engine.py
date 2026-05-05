@@ -2,6 +2,8 @@ import json
 import os
 import re
 import unicodedata
+import urllib.parse
+import urllib.request
 from openai import OpenAI
 
 def load_client_config(client_id):
@@ -79,16 +81,129 @@ class ZiaEngine:
         self.openai = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
         self._users = {}
 
+    def _user_key(self, uid):
+        return f"{self.client_id}_{uid}"
+
+    def _default_user(self):
+        return {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': 0}
+
+    def _supabase_config(self):
+        return self.config.get('integrations', {}).get('supabase', {})
+
+    def _supabase_enabled(self):
+        cfg = self._supabase_config()
+        return bool(
+            cfg.get('enabled')
+            and os.environ.get('SUPABASE_URL')
+            and os.environ.get('SUPABASE_KEY')
+        )
+
+    def _supabase_headers(self, prefer=None):
+        key = os.environ.get('SUPABASE_KEY', '')
+        headers = {
+            'apikey': key,
+            'Authorization': 'Bearer ' + key,
+            'Content-Type': 'application/json',
+        }
+        if prefer:
+            headers['Prefer'] = prefer
+        return headers
+
+    def _supabase_url(self, table, suffix=''):
+        base = os.environ.get('SUPABASE_URL', '').rstrip('/')
+        return base + '/rest/v1/' + table + suffix
+
+    def _supabase_request(self, method, table, suffix='', payload=None, prefer=None):
+        body = None if payload is None else json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(
+            self._supabase_url(table, suffix),
+            data=body,
+            method=method,
+            headers=self._supabase_headers(prefer),
+        )
+        with urllib.request.urlopen(req, timeout=8) as response:
+            raw = response.read().decode('utf-8')
+            return json.loads(raw) if raw else None
+
     def _get_user(self, uid):
-        key = f"{self.client_id}_{uid}"
+        key = self._user_key(uid)
         if key not in self._users:
-            self._users[key] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': 0}
+            self._users[key] = self._load_user(uid)
         return self._users[key]
 
+    def _load_user(self, uid):
+        fallback = self._default_user()
+        if not self._supabase_enabled():
+            return fallback
+        try:
+            table = self._supabase_config().get('table_users', 'users')
+            user_id = str(uid)
+            suffix = '?id=eq.' + urllib.parse.quote(user_id, safe='') + '&select=*'
+            rows = self._supabase_request('GET', table, suffix) or []
+            if not rows:
+                return fallback
+            row = rows[0]
+            profile = row.get('profile') if isinstance(row.get('profile'), dict) else row
+            user = self._default_user()
+            user['state'] = profile.get('state') or row.get('state') or 'welcome'
+            user['data'] = profile.get('data') or row.get('data') or {}
+            user['plan'] = profile.get('plan') if 'plan' in profile else row.get('plan')
+            user['history'] = profile.get('history') or row.get('history') or []
+            user['plan_count'] = profile.get('plan_count') or row.get('plan_count') or 0
+            return user
+        except Exception as e:
+            print('Supabase load fallback:', str(e)[:120])
+            return fallback
+
+    def _save_user(self, uid, user=None):
+        key = self._user_key(uid)
+        user = user or self._users.get(key) or self._default_user()
+        self._users[key] = user
+        if not self._supabase_enabled():
+            return
+        try:
+            table = self._supabase_config().get('table_users', 'users')
+            user_id = str(uid)
+            full_payload = {
+                'id': user_id,
+                'whatsapp': user_id,
+                'state': user.get('state', 'welcome'),
+                'data': user.get('data', {}),
+                'plan': user.get('plan'),
+                'history': user.get('history', []),
+                'plan_count': user.get('plan_count', 0),
+                'profile': user,
+            }
+            compact_payload = {
+                'id': user_id,
+                'state': user.get('state', 'welcome'),
+                'data': user.get('data', {}),
+                'plan': user.get('plan'),
+                'history': user.get('history', []),
+                'plan_count': user.get('plan_count', 0),
+            }
+            profile_payload = {
+                'id': user_id,
+                'profile': user,
+            }
+            last_error = None
+            for payload in [full_payload, compact_payload, profile_payload]:
+                try:
+                    self._supabase_request('POST', table, payload=[payload], prefer='resolution=merge-duplicates')
+                    return
+                except Exception as e:
+                    last_error = e
+            if last_error:
+                raise last_error
+        except Exception as e:
+            print('Supabase save fallback:', str(e)[:120])
+
     def reset_user(self, uid):
-        key = f"{self.client_id}_{uid}"
+        key = self._user_key(uid)
         count = self._users.get(key, {}).get('plan_count', 0)
-        self._users[key] = {'state': 'welcome', 'data': {}, 'plan': None, 'history': [], 'plan_count': count}
+        self._users[key] = self._default_user()
+        self._users[key]['plan_count'] = count
+        self._save_user(uid, self._users[key])
 
     def get_welcome_message(self):
         return self.config['bot']['welcome_message']
@@ -148,6 +263,18 @@ class ZiaEngine:
             '5️⃣ 💊 Suplementación'
         )
 
+    def _returning_user_menu_text(self, data):
+        nombre = data.get('nombre', '').strip()
+        saludo = '¡Hola ' + nombre + '! 👋 ¿Qué hacemos hoy?' if nombre else '¡Hola! 👋 ¿Qué hacemos hoy?'
+        return (
+            saludo + '\n'
+            '1️⃣ ⏱️ No tengo tiempo, hazme la compra rápida\n'
+            '2️⃣ 🍽️ ¿Qué como o ceno?\n'
+            '3️⃣ 💪 Quiero mejorar mi alimentación\n'
+            '4️⃣ 🛒 Comida preparada\n'
+            '5️⃣ 💊 Suplementación'
+        )
+
     def _welcome_plan_text(self, company):
         return (
             'Hola! Soy ZIA, tu asesora nutricional de ' + company + ' 🌿\n\n'
@@ -199,6 +326,14 @@ class ZiaEngine:
         return text, url
 
     def process_message(self, user_id, message, plan_type='pro'):
+        try:
+            return self._process_message_impl(user_id, message, plan_type)
+        finally:
+            key = self._user_key(user_id)
+            if key in self._users:
+                self._save_user(user_id, self._users[key])
+
+    def _process_message_impl(self, user_id, message, plan_type='pro'):
         meta = self.config.get('_meta')
         if isinstance(meta, dict) and meta.get('type') == 'retail-asesor':
             return self._process_retail_asesor(user_id, message)
@@ -214,6 +349,9 @@ class ZiaEngine:
             self.reset_user(user_id)
             u = self._get_user(user_id)
         s = u['state']
+        if s in ['menu_principal', 'plan_listo'] and normalize_text(m) in ['hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'inicio', 'menu']:
+            u['state'] = 'menu_principal'
+            return self._returning_user_menu_text(u.get('data', {}))
         if s == 'welcome':
             u['state'] = 'tipo_plan'
             return self._welcome_plan_text(company)
