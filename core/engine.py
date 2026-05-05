@@ -28,10 +28,42 @@ def normalize_text(text):
     return ''.join(c for c in value if not unicodedata.combining(c)).strip()
 
 
+def sanitize_whatsapp_text(text):
+    if not isinstance(text, str) or not text:
+        return text
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    lines = text.split('\n')
+    out_lines = []
+    for line in lines:
+        s = re.sub(r'^[#]{1,6}\s*', '', line)
+        m = re.match(r'^(\s*)-\s+(.*)$', s)
+        if m:
+            s = m.group(1) + '▪️ ' + m.group(2)
+        else:
+            m = re.match(r'^(\s*)\*\s+(\S.*)$', s)
+            if m:
+                s = m.group(1) + '▪️ ' + m.group(2)
+        out_lines.append(s)
+    text = '\n'.join(out_lines)
+    text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+    text = re.sub(r'__([^_]+)__', r'\1', text)
+    for _ in range(15):
+        nxt = re.sub(r'(?<!\*)\*([^*\n]+)\*(?!\*)', r'\1', text)
+        if nxt == text:
+            break
+        text = nxt
+    text = text.replace('**', '')
+    text = re.sub(r'(?<!\w)_([^_\n]+)_(?!\w)', r'\1', text)
+    return text
+
+
 COACH_TONE = (
     'Eres ZIA, coach nutricional motivadora y cercana. Usa siempre un tono positivo, '
     'empático y motivador. Incluye frases de ánimo. Celebra los logros del usuario. '
-    'Nunca respondas con listas frías - usa un tono de coach que inspira.'
+    'Nunca respondas con listas frías - usa un tono de coach que inspira. '
+    'Responde solo en texto plano para WhatsApp: nunca uses markdown (ni #, ni **, ni * '
+    'para énfasis, ni guiones al inicio de línea como viñetas). Organiza con saltos de '
+    'línea y emojis en lugar de títulos o negritas.'
 )
 
 
@@ -320,7 +352,7 @@ class ZiaEngine:
         preguntas = {
             'objetivo': (
                 '¿Cuál es tu objetivo nutricional ahora? 🎯\n'
-                '_Ej.: perder peso, mantener, ganar músculo, más energía…_'
+                'Ej.: perder peso, mantener, ganar músculo, más energía…'
             ),
             'cocina': (
                 '¿Cómo es tu relación con la cocina? 🍳\n\n'
@@ -331,13 +363,13 @@ class ZiaEngine:
             ),
             'presupuesto': (
                 '¿Cuánto quieres gastar a la semana en la compra? 💶\n'
-                '_Escribe un número en euros, ej: 60_'
+                'Escribe un número en euros, ej: 60'
             ),
             'supermercado': (
                 '🏪 ¿En qué supermercado sueles comprar?\n\n'
                 '1️⃣ Mercadona  2️⃣ Lidl  3️⃣ Aldi  4️⃣ Carrefour\n'
                 '5️⃣ Dia  6️⃣ Consum  7️⃣ Supercor  8️⃣ El Corte Inglés\n\n'
-                '_O escribe el nombre_'
+                'O escribe el nombre'
             ),
             'genero': 'Para ajustar calorías: ¿eres hombre o mujer?',
             'edad': '¿Cuántos años tienes?',
@@ -684,9 +716,7 @@ class ZiaEngine:
         return None
 
     def _returning_user_menu_text(self, data):
-        nombre = data.get('nombre', '').strip()
-        saludo = '¡Hola ' + nombre + '! 👋\n\n' if nombre else '¡Hola! 👋\n\n'
-        return saludo + self._menu_principal_body_text()
+        return self._menu_principal_body_text()
 
     def _welcome_plan_text(self, company):
         return (
@@ -738,9 +768,17 @@ class ZiaEngine:
                     url = uu
         return text, url
 
+    def _sanitize_reply_for_whatsapp(self, out):
+        if isinstance(out, list):
+            return [self._sanitize_reply_for_whatsapp(x) for x in out]
+        if isinstance(out, str):
+            return sanitize_whatsapp_text(out)
+        return out
+
     def process_message(self, user_id, message, plan_type='pro'):
         try:
-            return self._process_message_impl(user_id, message, plan_type)
+            out = self._process_message_impl(user_id, message, plan_type)
+            return self._sanitize_reply_for_whatsapp(out)
         finally:
             key = self._user_key(user_id)
             if key in self._users:
@@ -801,7 +839,11 @@ class ZiaEngine:
                 u['data']['personas'] = '1 persona'
                 u['data']['num_personas'] = 1
                 u['state'] = 'datos'
-                return 'Perfecto. Para empezar necesito conocerte:\n\n*Nombre, genero, edad, peso (kg) y altura (cm)*\n\n_Ejemplo: Maria, mujer, 34, 65kg, 165cm_'
+                return (
+                    'Perfecto. Para empezar necesito conocerte:\n\n'
+                    '👉 Nombre, género, edad, peso (kg) y altura (cm)\n\n'
+                    'Ejemplo: Maria, mujer, 34, 65kg, 165cm'
+                )
             return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n👤 Solo para mi\n👫 Para 2 personas\n👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'datos_pareja':
             ml = normalize_text(m)
@@ -814,24 +856,38 @@ class ZiaEngine:
             else:
                 return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Comemos juntos casi siempre\n2️⃣ Solo coincidimos en cenas o fines de semana\n3️⃣ Cada uno come por su lado pero compartimos compra'
             u['state'] = 'pareja_horario'
-            return '¿Y qué quiere mejorar cada uno? Cuéntamelo en un mensaje 😊\n\n_Ejemplo: Yo quiero perder peso y no como gluten. Mi pareja quiere ganar músculo y come de todo_'
+            return (
+                '¿Y qué quiere mejorar cada uno? Cuéntamelo en un mensaje 😊\n\n'
+                'Ejemplo: Yo quiero perder peso y no como gluten. '
+                'Mi pareja quiere ganar músculo y come de todo'
+            )
         elif s == 'pareja_horario':
             if len(m.split()) < 5:
                 return 'Necesito un poco más de detalle 😊 Cuéntame qué quiere mejorar cada uno y si hay restricciones.'
             u['data']['descripcion_grupo'] = m
             u['state'] = 'presupuesto'
-            return ('Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
+            return (
+                'Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n'
+                'Escribe la cantidad en euros, ej: 60'
+            )
         elif s == 'datos_familia':
             if len(m.split()) < 5:
                 return 'Necesito un poco mas de detalle 😊 Cuéntame cuantas personas sois, edades aproximadas, objetivos y restricciones.'
             u['data']['descripcion_grupo'] = m
             u['state'] = 'presupuesto'
-            return ('Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
+            return (
+                'Perfecto. Cuanto quieres gastar a la semana en la compra?\n\n'
+                'Escribe la cantidad en euros, ej: 60'
+            )
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
             if missing:
-                return 'Solo me falta: *' + ', '.join(missing) + '*\n\n_Ejemplo: Carlos, hombre, 38, 82kg, 178cm_'
+                return (
+                    'Solo me falta: '
+                    + ', '.join(missing)
+                    + '\n\nEjemplo: Carlos, hombre, 38, 82kg, 178cm'
+                )
             for k, v in parsed.items():
                 u['data'][k] = v
             nombre = u['data'].get('nombre', '')
@@ -971,12 +1027,20 @@ class ZiaEngine:
                 )
             u['data']['intolerancias'] = parsed
             u['state'] = 'presupuesto'
-            return ('Cuanto quieres gastar a la semana en la compra?\n\n_Escribe la cantidad en euros, ej: 60_')
+            return (
+                'Cuanto quieres gastar a la semana en la compra?\n\n'
+                'Escribe la cantidad en euros, ej: 60'
+            )
         elif s == 'presupuesto':
             nums = re.findall(r'\d+', m)
             u['data']['presupuesto'] = nums[0] if nums else '65'
             u['state'] = 'supermercado'
-            return '🏪 En que supermercado sueles comprar?\n\n  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n_O escribe el nombre directamente_'
+            return (
+                '🏪 En que supermercado sueles comprar?\n\n'
+                '  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n'
+                '  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n'
+                'O escribe el nombre directamente'
+            )
         elif s == 'supermercado':
             super_nombre = self._supermercado_nombre(m)
             u['data']['supermercado'] = super_nombre
@@ -1323,7 +1387,10 @@ class ZiaEngine:
                 return '¡Oye, que un día no define tu camino! 😊 Lo importante es que quieres volver y eso ya es mucho.\n\nCuéntame, ¿qué ha pasado? Sin juicios 🙌'
             if m.strip() == '3' or 'evento' in ml or 'boda' in ml or 'viaje' in ml:
                 u['state'] = 'mejorar_evento'
-                return '¡Qué emocionante! 🎯 ¿Para cuándo es el evento y qué quieres conseguir?\n_Ejemplo: boda en 3 semanas, quiero perder 3kg_'
+                return (
+                    '¡Qué emocionante! 🎯 ¿Para cuándo es el evento y qué quieres conseguir?\n'
+                    'Ejemplo: boda en 3 semanas, quiero perder 3kg'
+                )
             if m.strip() == '4' or 'dieta' in ml or 'keto' in ml or 'vegana' in ml or 'colesterol' in ml:
                 u['state'] = 'mejorar_dieta'
                 return '¿Qué tipo de dieta quieres? 🥗\n1️⃣ Keto\n2️⃣ Vegana\n3️⃣ Mediterránea\n4️⃣ Ayuno 16:8\n5️⃣ Vegetariana\n6️⃣ Colesterol bajo'
@@ -1748,7 +1815,7 @@ class ZiaEngine:
                 )
         else:
             u['state'] = 'welcome'
-            return 'Escribe *Hola* para empezar 👋'
+            return 'Escribe Hola para empezar 👋'
 
     def _generar_plan(self, data):
         company = self.config['branding']['company_name']
@@ -1797,7 +1864,7 @@ class ZiaEngine:
             )
             return r.choices[0].message.content
         except Exception as e:
-            return 'Error generando plan: ' + str(e)[:60] + '. Escribe *Hola* para reintentar.'
+            return 'Error generando plan: ' + str(e)[:60] + '. Escribe Hola para reintentar.'
 
     def _generar_plan_partes(self, data):
         company = self.config['branding']['company_name']
@@ -1901,52 +1968,55 @@ class ZiaEngine:
         system = COACH_TONE + ' Eres ZIA nutricionista de ' + company + '. Responde en espanol con emojis.'
 
         prompt1 = (
-            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Lunes:* como primera palabra. '
+            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la línea "📅 Lunes:" como primera línea. '
             'Nada antes. Genera SOLO Lunes, Martes y Miércoles con Desayuno, Comida y Cena. '
             'PARA en la Cena del Miércoles. '
-            'Formato obligatorio de cada día:\n'
-            '*Lunes:*\n'
-            '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
-            '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
-            '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            'Formato obligatorio de cada día (sin asteriscos ni #, solo emojis y texto):\n'
+            '📅 Lunes:\n'
+            '🌅 Desayuno: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '🍽️ Comida: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '🌙 Cena: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad.\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Lunes, Martes y Miercoles. '
             'PROHIBIDO incluir Jueves, Viernes, Sabado o Domingo. '
-            'Empieza con *Lunes:* Cada dia: Desayuno, Comida y Cena. '
+            'Empieza con 📅 Lunes: Cada dia: Desayuno, Comida y Cena. '
+            'Prohibido markdown (# * ** viñetas con guión). '
             'Termina exactamente en la Cena del Miercoles. Sin texto despues. '
             + perfil
         )
         prompt2 = (
-            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Jueves:* como primera palabra. '
+            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la línea "📅 Jueves:" como primera línea. '
             'Nada antes. Genera SOLO Jueves, Viernes y Sábado con Desayuno, Comida y Cena. '
             'PARA en la Cena del Sábado. '
             'OBLIGATORIO incluir Desayuno, Comida Y Cena para Jueves, Viernes Y Sábado. '
             'PROHIBIDO terminar en Comida del Sábado. La Cena del Sábado es OBLIGATORIA. '
-            'Formato obligatorio de cada día:\n'
-            '*Jueves:*\n'
-            '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
-            '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
-            '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            'Formato obligatorio de cada día (sin asteriscos ni #):\n'
+            '📅 Jueves:\n'
+            '🌅 Desayuno: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '🍽️ Comida: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '🌙 Cena: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad.\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE Jueves, Viernes y Sabado. '
             'PROHIBIDO incluir Lunes, Martes, Miercoles o Domingo. '
-            'Empieza directamente con *Jueves:* Cada dia: Desayuno, Comida y Cena. '
+            'Empieza directamente con 📅 Jueves: Cada dia: Desayuno, Comida y Cena. '
+            'Prohibido markdown (# * ** viñetas con guión). '
             'Termina exactamente en la Cena del Sabado. Sin texto antes ni despues. '
             + perfil
         )
         prompt3 = (
-            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la palabra *Domingo:* como primera palabra. '
+            'INSTRUCCIÓN ABSOLUTA: Tu respuesta debe empezar EXACTAMENTE con la línea "📅 Domingo:" como primera línea. '
             'Nada antes. Genera SOLO el Domingo con Desayuno, Comida y Cena. '
-            'Formato obligatorio:\n'
-            '*Domingo:*\n'
-            '*Desayuno:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
-            '*Comida:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
-            '*Cena:* [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            'Formato obligatorio (sin asteriscos ni #):\n'
+            '📅 Domingo:\n'
+            '🌅 Desayuno: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '🍽️ Comida: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
+            '🌙 Cena: [descripción con pesos] | Kcal: X | P: Xg | C: Xg | G: Xg\n'
             '💧 Agua recomendada: ' + str(agua_litros) + ' litros según peso y actividad.\n'
             'Eres ZIA nutricionista. INSTRUCCION ESTRICTA: Genera UNICAMENTE el Domingo. '
             'PROHIBIDO incluir cualquier otro dia de la semana. '
             'PROHIBIDO incluir lista de la compra o precios. '
-            'Empieza directamente con *Domingo:* con Desayuno, Comida y Cena. '
+            'Empieza directamente con 📅 Domingo: con Desayuno, Comida y Cena. '
+            'Prohibido markdown (# * ** viñetas con guión). '
             'Termina exactamente en la Cena del Domingo. Sin texto antes ni despues. '
             + perfil
         )
@@ -1956,6 +2026,7 @@ class ZiaEngine:
             'El TOTAL ESTIMADO NO puede superar ' + presupuesto + ' euros. '
             'Si los productos superan el presupuesto reduce cantidades o elige alternativas mas baratas. '
             'PROHIBIDO incluir especias, condimentos o aliños. '
+            'Sin markdown (# * ** ni guiones como viñetas); usa emojis por sección. '
             'Organiza por secciones EXACTAMENTE asi con cantidades y precios para ' + super_nombre + ': '
             '🥩 Proteínas, 🥦 Verduras y hortalizas, 🍎 Frutas, 🌾 Cereales y legumbres, 🥚 Lácteos y huevos, 🫙 Otros. '
             'Termina con TOTAL ESTIMADO (debe ser menor o igual a ' + presupuesto + ' euros). '
@@ -1993,7 +2064,11 @@ class ZiaEngine:
         lunes_mie = _call(prompt1, 650).rstrip()
         jue_sab = _call(prompt2, 650).rstrip()
         domingo = _call(prompt3, 450).rstrip() + suffix3
-        lista_system = 'Eres ZIA nutricionista. Genera SOLO la lista de la compra organizada por categorías con cantidades y precios. Sin motivación ni texto extra.'
+        lista_system = (
+            'Eres ZIA nutricionista. Genera SOLO la lista de la compra organizada por categorías con cantidades y precios. '
+            'Texto plano para WhatsApp: prohibido markdown (# * ** viñetas con guión). Usa emojis por sección. '
+            'Sin motivación ni texto extra.'
+        )
         lista = _call(prompt4, 1000, lista_system).rstrip() + suffix4
         partes = [lunes_mie, jue_sab, domingo, lista]
         print('ZIA plan partes generadas:', len(partes))
@@ -2080,7 +2155,12 @@ class ZiaEngine:
                     messages=[
                         {
                             'role': 'system',
-                            'content': 'Eres ZIA, nutricionista experta Y coach motivacional. Respondes siempre con empatía, sin juzgar, con soluciones concretas y prácticas. Tono cercano, motivador y experto. Máximo 150 palabras. Emojis.',
+                            'content': (
+                                'Eres ZIA, nutricionista experta Y coach motivacional. Respondes siempre con empatía, '
+                                'sin juzgar, con soluciones concretas y prácticas. Tono cercano, motivador y experto. '
+                                'Máximo 150 palabras. Emojis. Texto plano para WhatsApp: sin markdown (# * ** '
+                                'ni viñetas con guión).'
+                            ),
                         },
                         {'role': 'user', 'content': special_prompt},
                     ],
