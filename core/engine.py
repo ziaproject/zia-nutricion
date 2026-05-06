@@ -302,41 +302,76 @@ class ZiaEngine:
     def _texto_pregunta_supermercado_onboarding(self):
         return (
             '🏪 En que supermercado sueles comprar?\n\n'
-            '  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n'
-            '  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n'
+            '1️⃣ Mercadona\n'
+            '2️⃣ Lidl\n'
+            '3️⃣ Aldi\n'
+            '4️⃣ Carrefour\n'
+            '5️⃣ Dia\n'
+            '6️⃣ Consum\n'
+            '7️⃣ Supercor\n'
+            '8️⃣ El Corte Ingles\n\n'
             'O escribe el nombre directamente'
         )
+
+    def _aviso_supermercado_debe_ser_uno(self, m):
+        if self._mensaje_indica_varios_supermercados(m):
+            return (
+                'Para darte el mejor plan posible necesito que elijas solo uno 🛒 ¿Cuál es tu supermercado principal?\n\n'
+                + self._texto_pregunta_supermercado_onboarding()
+            )
+        return None
 
     def _supermercado_ids_mencionados(self, m):
         ml = normalize_text(m or '')
         ids = set()
         if 'el corte ingles' in ml or 'corte ingles' in ml:
             ids.add('corte')
-        if re.search(r'\bmercadona\b', ml) or re.search(r'\bmerca\b', ml):
-            ids.add('mercadona')
-        if re.search(r'\bcarrefour\b', ml) or re.search(r'\bcarrefur\b', ml) or re.search(r'\bcarre\b', ml):
-            ids.add('carrefour')
-        if re.search(r'\blidl\b', ml):
-            ids.add('lidl')
-        if re.search(r'\baldi\b', ml):
-            ids.add('aldi')
+        for sub, sid in (
+            ('mercadona', 'mercadona'),
+            ('lidl', 'lidl'),
+            ('aldi', 'aldi'),
+            ('carrefour', 'carrefour'),
+            ('carrefur', 'carrefour'),
+            ('supercor', 'supercor'),
+        ):
+            if sub in ml:
+                ids.add(sid)
+        if re.search(r'(^|[^a-z0-9])consum([^a-z0-9]|$)', ml):
+            ids.add('consum')
         if re.search(r'\bdia\b', ml) or re.search(r'\bdiper\b', ml):
             ids.add('dia')
-        if re.search(r'\bconsum\b', ml):
-            ids.add('consum')
-        if re.search(r'\bsupercor\b', ml):
-            ids.add('supercor')
+        if re.search(r'\bmerca\b', ml):
+            ids.add('mercadona')
+        if re.search(r'\bcarre\b', ml):
+            ids.add('carrefour')
         return ids
 
     def _mensaje_indica_varios_supermercados(self, m):
         raw = (m or '').strip()
         if not raw:
             return False
+        ml = normalize_text(raw)
         ids = self._supermercado_ids_mencionados(m)
         digs = set(re.findall(r'\b([1-8])\b', raw))
         if len(ids) >= 2 or len(digs) >= 2:
             return True
         if len(ids) >= 1 and len(digs) >= 1:
+            return True
+        chunks = [
+            p.strip()
+            for p in re.split(
+                r'(?:\s*,\s*|\s+y\s+|\s+e\s+|\s*/\s*|\s*\+\s*|\s+o\s+|\s+ó\s+)',
+                ml,
+                0,
+                re.I,
+            )
+            if p.strip()
+        ]
+        nchunks = 0
+        for ch in chunks:
+            if self._supermercado_ids_mencionados(ch):
+                nchunks += 1
+        if nchunks >= 2:
             return True
         return False
 
@@ -457,14 +492,16 @@ class ZiaEngine:
                 elegido = 'Mejorar la digestion'
         return elegido
 
+    def _texto_pregunta_objetivo_onboarding(self):
+        return '¿Cuál es vuestro objetivo principal? 🎯\n\n' + self._texto_opciones_objetivo()
+
     def _pregunta_familia_cuantos_text(self):
         return (
             '¿Cuántas personas sois?\n\n'
             '2️⃣ Dos\n'
             '3️⃣ Tres\n'
             '4️⃣ Cuatro\n'
-            '➕ Más de 4\n\n'
-            '(2, 3, 4, 5… o escribe "más de 4")'
+            '➕ Más de 4'
         )
 
     def _ensure_grupo_nutricion_defaults(self, data):
@@ -815,8 +852,7 @@ class ZiaEngine:
             '🥜 Alergia a frutos secos\n'
             '🦐 Alergia al marisco\n'
             '🐟 Sin pescado\n'
-            '✏️ Otra (escríbela)\n'
-            'Puedes elegir varias separadas por coma.'
+            '✏️ Otra opción'
         )
 
     def _parse_restricciones_combinadas(self, m):
@@ -932,8 +968,7 @@ class ZiaEngine:
             'Para quien es el plan?\n\n'
             '👤 Plan individual\n'
             '👫 Plan pareja\n'
-            '👨‍👩‍👧 Plan familiar\n\n'
-            '(Responde 1, 2 o 3, o el emoji / nombre de la opción)'
+            '👨‍👩‍👧 Plan familiar'
         )
 
     def _gpt_libre_same_state(self, message, u, state):
@@ -1090,8 +1125,7 @@ class ZiaEngine:
             return (
                 '¿Tenéis los mismos objetivos?\n\n'
                 '✅ Sí, los mismos\n'
-                '🔀 No, son diferentes\n\n'
-                '(1 = Sí, 2 = No o descríbelo con tus palabras)'
+                '🔀 No, son diferentes'
             )
         elif s == 'pareja_horario':
             u['state'] = 'pareja_mismos_objetivos'
@@ -1099,8 +1133,7 @@ class ZiaEngine:
                 'Seguimos con unas preguntas más rápidas 👇\n\n'
                 '¿Tenéis los mismos objetivos?\n\n'
                 '✅ Sí, los mismos\n'
-                '🔀 No, son diferentes\n\n'
-                '(1 = Sí, 2 = No)'
+                '🔀 No, son diferentes'
             )
         elif s == 'pareja_mismos_objetivos':
             ml = normalize_text(m)
@@ -1108,24 +1141,15 @@ class ZiaEngine:
             if mn == '1' or ml in ('si', 'sí', 'mismos', 'mismo', 'iguales', 'igual', 'los mismos', 'misma', 'claro') or '✅' in (m or ''):
                 u['data']['pareja_mismos_objetivos'] = 'si'
                 u['state'] = 'pareja_objetivo_shared'
-                return (
-                    '¿Cuál es vuestro objetivo principal? 🎯\n\n'
-                    + self._texto_opciones_objetivo()
-                    + '\n\n(Responde 1-5 o descríbelo con tus palabras)'
-                )
+                return self._texto_pregunta_objetivo_onboarding()
             if mn == '2' or ml in ('no', 'distintos', 'distinto', 'diferentes', 'diferente') or '🔀' in (m or ''):
                 u['data']['pareja_mismos_objetivos'] = 'no'
                 u['state'] = 'pareja_objetivo_a'
-                return (
-                    'Objetivo de la primera persona 🎯\n\n'
-                    + self._texto_opciones_objetivo()
-                    + '\n\n(Responde 1-5 o texto libre)'
-                )
+                return 'Objetivo de la primera persona 🎯\n\n' + self._texto_opciones_objetivo()
             return (
                 '¿Tenéis los mismos objetivos?\n\n'
                 '✅ Sí, los mismos\n'
-                '🔀 No, son diferentes\n\n'
-                '(1 = Sí, 2 = No o descríbelo con tus palabras)'
+                '🔀 No, son diferentes'
             )
         elif s == 'pareja_objetivo_shared':
             elegido = self._parse_objetivo_opcion(m)
@@ -1146,21 +1170,17 @@ class ZiaEngine:
             elegido = self._parse_objetivo_opcion(m)
             if not elegido:
                 return (
-                    '¡Casi! Elige objetivo (1-5) 😊\n\n'
+                    '¡Casi! Elige una opción 😊\n\n'
                     + self._texto_opciones_objetivo()
                 )
             u['data']['objetivo'] = elegido
             u['state'] = 'pareja_objetivo_b'
-            return (
-                'Objetivo de la segunda persona 🎯\n\n'
-                + self._texto_opciones_objetivo()
-                + '\n\n(Responde 1-5 o texto libre)'
-            )
+            return 'Objetivo de la segunda persona 🎯\n\n' + self._texto_opciones_objetivo()
         elif s == 'pareja_objetivo_b':
             elegido = self._parse_objetivo_opcion(m)
             if not elegido:
                 return (
-                    '¡Casi! Elige objetivo (1-5) 😊\n\n'
+                    '¡Casi! Elige una opción 😊\n\n'
                     + self._texto_opciones_objetivo()
                 )
             u['data']['objetivo_pareja'] = elegido
@@ -1213,8 +1233,7 @@ class ZiaEngine:
             return (
                 '¿Hay niños menores de 12 años?\n\n'
                 '👶 Sí\n'
-                '🙅 No\n\n'
-                '(1 = Sí, 2 = No o escribe sí/no)'
+                '🙅 No'
             )
         elif s == 'familia_ninos':
             ml = normalize_text(m)
@@ -1254,8 +1273,7 @@ class ZiaEngine:
                 return (
                     '¡Casi! ¿Hay niños menores de 12 años?\n\n'
                     '👶 Sí\n'
-                    '🙅 No\n\n'
-                    '(1 = Sí, 2 = No)'
+                    '🙅 No'
                 )
             np = u['data'].get('num_personas', 3)
             u['data']['familia_ninos_menores'] = 'si' if si else 'no'
@@ -1266,8 +1284,8 @@ class ZiaEngine:
                 + ('Con' if si else 'Sin')
                 + ' niños menores de 12 años en el hogar.'
             )
-            u['state'] = 'restricciones'
-            return self._restricciones_combinadas_pregunta_text()
+            u['state'] = 'objetivo'
+            return self._texto_pregunta_objetivo_onboarding()
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
@@ -1282,7 +1300,7 @@ class ZiaEngine:
             nombre = u['data'].get('nombre', '')
             if u['data'].get('personas'):
                 u['state'] = 'objetivo'
-                return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
+                return self._texto_pregunta_objetivo_onboarding()
             u['state'] = 'personas'
             return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
         elif s == 'personas':
@@ -1317,11 +1335,14 @@ class ZiaEngine:
             else:
                 u['data']['num_personas'] = 4
             u['state'] = 'objetivo'
-            return 'Cual es vuestro objetivo principal? 🎯\n\n  1️⃣ Perder peso\n  2️⃣ Ganar musculo\n  3️⃣ Mas energia y vitalidad\n  4️⃣ Comer mas sano y natural\n  5️⃣ Mejorar la digestion'
+            return self._texto_pregunta_objetivo_onboarding()
         elif s == 'objetivo':
             elegido = self._parse_objetivo_opcion(m)
             if not elegido:
-                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n1️⃣ Perder peso\n2️⃣ Ganar musculo\n3️⃣ Mas energia\n4️⃣ Comer mas sano\n5️⃣ Mejorar digestion'
+                return (
+                    '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n'
+                    + self._texto_opciones_objetivo()
+                )
             u['data']['objetivo'] = elegido
             u['state'] = 'pasos'
             return '¿Cuánto ejercicio haces? 🏃\n1️⃣ Nada o casi nada\n2️⃣ 1-2 días por semana\n3️⃣ 3-4 días por semana\n4️⃣ Todos los días'
@@ -1406,11 +1427,9 @@ class ZiaEngine:
             u['state'] = 'supermercado'
             return self._texto_pregunta_supermercado_onboarding()
         elif s == 'supermercado':
-            if self._mensaje_indica_varios_supermercados(m):
-                return (
-                    'Para darte el mejor plan posible, necesito que elijas solo uno 🛒 ¿Cuál es tu supermercado principal?\n\n'
-                    + self._texto_pregunta_supermercado_onboarding()
-                )
+            av = self._aviso_supermercado_debe_ser_uno(m)
+            if av:
+                return av
             super_nombre = self._supermercado_nombre(m)
             u['data']['supermercado'] = super_nombre
             u['state'] = 'plan_listo'
@@ -1478,6 +1497,9 @@ class ZiaEngine:
                 'el corte ingles': 'https://www.elcorteingles.es/supermercado',
                 'el corte inglés': 'https://www.elcorteingles.es/supermercado',
             }
+            av = self._aviso_supermercado_debe_ser_uno(m)
+            if av:
+                return av
             super_key_pl = normalize_text(m)
             if super_key_pl in SUPER_URLS:
                 url = SUPER_URLS.get(super_key_pl, 'https://tienda.mercadona.es')
@@ -1561,19 +1583,19 @@ class ZiaEngine:
                 u['state'] = 'eligiendo_super'
                 return '\n'.join(lineas)
             else:
+                av = self._aviso_supermercado_debe_ser_uno(m)
+                if av:
+                    return av
                 return self._gpt_libre(message if isinstance(message, dict) else m, u)
-        elif s == 'menu_esperando_perfil':
             campo = u['data'].get('_menu_campo_perfil')
             accion = u['data'].get('_menu_accion_pendiente')
             req_bio = u['data'].get('_menu_requiere_bio', False)
             if not campo or not accion:
                 u['state'] = 'menu_principal'
                 return self._menu_principal_text(u['data'])
-            if campo == 'supermercado' and self._mensaje_indica_varios_supermercados(m):
-                return (
-                    'Para darte el mejor plan posible, necesito que elijas solo uno 🛒 ¿Cuál es tu supermercado principal?\n\n'
-                    + self._texto_pregunta_supermercado_onboarding()
-                )
+            av = self._aviso_supermercado_debe_ser_uno(m)
+            if campo == 'supermercado' and av:
+                return av
             if not self._guardar_campo_perfil_menu(u, m, campo):
                 return (
                     self._pregunta_campo_perfil(campo)
@@ -1773,6 +1795,9 @@ class ZiaEngine:
                 return 'Cuéntame cómo te has sentido esta semana 💬 ¿Seguiste el plan? ¿Energía, digestión, ánimo?'
             return self._gpt_libre_same_state(message if isinstance(message, dict) else m, u, 'mejorar')
         elif s == 'eligiendo_super':
+            av = self._aviso_supermercado_debe_ser_uno(m)
+            if av:
+                return av
             SUPER_URLS = {
                 'mercadona': 'https://tienda.mercadona.es',
                 'lidl': 'https://www.lidl.es',
