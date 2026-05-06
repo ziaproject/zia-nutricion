@@ -299,6 +299,47 @@ class ZiaEngine:
             return super_map[dmen]
         return super_map.get(norm, raw)
 
+    def _texto_pregunta_supermercado_onboarding(self):
+        return (
+            '🏪 En que supermercado sueles comprar?\n\n'
+            '  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n'
+            '  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n'
+            'O escribe el nombre directamente'
+        )
+
+    def _supermercado_ids_mencionados(self, m):
+        ml = normalize_text(m or '')
+        ids = set()
+        if 'el corte ingles' in ml or 'corte ingles' in ml:
+            ids.add('corte')
+        if re.search(r'\bmercadona\b', ml) or re.search(r'\bmerca\b', ml):
+            ids.add('mercadona')
+        if re.search(r'\bcarrefour\b', ml) or re.search(r'\bcarrefur\b', ml) or re.search(r'\bcarre\b', ml):
+            ids.add('carrefour')
+        if re.search(r'\blidl\b', ml):
+            ids.add('lidl')
+        if re.search(r'\baldi\b', ml):
+            ids.add('aldi')
+        if re.search(r'\bdia\b', ml) or re.search(r'\bdiper\b', ml):
+            ids.add('dia')
+        if re.search(r'\bconsum\b', ml):
+            ids.add('consum')
+        if re.search(r'\bsupercor\b', ml):
+            ids.add('supercor')
+        return ids
+
+    def _mensaje_indica_varios_supermercados(self, m):
+        raw = (m or '').strip()
+        if not raw:
+            return False
+        ids = self._supermercado_ids_mencionados(m)
+        digs = set(re.findall(r'\b([1-8])\b', raw))
+        if len(ids) >= 2 or len(digs) >= 2:
+            return True
+        if len(ids) >= 1 and len(digs) >= 1:
+            return True
+        return False
+
     def _marca_blanca_instruccion_ahorro(self, super_nombre):
         """Texto para el prompt de lista económica: marca blanca por cadena o productos baratos de temporada."""
         s = (super_nombre or '').strip()
@@ -1363,13 +1404,13 @@ class ZiaEngine:
             nums = re.findall(r'\d+', m)
             u['data']['presupuesto'] = nums[0] if nums else '65'
             u['state'] = 'supermercado'
-            return (
-                '🏪 En que supermercado sueles comprar?\n\n'
-                '  1️⃣ Mercadona\n  2️⃣ Lidl\n  3️⃣ Aldi\n  4️⃣ Carrefour\n'
-                '  5️⃣ Dia\n  6️⃣ Consum\n  7️⃣ Supercor\n  8️⃣ El Corte Ingles\n\n'
-                'O escribe el nombre directamente'
-            )
+            return self._texto_pregunta_supermercado_onboarding()
         elif s == 'supermercado':
+            if self._mensaje_indica_varios_supermercados(m):
+                return (
+                    'Para darte el mejor plan posible, necesito que elijas solo uno 🛒 ¿Cuál es tu supermercado principal?\n\n'
+                    + self._texto_pregunta_supermercado_onboarding()
+                )
             super_nombre = self._supermercado_nombre(m)
             u['data']['supermercado'] = super_nombre
             u['state'] = 'plan_listo'
@@ -1528,6 +1569,11 @@ class ZiaEngine:
             if not campo or not accion:
                 u['state'] = 'menu_principal'
                 return self._menu_principal_text(u['data'])
+            if campo == 'supermercado' and self._mensaje_indica_varios_supermercados(m):
+                return (
+                    'Para darte el mejor plan posible, necesito que elijas solo uno 🛒 ¿Cuál es tu supermercado principal?\n\n'
+                    + self._texto_pregunta_supermercado_onboarding()
+                )
             if not self._guardar_campo_perfil_menu(u, m, campo):
                 return (
                     self._pregunta_campo_perfil(campo)
