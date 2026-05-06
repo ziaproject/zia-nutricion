@@ -240,6 +240,7 @@ class ZiaEngine:
         self._users[key] = self._default_user()
         self._users[key]['plan_count'] = count
         self._save_user(uid, self._users[key])
+                _sync_supabase(uid, self._users[key])
 
     def get_welcome_message(self):
         return self.config['bot']['welcome_message']
