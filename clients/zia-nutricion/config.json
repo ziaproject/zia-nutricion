@@ -111,7 +111,7 @@
     },
     "supabase": {
       "enabled": true,
-      "table_users": "users",
+      "table_users": "usuarios",
       "table_conversations": "conversations"
     }
   },
