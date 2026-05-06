@@ -260,11 +260,17 @@ class ZiaEngine:
     def _profile_for_prompt(self, data):
         descripcion = data.get('descripcion_grupo', '').strip()
         if descripcion and data.get('personas') != '1 persona':
+            partes = [descripcion]
+            obj_g = (data.get('objetivo') or '').strip()
+            if obj_g:
+                partes.append('Objetivo(s): ' + obj_g + '.')
+            rn = (data.get('restricciones_ninos') or '').strip()
+            if rn and normalize_text(rn) not in ('ninguna', 'no', 'nada'):
+                partes.append('Restricciones/alergias de menores: ' + rn + '.')
             rtxt = (data.get('restricciones') or '').strip()
-            suf = ''
             if rtxt and normalize_text(rtxt) not in ('ninguna', 'no'):
-                suf = ' Restricciones/alergias: ' + rtxt + '.'
-            return descripcion + suf
+                partes.append('Restricciones/alergias del grupo: ' + rtxt + '.')
+            return ' '.join(partes)
         partes = [
             data.get('nombre', ''),
             data.get('genero', ''),
@@ -316,7 +322,7 @@ class ZiaEngine:
     def _aviso_supermercado_debe_ser_uno(self, m):
         if self._mensaje_indica_varios_supermercados(m):
             return (
-                'Para darte el mejor plan posible necesito que elijas solo uno 🛒 ¿Cuál es tu supermercado principal?\n\n'
+                'Para darte el mejor plan necesito que elijas solo uno 🛒 ¿Cuál es tu supermercado principal?\n\n'
                 + self._texto_pregunta_supermercado_onboarding()
             )
         return None
@@ -493,7 +499,213 @@ class ZiaEngine:
         return elegido
 
     def _texto_pregunta_objetivo_onboarding(self):
-        return '¿Cuál es vuestro objetivo principal? 🎯\n\n' + self._texto_opciones_objetivo()
+        return '¿Cuál es tu objetivo principal? 🎯\n\n' + self._texto_opciones_objetivo()
+
+    def _texto_pregunta_objetivo_familia(self):
+        return (
+            '¿Cuál es vuestro objetivo principal? 🎯 Podéis elegir varios separados por comas o por «y».\n\n'
+            + self._texto_opciones_objetivo()
+        )
+
+    def _es_plan_familia(self, data):
+        p = (data.get('personas') or '')
+        return p.startswith('familia') or 'plan familiar' in normalize_text(p)
+
+    def _labels_objetivo_display(self):
+        return {
+            'Perder peso': 'Perder peso',
+            'Ganar musculo': 'Ganar músculo',
+            'Mas energia y vitalidad': 'Más energía y vitalidad',
+            'Comer mas sano': 'Comer más sano y natural',
+            'Mejorar la digestion': 'Mejorar la digestión',
+        }
+
+    def _parse_objetivos_familia_multiples(self, m):
+        raw = (m or '').strip()
+        if not raw:
+            return None
+        pretty_map = self._labels_objetivo_display()
+        inner_opts = {
+            '1': 'Perder peso',
+            '2': 'Ganar musculo',
+            '3': 'Mas energia y vitalidad',
+            '4': 'Comer mas sano',
+            '5': 'Mejorar la digestion',
+        }
+        segs = []
+        for chunk in re.split(r'\s*,\s*|\s*/\s*', raw):
+            for sub in re.split(r'\s+y\s+', chunk, flags=re.I):
+                t = sub.strip()
+                if t:
+                    segs.append(t)
+        picked = []
+        for seg in segs:
+            sraw = seg.strip()
+            one = self._parse_objetivo_opcion(sraw)
+            if one:
+                disp = pretty_map.get(one, one)
+                if disp not in picked:
+                    picked.append(disp)
+                continue
+            for d in sorted(set(re.findall(r'[1-5]', sraw)), key=int):
+                one_i = inner_opts.get(d)
+                if one_i:
+                    disp = pretty_map.get(one_i, one_i)
+                    if disp not in picked:
+                        picked.append(disp)
+        if picked:
+            return ' y '.join(picked)
+        one = self._parse_objetivo_opcion(raw)
+        if one:
+            return pretty_map.get(one, one)
+        if len(raw) >= 2:
+            return raw
+        return None
+
+    def _texto_familia_num_ninos(self):
+        return (
+            '¿Cuántos niños?\n\n'
+            '1️⃣ Uno\n'
+            '2️⃣ Dos\n'
+            '3️⃣ Tres o más'
+        )
+
+    def _parse_familia_num_ninos(self, m):
+        raw = (m or '').strip()
+        if not raw:
+            return None
+        ml = normalize_text(m)
+        mn = self._menu_opcion_numero(m, max_digit=3)
+        if mn == '1' or ml in ('uno', 'una', '1 nino', '1 niño', 'un nino', 'un niño', 'solo uno'):
+            return '1'
+        if mn == '2' or ml == 'dos' or '2 ninos' in ml or '2 niños' in ml:
+            return '2'
+        if (
+            mn == '3'
+            or ml in ('tres', 'mas', 'más')
+            or 'tres o mas' in ml
+            or '3 o mas' in ml
+            or 'cuatro' in ml
+            or 'cinco' in ml
+        ):
+            return '3+'
+        mo = re.search(r'\b(\d+)\b', raw)
+        if mo:
+            v = int(mo.group(1))
+            if v == 1:
+                return '1'
+            if v == 2:
+                return '2'
+            if v >= 3:
+                return '3+'
+        return None
+
+    def _texto_familia_restricciones_ninos(self):
+        return (
+            '¿Algún niño tiene restricción alimentaria?\n\n'
+            '✅ No, ninguna\n'
+            '🌾 Sin gluten\n'
+            '🥛 Sin lactosa\n'
+            '🥜 Alergia a frutos secos\n'
+            '✏️ Otra'
+        )
+
+    def _parse_restricciones_ninos(self, m):
+        raw = (m or '').strip()
+        if not raw:
+            return None
+        ml = normalize_text(m)
+        mn = self._menu_opcion_numero(m, max_digit=5)
+        tags = []
+        if mn == '2' or 'gluten' in ml or 'celia' in ml or 'celiac' in ml:
+            tags.append('Sin gluten')
+        if mn == '3' or 'lactosa' in ml or 'lacteo' in ml or 'sin leche' in ml:
+            tags.append('Sin lactosa')
+        if mn == '4' or 'frutos secos' in ml or 'cacahuet' in ml or 'nueces' in ml or 'almendra' in ml:
+            tags.append('Alergia a frutos secos')
+        if mn == '5':
+            rest = raw.split('\n')[0].strip()
+            if len(rest) > 2:
+                return 'Otra: ' + rest
+        if any(w in ml for w in ('huevo', 'marisco', 'pescado', 'vegano', 'vegetarian')):
+            if len(raw) > 2:
+                return 'Otra: ' + raw[:200]
+        if tags:
+            return ', '.join(dict.fromkeys(tags))
+        if mn == '1' or any(
+            w in ml
+            for w in (
+                'ninguna',
+                'no ninguna',
+                'no hay',
+                'ninguno',
+                'sin problema',
+                'todo bien',
+                'nada',
+                'sin restriccion',
+                'sin restricción',
+            )
+        ) or ml in ('no', 'nop'):
+            return 'Ninguna'
+        if len(raw) > 2:
+            return 'Otra: ' + raw[:200]
+        return 'Ninguna'
+
+    def _texto_familia_actividad(self):
+        return (
+            '¿Soléis hacer actividad física en familia? 🏃\n\n'
+            '1️⃣ Poco o nada\n'
+            '2️⃣ Alguna vez\n'
+            '3️⃣ Sí, regularmente'
+        )
+
+    def _parse_familia_actividad(self, m):
+        raw = (m or '').strip()
+        if not raw:
+            return None, None
+        ml = normalize_text(m)
+        mn = self._menu_opcion_numero(m, max_digit=3)
+        if mn == '1' or any(
+            w in ml for w in ('nada', 'casi nada', 'poco', 'sedentario', 'no hacemos', 'nos movemos poco')
+        ):
+            return 'Poco o nada en familia', 'sedentario'
+        if mn == '2' or any(
+            w in ml
+            for w in (
+                'alguna',
+                'aveces',
+                'a veces',
+                'de vez',
+                'poco a poco',
+                'ocasional',
+                'fines de semana',
+                'fin de semana',
+            )
+        ):
+            return 'Actividad familiar ocasional', 'moderado'
+        if mn == '3' or any(
+            w in ml for w in ('regular', 'mucho', 'siempre', 'casi todos', 'varios dias', 'a diario', 'entrena')
+        ):
+            return 'Actividad familiar regular', 'activo'
+        if len(raw) > 2:
+            return raw[:120], 'moderado'
+        return None, None
+
+    def _actualizar_descripcion_grupo_familia(self, data):
+        np = data.get('num_personas', '')
+        kids = data.get('familia_ninos_menores', 'no')
+        lineas = ['Familia de ' + str(np) + ' personas.']
+        if kids == 'si':
+            lineas.append('Con niños menores de 12 años.')
+            nn = data.get('num_ninos', '')
+            if nn:
+                lineas.append('Número de niños: ' + str(nn) + '.')
+            rn = (data.get('restricciones_ninos') or '').strip()
+            if rn and normalize_text(rn) not in ('ninguna', 'no', 'nada'):
+                lineas.append('Restricciones de menores: ' + rn + '.')
+        else:
+            lineas.append('Sin niños menores de 12 años en el hogar.')
+        data['descripcion_grupo'] = ' '.join(lineas)
 
     def _pregunta_familia_cuantos_text(self):
         return (
@@ -562,10 +774,10 @@ class ZiaEngine:
             ),
             'cocina': (
                 '¿Cómo es tu relación con la cocina? 🍳\n\n'
-                '⚡ Poco tiempo, recetas rápidas (máx 15 min)\n'
-                '🛋️ Cocina para vagos (precocinados y listos)\n'
+                '⚡ Poco tiempo, recetas rápidas\n'
+                '🛋️ Cocina para vagos\n'
                 '👨‍🍳 Me gusta cocinar\n'
-                '📦 Batch cooking (preparo el domingo)'
+                '📦 Batch cooking'
             ),
             'presupuesto': (
                 '¿Cuánto quieres gastar a la semana en la compra? 💶\n'
@@ -1077,6 +1289,7 @@ class ZiaEngine:
             ):
                 u['data']['personas'] = 'plan familiar'
                 u['data'].pop('num_personas', None)
+                u['data']['_familia_detalle'] = True
                 u['state'] = 'familia_cuantos'
                 return self._pregunta_familia_cuantos_text()
             if (
@@ -1153,6 +1366,8 @@ class ZiaEngine:
             )
         elif s == 'pareja_objetivo_shared':
             elegido = self._parse_objetivo_opcion(m)
+            if not elegido and len((m or '').strip()) >= 3:
+                elegido = (m or '').strip()[:200]
             if not elegido:
                 return (
                     '¡Casi! Elige una opción 😊\n\n'
@@ -1168,6 +1383,8 @@ class ZiaEngine:
             )
         elif s == 'pareja_objetivo_a':
             elegido = self._parse_objetivo_opcion(m)
+            if not elegido and len((m or '').strip()) >= 3:
+                elegido = (m or '').strip()[:200]
             if not elegido:
                 return (
                     '¡Casi! Elige una opción 😊\n\n'
@@ -1178,6 +1395,8 @@ class ZiaEngine:
             return 'Objetivo de la segunda persona 🎯\n\n' + self._texto_opciones_objetivo()
         elif s == 'pareja_objetivo_b':
             elegido = self._parse_objetivo_opcion(m)
+            if not elegido and len((m or '').strip()) >= 3:
+                elegido = (m or '').strip()[:200]
             if not elegido:
                 return (
                     '¡Casi! Elige una opción 😊\n\n'
@@ -1191,6 +1410,7 @@ class ZiaEngine:
                 'Escribe la cantidad en euros, ej: 60'
             )
         elif s == 'datos_familia':
+            u['data']['_familia_detalle'] = True
             u['state'] = 'familia_cuantos'
             return (
                 'Vale, vamos con el formato nuevo 👇\n\n'
@@ -1275,17 +1495,45 @@ class ZiaEngine:
                     '👶 Sí\n'
                     '🙅 No'
                 )
-            np = u['data'].get('num_personas', 3)
             u['data']['familia_ninos_menores'] = 'si' if si else 'no'
-            u['data']['descripcion_grupo'] = (
-                'Familia de '
-                + str(np)
-                + ' personas. '
-                + ('Con' if si else 'Sin')
-                + ' niños menores de 12 años en el hogar.'
-            )
+            if si:
+                u['state'] = 'familia_num_ninos'
+                return self._texto_familia_num_ninos()
+            u['data']['num_ninos'] = '0'
+            u['data']['restricciones_ninos'] = 'Ninguna'
+            self._actualizar_descripcion_grupo_familia(u['data'])
             u['state'] = 'objetivo'
-            return self._texto_pregunta_objetivo_onboarding()
+            return self._texto_pregunta_objetivo_familia()
+        elif s == 'familia_num_ninos':
+            nn = self._parse_familia_num_ninos(m)
+            if not nn:
+                return '¡Casi! Indica cuántos niños hay 😊\n\n' + self._texto_familia_num_ninos()
+            u['data']['num_ninos'] = nn
+            u['state'] = 'familia_restricciones_ninos'
+            return self._texto_familia_restricciones_ninos()
+        elif s == 'familia_restricciones_ninos':
+            r = self._parse_restricciones_ninos(m)
+            if r is None:
+                return '¡Casi! ¿Alguna restricción entre los peques?\n\n' + self._texto_familia_restricciones_ninos()
+            u['data']['restricciones_ninos'] = r
+            self._actualizar_descripcion_grupo_familia(u['data'])
+            u['state'] = 'objetivo'
+            return self._texto_pregunta_objetivo_familia()
+        elif s == 'familia_actividad':
+            act, tag = self._parse_familia_actividad(m)
+            if not act:
+                return '¡Casi! ¿Cuál se acerca más? 😊\n\n' + self._texto_familia_actividad()
+            u['data']['actividad'] = act
+            u['data']['actividad_tag'] = tag or 'moderado'
+            u['state'] = 'cocina'
+            return (
+                'Perfecto 🙌\n\n'
+                + '¿Cómo es tu relación con la cocina? 🍳\n\n'
+                '⚡ Poco tiempo, recetas rápidas\n'
+                '🛋️ Cocina para vagos\n'
+                '👨‍🍳 Me gusta cocinar\n'
+                '📦 Batch cooking'
+            )
         elif s == 'datos':
             parsed = parse_datos(m)
             missing = faltan_datos(parsed)
@@ -1300,6 +1548,8 @@ class ZiaEngine:
             nombre = u['data'].get('nombre', '')
             if u['data'].get('personas'):
                 u['state'] = 'objetivo'
+                if self._es_plan_familia(u['data']):
+                    return self._texto_pregunta_objetivo_familia()
                 return self._texto_pregunta_objetivo_onboarding()
             u['state'] = 'personas'
             return 'Perfecto' + (', ' + nombre if nombre else '') + '! 💪\n\nEl plan nutricional es para...\n\n  👤 Solo para mi\n  👫 Para 2 personas (pareja o amigo/a)\n  👨‍👩‍👧‍👦 Familiar (3 o mas personas)'
@@ -1334,19 +1584,34 @@ class ZiaEngine:
                 u['data']['num_personas'] = 2
             else:
                 u['data']['num_personas'] = 4
+                u['data']['familia_ninos_menores'] = 'no'
+                u['data']['num_ninos'] = '0'
+                u['data']['restricciones_ninos'] = 'Ninguna'
+                u['data']['descripcion_grupo'] = 'Familia de 4 personas indicadas en el perfil.'
             u['state'] = 'objetivo'
+            if self._es_plan_familia(u['data']):
+                return self._texto_pregunta_objetivo_familia()
             return self._texto_pregunta_objetivo_onboarding()
         elif s == 'objetivo':
-            elegido = self._parse_objetivo_opcion(m)
+            es_fam = self._es_plan_familia(u['data'])
+            if es_fam:
+                elegido = self._parse_objetivos_familia_multiples(m)
+            else:
+                elegido = self._parse_objetivo_opcion(m)
+                if not elegido and len((m or '').strip()) >= 3:
+                    elegido = (m or '').strip()[:200]
             if not elegido:
-                return (
-                    '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n'
-                    + self._texto_opciones_objetivo()
-                )
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n' + self._texto_opciones_objetivo()
             u['data']['objetivo'] = elegido
+            if es_fam:
+                u['state'] = 'familia_actividad'
+                return self._texto_familia_actividad()
             u['state'] = 'pasos'
             return '¿Cuánto ejercicio haces? 🏃\n1️⃣ Nada o casi nada\n2️⃣ 1-2 días por semana\n3️⃣ 3-4 días por semana\n4️⃣ Todos los días'
         elif s == 'pasos':
+            if self._es_plan_familia(u['data']):
+                u['state'] = 'familia_actividad'
+                return self._texto_familia_actividad()
             ml = normalize_text(m)
             actividad = None
             tag = None
@@ -1373,7 +1638,7 @@ class ZiaEngine:
             u['data']['actividad'] = actividad
             u['data']['actividad_tag'] = tag
             u['state'] = 'cocina'
-            return respuesta + '\n\n' + '¿Cómo es tu relación con la cocina? 🍳\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
+            return respuesta + '\n\n' + '¿Cómo es tu relación con la cocina? 🍳\n\n⚡ Poco tiempo, recetas rápidas\n🛋️ Cocina para vagos\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking'
         elif s == 'cocina':
             ml = normalize_text(m)
             elegido = None
@@ -1387,7 +1652,7 @@ class ZiaEngine:
             elif mn == '4' or m.strip() == '4' or any(w in ml for w in ['batch', 'domingo', 'preparo', 'semana', 'tuppers', 'taper']):
                 elegido = 'Batch cooking'
             if not elegido:
-                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n⚡ Poco tiempo, recetas rápidas (máx 15 min)\n🛋️ Cocina para vagos (precocinados y listos)\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking (preparo el domingo)'
+                return '¡Casi! ¿Cuál de estas se parece más a ti? 😊\n\n⚡ Poco tiempo, recetas rápidas\n🛋️ Cocina para vagos\n👨‍🍳 Me gusta cocinar\n📦 Batch cooking'
             u['data']['cocina'] = elegido
             u['state'] = 'num_comidas'
             return '¿Cuántas veces comes al día? 🍽️\n\n☀️ 2 veces al día\n🌤️ 3 veces al día\n⛅ 4-5 veces con snacks\n🌙 Ayuno intermitente'
@@ -1432,6 +1697,7 @@ class ZiaEngine:
                 return av
             super_nombre = self._supermercado_nombre(m)
             u['data']['supermercado'] = super_nombre
+            u['data'].pop('_familia_detalle', None)
             u['state'] = 'plan_listo'
             mensaje_espera = 'Perfecto! 🌿 Estoy preparando tu plan semanal personalizado y tu lista de la compra para ' + super_nombre + '. Dame un momento... ⏳'
             msgs = self._generar_plan_partes(u['data'])
@@ -2307,6 +2573,23 @@ class ZiaEngine:
                 pauta_nutricional += 'Sin frutos secos y evita trazas. '
             if 'marisco' in intol_norm or 'crustaceo' in intol_norm or 'molusco' in intol_norm:
                 pauta_nutricional += 'Sin marisco, crustáceos ni moluscos. '
+        rninos = (data.get('restricciones_ninos') or '').strip()
+        rn_norm = normalize_text(rninos)
+        if rninos and rn_norm not in ('ninguna', 'no', 'nada'):
+            pauta_nutricional += (
+                'CRÍTICO restricciones/alergias de menores en la familia (' + rninos + '): '
+                'PROHIBIDO incluir alimentos que las contradigan o trazas no seguras. '
+            )
+            if any(x in rn_norm for x in ('gluten', 'celia', 'trigo', 'avena')):
+                pauta_nutricional += 'Sin gluten estricto para menores: ningún trigo, cebada, centeno ni avena no certificada GF. '
+            if 'lactosa' in rn_norm or 'lacteo' in rn_norm:
+                pauta_nutricional += 'Sin lácteos con lactosa en recetas para menores. '
+            if 'huevo' in rn_norm:
+                pauta_nutricional += 'Sin huevo ni mayonesa con huevo donde afecte a menores. '
+            if 'frutos secos' in rn_norm or 'cacahu' in rn_norm or 'nueces' in rn_norm or 'almendra' in rn_norm:
+                pauta_nutricional += 'Sin frutos secos y evita trazas en comidas compartidas. '
+            if 'marisco' in rn_norm or 'crustaceo' in rn_norm or 'molusco' in rn_norm:
+                pauta_nutricional += 'Sin marisco, crustáceos ni moluscos donde afecte a menores. '
         cocina_minima = ''
         if data.get('cocina') == 'Cocina para vagos':
             cocina_minima = (
@@ -2330,9 +2613,11 @@ class ZiaEngine:
 
         descripcion_grupo = data.get('descripcion_grupo', '').strip()
         if descripcion_grupo and personas != '1 persona':
+            obj_txt = (data.get('objetivo') or '').strip()
             perfil = (
                 'PERFIL GRUPAL: ' + descripcion_grupo + '. '
-                'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
+                + ('Objetivo(s): ' + obj_txt + '. ' if obj_txt else '')
+                + 'Plan para: ' + personas + ' (' + str(num_personas) + ' personas). '
                 'Presupuesto MAXIMO: ' + presupuesto + ' euros/semana. '
                 'Actividad: ' + data.get('actividad', '') + '. '
                 'Numero de comidas: ' + data.get('num_comidas', '') + '. '
