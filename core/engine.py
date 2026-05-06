@@ -901,8 +901,15 @@ class ZiaEngine:
             u['plan_count'] = u.get('plan_count', 0) + 1
             return [mensaje_espera] + msgs
         if accion == 'suplementos':
-            u['state'] = 'menu_principal'
-            return self._respuesta_suplementos_desde_perfil(u)
+            u['state'] = 'menu_suplementos_objetivo'
+            return (
+                '¿Para qué objetivo buscas suplementación? 💊\n\n'
+                '1️⃣ Ganar músculo\n'
+                '2️⃣ Perder grasa\n'
+                '3️⃣ Mejorar el sueño\n'
+                '4️⃣ Energía y rendimiento\n'
+                '5️⃣ Salud general'
+            )
         u['state'] = 'menu_principal'
         return self._menu_principal_text(data)
 
@@ -1021,11 +1028,13 @@ class ZiaEngine:
         data = u['data']
         self._normalizar_perfil_menu(data)
         perfil_usuario = self._profile_for_prompt(data)
+        obj_sup = (data.get('suplementos_objetivo') or '').strip()
+        objetivo_txt = obj_sup if obj_sup else (data.get('objetivo', '') or '')
         prompt = (
             'Eres ZIA, experta en suplementación. Recomienda suplementos alineados con este perfil: '
             + perfil_usuario
             + '. Objetivo declarado: '
-            + data.get('objetivo', '')
+            + objetivo_txt
             + '. Restricciones: '
             + data.get('restricciones', 'Ninguna')
             + '.\n'
@@ -1261,6 +1270,7 @@ class ZiaEngine:
             'plan_listo',
             'menu_que_tengo',
             'menu_esperando_perfil',
+            'menu_suplementos_objetivo',
         ] and normalize_text(m) in [
             'hola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'inicio', 'menu',
         ]:
@@ -1924,6 +1934,62 @@ class ZiaEngine:
                     'No pude proponerte ideas ahora. Inténtalo en unos minutos.'
                     + menu
                 )
+        elif s == 'menu_suplementos_objetivo':
+            ml = normalize_text(m)
+            mn = self._menu_opcion_numero(m, max_digit=5)
+            labels = {
+                '1': 'Ganar músculo',
+                '2': 'Perder grasa',
+                '3': 'Mejorar el sueño',
+                '4': 'Energía y rendimiento',
+                '5': 'Salud general',
+            }
+            elegido = labels.get(mn) if mn else None
+            if not elegido:
+                if mn is None:
+                    if any(w in ml for w in ('musculo', 'músculo', 'fuerza', 'hipertrof', 'gym', 'ganar masa')):
+                        elegido = labels['1']
+                    elif any(w in ml for w in ('grasa', 'adelgazar', 'definir', 'perder peso', 'cut')):
+                        elegido = labels['2']
+                    elif any(w in ml for w in ('sueño', 'sueno', 'dormir', 'insomnio', 'descanso', 'melaton')):
+                        elegido = labels['3']
+                    elif any(
+                        w in ml
+                        for w in (
+                            'energia',
+                            'energía',
+                            'rendimiento',
+                            'cansancio',
+                            'fatiga',
+                            'vitalidad',
+                        )
+                    ):
+                        elegido = labels['4']
+                    elif any(
+                        w in ml
+                        for w in (
+                            'salud general',
+                            'salud',
+                            'bienestar',
+                            'manten',
+                            'vitamina',
+                            'inmune',
+                            'defensa',
+                        )
+                    ):
+                        elegido = labels['5']
+            if not elegido:
+                return (
+                    '¡Casi! Elige una opción 😊\n\n'
+                    '1️⃣ Ganar músculo\n'
+                    '2️⃣ Perder grasa\n'
+                    '3️⃣ Mejorar el sueño\n'
+                    '4️⃣ Energía y rendimiento\n'
+                    '5️⃣ Salud general'
+                )
+            u['data']['suplementos_objetivo'] = elegido
+            u['state'] = 'menu_principal'
+            return self._respuesta_suplementos_desde_perfil(u)
         elif s == 'menu_principal':
             ml = normalize_text(m)
             data = u['data']
