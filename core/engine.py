@@ -47,11 +47,13 @@ def sanitize_whatsapp_text(text):
     text = '\n'.join(out_lines)
     text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
     text = re.sub(r'__([^_]+)__', r'\1', text)
-    for _ in range(15):
-        nxt = re.sub(r'(?<!\*)\*([^*\n]+)\*(?!\*)', r'\1', text)
-        if nxt == text:
-            break
-        text = nxt
+    # Respuestas de suplementos usan *negrita* estilo WhatsApp y separador ———: no quitar asteriscos.
+    if '———' not in text:
+        for _ in range(15):
+            nxt = re.sub(r'(?<!\*)\*([^*\n]+)\*(?!\*)', r'\1', text)
+            if nxt == text:
+                break
+            text = nxt
     text = text.replace('**', '')
     text = re.sub(r'(?<!\w)_([^_\n]+)_(?!\w)', r'\1', text)
     return text
@@ -1031,24 +1033,39 @@ class ZiaEngine:
         obj_sup = (data.get('suplementos_objetivo') or '').strip()
         objetivo_txt = obj_sup if obj_sup else (data.get('objetivo', '') or '')
         prompt = (
-            'Eres ZIA, experta en suplementación. Recomienda suplementos alineados con este perfil: '
+            'Eres ZIA, experta en suplementación. Recomienda como máximo 5 suplementos alineados con este perfil: '
             + perfil_usuario
             + '. Objetivo declarado: '
             + objetivo_txt
             + '. Restricciones: '
             + data.get('restricciones', 'Ninguna')
-            + '.\n'
-            'Entrega 4-5 suplementos concretos con: nombre, para qué sirve respecto a su objetivo, '
-            'dosis orientativa, mejor momento del día y precio aproximado €/mes en España. '
-            'Termina con un aviso breve de consultar a médico o farmacéutico si toma medicación o tiene patologías. '
-            'Español, emojis, máximo 260 palabras.'
+            + '.\n\n'
+            'FORMATO OBLIGATORIO para cada suplemento (repite el bloque hasta 5 veces como máximo):\n'
+            '- Primera línea: un emoji acorde al tipo (ej. 💪 músculo/fuerza, 🔥 grasa/metabolismo, '
+            '😴 sueño/descanso, ⚡ energía/rendimiento, 🌿 salud general/inmunidad, 🧠 foco, ❤️ cardiovascular) '
+            'seguido de un espacio y el nombre del suplemento entre asteriscos para negrita de WhatsApp, '
+            'ejemplo: 💪 *Creatina monohidrato*\n'
+            '- Líneas siguientes del mismo bloque: una frase breve para qué ayuda respecto al objetivo del usuario; '
+            'en líneas aparte o misma línea con separación clara: dosis orientativa, mejor momento del día '
+            'y precio aproximado en €/mes en España.\n'
+            '- Entre un suplemento y el siguiente, una línea que sea solo: ———\n\n'
+            'Sin introducción larga. Termina tras el último suplemento con un aviso breve de consultar a médico '
+            'o farmacéutico si toma medicación o tiene patologías. Español con emojis; máximo ~280 palabras en total.'
         )
         menu = self._append_menu_footer(data)
         try:
             r = self.openai.chat.completions.create(
                 model=self.config.get('ai', {}).get('model', 'gpt-4o-mini'),
                 messages=[
-                    {'role': 'system', 'content': COACH_TONE + ' Eres ZIA nutricionista. Responde en español con emojis.'},
+                    {
+                        'role': 'system',
+                        'content': (
+                            COACH_TONE
+                            + ' Eres ZIA nutricionista. Responde en español con emojis. '
+                            'EXCEPCIÓN solo en este mensaje: para nombres de suplementos usa negrita WhatsApp '
+                            'con un único par de asteriscos alrededor del nombre, y líneas separadoras ——— entre suplementos.'
+                        ),
+                    },
                     {'role': 'user', 'content': prompt},
                 ],
                 max_tokens=750,
