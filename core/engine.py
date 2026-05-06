@@ -3,7 +3,6 @@ import os
 import re
 import unicodedata
 import urllib.parse
-from supabase_client import upsert_user, get_user
 import urllib.request
 from openai import OpenAI
 
