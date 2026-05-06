@@ -2951,13 +2951,3 @@ class ZiaEngine:
             return reply
         except Exception as e:
             return 'Error: ' + str(e)[:80]
-
-# Supabase sync - añadido automáticamente
-import requests as _requests
-def _sync_supabase(uid, user):
-    try:
-        url = os.environ.get("SUPABASE_URL","").rstrip("/") + "/rest/v1/usuarios"
-        key = os.environ.get("SUPABASE_KEY","")
-        headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates"}
-        _requests.post(url, json={"id": str(uid), "state": user.get("state",""), "datos": user.get("data",{}), "plan": user.get("plan",{})}, headers=headers, timeout=5)
-    except: pass
