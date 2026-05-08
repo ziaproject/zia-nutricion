@@ -1,30 +1,26 @@
 import os
 import json
 import stripe
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, Blueprint
 from flask_cors import CORS
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# Importar el engine existente
-import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
-from core.engine import ZiaEngine
-
-app = Flask(__name__)
-CORS(app, origins=["https://zianutricion.com", "http://localhost:3000"])
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 from supabase import create_client
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-@app.route("/health", methods=["GET"])
+web_bp = Blueprint('zia_nutricion_web', __name__)
+
+
+@web_bp.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok", "service": "zia-nutricion-web"})
 
-@app.route("/registro", methods=["POST"])
+
+@web_bp.route('/registro', methods=['POST'])
 def registro():
     try:
         data = request.json
@@ -43,7 +39,8 @@ def registro():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/login", methods=["POST"])
+
+@web_bp.route('/login', methods=['POST'])
 def login():
     try:
         data = request.json
@@ -59,7 +56,8 @@ def login():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 401
 
-@app.route("/perfil", methods=["POST"])
+
+@web_bp.route('/perfil', methods=['POST'])
 def guardar_perfil():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -79,7 +77,8 @@ def guardar_perfil():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/generar-plan", methods=["POST"])
+
+@web_bp.route('/generar-plan', methods=['POST'])
 def generar_plan():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -136,7 +135,8 @@ lista_compra es null si son 3 días (free). Si son 7 días incluye lista agrupad
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@app.route("/checkout", methods=["POST"])
+
+@web_bp.route('/checkout', methods=['POST'])
 def checkout():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -156,7 +156,8 @@ def checkout():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@app.route("/webhook", methods=["POST"])
+
+@web_bp.route('/webhook', methods=['POST'])
 def webhook():
     payload = request.data
     sig = request.headers.get("Stripe-Signature")
@@ -171,7 +172,8 @@ def webhook():
         supabase.table("usuarios").update({"plan": plan}).eq("id", user_id).execute()
     return jsonify({"ok": True})
 
-@app.route("/mi-plan", methods=["GET"])
+
+@web_bp.route('/mi-plan', methods=['GET'])
 def mi_plan():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -187,6 +189,16 @@ def mi_plan():
         })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 404
+
+
+def register_routes(flask_app):
+    CORS(flask_app, origins=["https://zianutricion.com", "http://localhost:3000"])
+    flask_app.register_blueprint(web_bp, url_prefix='/web')
+
+
+app = Flask(__name__)
+register_routes(app)
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
