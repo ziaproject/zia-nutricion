@@ -237,9 +237,10 @@ def get_user_plan(user_id: str) -> str:
     return 'free'
 
 
-# Web API routes
-from clients.zia_nutricion.app_web import register_routes
-register_routes(app)
+@app.route('/web/health', methods=['GET'])
+def web_health():
+    from flask import jsonify
+    return jsonify({"status": "ok", "service": "zia-nutricion-web"})
 
 
 if __name__ == '__main__':
