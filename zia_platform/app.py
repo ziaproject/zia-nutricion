@@ -237,6 +237,12 @@ def get_user_plan(user_id: str) -> str:
     return 'free'
 
 
+# Web API routes
+from clients.zia_nutricion.app_web import app as web_app
+from werkzeug.middleware.dispatcher import DispatcherMiddleware
+app.wsgi_app = DispatcherMiddleware(app.wsgi_app, {'/web': web_app})
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)

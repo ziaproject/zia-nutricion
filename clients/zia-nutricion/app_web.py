@@ -20,11 +20,11 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 from supabase import create_client
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-@app.route("/web/health", methods=["GET"])
+@app.route("/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "zia-nutricion-web"})
 
-@app.route("/web/registro", methods=["POST"])
+@app.route("/registro", methods=["POST"])
 def registro():
     try:
         data = request.json
@@ -43,7 +43,7 @@ def registro():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/web/login", methods=["POST"])
+@app.route("/login", methods=["POST"])
 def login():
     try:
         data = request.json
@@ -59,7 +59,7 @@ def login():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 401
 
-@app.route("/web/perfil", methods=["POST"])
+@app.route("/perfil", methods=["POST"])
 def guardar_perfil():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -79,7 +79,7 @@ def guardar_perfil():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/web/generar-plan", methods=["POST"])
+@app.route("/generar-plan", methods=["POST"])
 def generar_plan():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -136,7 +136,7 @@ lista_compra es null si son 3 días (free). Si son 7 días incluye lista agrupad
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@app.route("/web/checkout", methods=["POST"])
+@app.route("/checkout", methods=["POST"])
 def checkout():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
@@ -156,7 +156,7 @@ def checkout():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@app.route("/web/webhook", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     payload = request.data
     sig = request.headers.get("Stripe-Signature")
@@ -171,7 +171,7 @@ def webhook():
         supabase.table("usuarios").update({"plan": plan}).eq("id", user_id).execute()
     return jsonify({"ok": True})
 
-@app.route("/web/mi-plan", methods=["GET"])
+@app.route("/mi-plan", methods=["GET"])
 def mi_plan():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
