@@ -1,5 +1,6 @@
 from whatsapp import app
 
-# Web API routes
-from clients.zia_nutricion.app_web import register_routes
-register_routes(app)
+@app.route("/web/health", methods=["GET"])
+def health():
+    from flask import jsonify
+    return jsonify({"status": "ok", "service": "zia-nutricion-web"})
