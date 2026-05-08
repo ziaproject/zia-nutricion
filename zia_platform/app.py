@@ -243,6 +243,84 @@ def web_health():
     return jsonify({"status": "ok", "service": "zia-nutricion-web"})
 
 
+@app.route('/web/registro', methods=['POST'])
+def web_registro():
+    from flask import jsonify, request
+    from supabase import create_client
+    import os
+    try:
+        supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        data = request.json
+        res = supabase.auth.sign_up({"email": data.get("email"), "password": data.get("password")})
+        user_id = res.user.id
+        supabase.table("usuarios").insert({"id": user_id, "email": data.get("email"), "nombre": data.get("nombre"), "plan": "free"}).execute()
+        return jsonify({"ok": True, "user_id": user_id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+@app.route('/web/login', methods=['POST'])
+def web_login():
+    from flask import jsonify, request
+    from supabase import create_client
+    import os
+    try:
+        supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        data = request.json
+        res = supabase.auth.sign_in_with_password({"email": data.get("email"), "password": data.get("password")})
+        return jsonify({"ok": True, "token": res.session.access_token, "user_id": res.user.id})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 401
+
+@app.route('/web/perfil', methods=['POST'])
+def web_perfil():
+    from flask import jsonify, request
+    from supabase import create_client
+    import os
+    try:
+        supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = supabase.auth.get_user(token)
+        user_id = user.user.id
+        data = request.json
+        supabase.table("perfiles").upsert({"user_id": user_id, "objetivo": data.get("objetivo"), "peso": data.get("peso"), "altura": data.get("altura"), "intolerancias": data.get("intolerancias", "ninguna"), "supermercado": data.get("supermercado"), "presupuesto": data.get("presupuesto")}).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+@app.route('/web/generar-plan', methods=['POST'])
+def web_generar_plan():
+    from flask import jsonify, request
+    from supabase import create_client
+    import os, json, openai
+    try:
+        supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = supabase.auth.get_user(token)
+        user_id = user.user.id
+        usuario = supabase.table("usuarios").select("plan").eq("id", user_id).single().execute()
+        plan_usuario = usuario.data.get("plan", "free")
+        dias = 7 if plan_usuario != "free" else 3
+        perfil = supabase.table("perfiles").select("*").eq("user_id", user_id).single().execute()
+        p = perfil.data
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        prompt = f"""Eres ZIA, nutricionista inteligente. Crea un plan de {dias} días para:
+- Objetivo: {p['objetivo']}
+- Peso: {p['peso']}kg, Altura: {p['altura']}cm
+- Intolerancias: {p['intolerancias']}
+- Supermercado: {p['supermercado']}
+- Presupuesto: {p['presupuesto']}
+Devuelve SOLO JSON: {{"dias": [{{"dia": "Lunes", "desayuno": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}, "comida": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}, "cena": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}}}], "lista_compra": null}}
+lista_compra es null si son 3 dias. Si son 7 incluye lista agrupada por categorias."""
+        response = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}], response_format={"type": "json_object"}, max_tokens=4000)
+        plan_json = json.loads(response.choices[0].message.content)
+        plan_json["plan_usuario"] = plan_usuario
+        plan_json["dias_generados"] = dias
+        supabase.table("planes").upsert({"user_id": user_id, "plan_data": plan_json}).execute()
+        return jsonify({"ok": True, "plan": plan_json})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
