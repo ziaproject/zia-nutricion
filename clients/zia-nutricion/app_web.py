@@ -191,6 +191,8 @@ def mi_plan():
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
 
+
+
 @app.route("/web/chat", methods=["POST"])
 def web_chat():
     try:
@@ -207,18 +209,16 @@ def web_chat():
         if plan == "free" and chat_count >= 1:
             return jsonify({
                 "ok": True,
-                "respuesta": "Has alcanzado el límite del plan gratuito. Para seguir chateando con ZIA sin límites, elige tu plan 👇",
+                "respuesta": "Has usado tu mensaje gratuito. Para seguir chateando con ZIA sin limites, elige tu plan.",
                 "paywall": True
             })
 
         import openai
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        perfil = supabase.table("perfiles").select).eq("user_id", user_id).single().execute()
+        perfil = supabase.table("perfiles").select("*").eq("user_id", user_id).single().execute()
         p = perfil.data or {}
 
-        prompt = f"""Eres ZIA, nutricionista inteligente y cercana. Responde en español, sin markdown, máximo 3 párrafos cortos.
-Perfil del usuario: objetivo={p.get('objetivo','')}, intolerancias={p.get('intolerancias','')}, supermercado={p.get('supermercado','')}.
-Mensaje: {mensaje}"""
+        prompt = "Eres ZIA, nutricionista inteligente. Responde en espanol sin markdown, maximo 3 parrafos. Perfil: objetivo=" + str(p.get("objetivo","")) + ", intolerancias=" + str(p.get("intolerancias","")) + ", supermercado=" + str(p.get("supermercado","")) + ". Mensaje del usuario: " + mensaje
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -226,9 +226,7 @@ Mensaje: {mensaje}"""
             max_tokens=500
         )
         respuesta = response.choices[0].message.content
-
         supabase.table("usuarios").update({"chat_count": chat_count + 1}).eq("id", user_id).execute()
-
         return jsonify({"ok": True, "respuesta": respuesta, "paywall": False})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
