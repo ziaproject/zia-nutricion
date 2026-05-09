@@ -206,7 +206,7 @@ def web_chat():
         plan = usuario.data.get("plan", "free")
         chat_count = usuario.data.get("chat_count", 0) or 0
 
-        if plan == "free" and chat_count >= 1:
+        if plan == "free":
             return jsonify({
                 "ok": True,
                 "respuesta": "Has usado tu mensaje gratuito. Para seguir chateando con ZIA sin limites, elige tu plan.",
