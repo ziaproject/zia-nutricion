@@ -1,1 +1,1 @@
-web: gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 60 clients/zia-nutricion/app_web:app
+web: gunicorn --chdir clients/zia-nutricion --bind 0.0.0.0:$PORT --workers 1 --timeout 60 app_web:app
