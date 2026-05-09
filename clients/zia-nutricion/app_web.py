@@ -1,50 +1,64 @@
 import os
 import json
 import stripe
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from dotenv import load_dotenv
+from supabase import create_client
 
 load_dotenv()
 
-# Importar el engine existente
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.engine import ZiaEngine
 
 app = Flask(__name__)
-CORS(app, origins="*")
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-
-from supabase import create_client
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 @app.route("/web/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "zia-nutricion-web"})
 
-@app.route("/web/registro", methods=["POST"])
+@app.route("/web/registro", methods=["POST", "OPTIONS"])
 def registro():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
     try:
         data = request.json
         res = supabase.auth.sign_up({
             "email": data.get("email"),
             "password": data.get("password")
         })
+        if res.user is None:
+            return jsonify({"ok": False, "error": "No se pudo crear el usuario"}), 400
         user_id = res.user.id
-        supabase.table("usuarios").insert({
-            "id": user_id,
-            "email": data.get("email"),
-            "nombre": data.get("nombre"),
-            "plan": "free"
-        }).execute()
+        try:
+            supabase.table("usuarios").insert({
+                "id": user_id,
+                "email": data.get("email"),
+                "nombre": data.get("nombre", ""),
+                "plan": "free"
+            }).execute()
+        except Exception as e_insert:
+            print(f"[WARN] No se pudo insertar en usuarios: {e_insert}")
         return jsonify({"ok": True, "user_id": user_id})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/web/login", methods=["POST"])
+@app.route("/web/login", methods=["POST", "OPTIONS"])
 def login():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
     try:
         data = request.json
         res = supabase.auth.sign_in_with_password({
@@ -59,8 +73,10 @@ def login():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 401
 
-@app.route("/web/perfil", methods=["POST"])
+@app.route("/web/perfil", methods=["POST", "OPTIONS"])
 def guardar_perfil():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
@@ -79,12 +95,15 @@ def guardar_perfil():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/web/generar-plan", methods=["POST"])
+@app.route("/web/generar-plan", methods=["POST", "OPTIONS"])
 def generar_plan():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
         user_id = user.user.id
+        data = request.json
 
         usuario = supabase.table("usuarios").select("plan").eq("id", user_id).single().execute()
         plan_usuario = usuario.data.get("plan", "free")
@@ -103,18 +122,7 @@ def generar_plan():
 - Presupuesto semanal: {p['presupuesto']}
 
 Devuelve SOLO JSON con esta estructura:
-{{
-  "dias": [
-    {{
-      "dia": "Lunes",
-      "desayuno": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}},
-      "comida": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}},
-      "cena": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}
-    }}
-  ],
-  "lista_compra": null
-}}
-lista_compra es null si son 3 días (free). Si son 7 días incluye lista agrupada por categorías."""
+{{"dias": [{{"dia": "Lunes", "desayuno": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}, "comida": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}, "cena": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}}}], "lista_compra": null}}"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -122,8 +130,7 @@ lista_compra es null si son 3 días (free). Si son 7 días incluye lista agrupad
             response_format={"type": "json_object"},
             max_tokens=4000
         )
-
-        plan_json = json.loads(response.choices[0].message.content)
+        plan_json = json.load(response.choices[0].message.content)
         plan_json["plan_usuario"] = plan_usuario
         plan_json["dias_generados"] = dias
 
@@ -136,8 +143,50 @@ lista_compra es null si son 3 días (free). Si son 7 días incluye lista agrupad
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@app.route("/web/checkout", methods=["POST"])
+@app.route("/web/generar-plan-preview", methods=["POST", "OPTIONS"])
+def generar_plan_preview():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
+    try:
+        data = request.json or {}
+        import openai
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        prompt = """Crea un plan de muestra de 1 día (solo lunes) para demostración. Devuelve SOLO JSON:
+{"dias": [{"dia": "Lunes", "desayuno": {"nombre": "Tostadas con aguacate y huevo pochado", "calorias": 380, "proteinas": 18, "carbos": 32, "grasas": 22}, "comida": {"nombre": "Pollo al horno con verduras",calorias": 520, "proteinas": 42, "carbos": 28, "grasas": 18}, "cena": {"nombre": "Crema de calabaza con tostadas", "calorias": 310, "proteinas": 12, "carbos": 38, "grasas": 14}}], "lista_compra": null}"""
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=500
+        )
+        plan_json = json.loads(response.choices[0].message.content)
+        return jsonify({"ok": True, "plan": plan_json})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+@app.route("/web/mi-plan", methods=["GET", "OPTIONS"])
+def mi_plan():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
+    try:
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = supabase.auth.get_user(token)
+        user_id = user.user.id
+        plan = supabase.table("planes").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(1).single().execute()
+        usuario = supabase.table("usuarios").select("plan, nombre").eq("id", user_id).single().execute()
+        return jsonify({
+            "ok": True,
+            "plan": plan.data.get("plan_data"),
+            "plan_usuario": usuario.data.get("plan"),
+            "nombre": usuario.data.get("nombre")
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+
+@app.route("/web/checkout", methods=["POST", "OPTIONS"])
 def checkout():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
@@ -170,23 +219,6 @@ def webhook():
         plan = session["metadata"]["plan"]
         supabase.table("usuarios").update({"plan": plan}).eq("id", user_id).execute()
     return jsonify({"ok": True})
-
-@app.route("/web/mi-plan", methods=["GET"])
-def mi_plan():
-    try:
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        user = supabase.auth.get_user(token)
-        user_id = user.user.id
-        plan = supabase.table("planes").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(1).single().execute()
-        usuario = supabase.table("usuarios").select("plan, nombre").eq("id", user_id).single().execute()
-        return jsonify({
-            "ok": True,
-            "plan": plan.data.get("plan_data"),
-            "plan_usuario": usuario.data.get("plan"),
-            "nombre": usuario.data.get("nombre")
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 404
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
