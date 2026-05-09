@@ -223,14 +223,14 @@ def webhook():
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
 
+
 @app.route("/web/chat", methods=["POST", "OPTIONS"])
 def chat_web():
     if request.method == "OPTIONS":
-        return make_response('', 204)
+        return make_response("", 204)
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
-        user_id = user.user.id
         data = request.json
         mensaje = data.get("mensaje", "")
         historial = data.get("historial", [])
@@ -239,23 +239,20 @@ def chat_web():
         import openai
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-        system_prompt = f"""Eres ZIA, nutricionista experta Y coach motivacional. Respondes siempre en español con calidez, empatía y conocimiento real de nutrición.
-
-Tu personalidad:
-- Hablas como una amiga que sabe muchísimo de nutrición, no como un robot
-- Eres motivadora y celebras los logros del usuario
-- Das consejos prácticos y concretos, no genéricos
-- Conoces los precios depermercados españoles
-- Usas emojis con naturalidad pero sin exceso
-
-Perfil del usuario:
-- Objetivo: {perfil.get('objetivo', 'no especificado')}
-- Intolerancias: {perfil.get('intolerancias', 'ninguna')}
-- Supermercado: {perfil.get('supermercado', 'Mercadona')}
-- Plan: {perfil.get('plan', 'free')}
-
-Cuando el usuario te pida su plan o lista de la compra, dile que puede verlos en las pestañas de arriba.
-Máximo 3-4 párrafos cortos. Nunca respondas con listas largas sin contexto."""
+        system_prompt = (
+            "Eres ZIA, nutricionista experta y coach motivacional. "
+            "Respondes siempre en espanol con calidez, empatia y conocimiento real de nutricion. "
+            "Hablas como una amiga que sabe muchisimo de nutricion, no como un robot. "
+            "Eres motivadora, celebras los logros del usuario y das consejos practicos y concretos. "
+            "Conoces los precios de los supermercados espanoles. "
+            "Cuando el usuario pida ver su plan o lista, dile que puede verlos en las pestanas de arriba. "
+            "Maximo 3-4 parrafos cortos. Usa emojis con naturalidad pero sin exceso.\n\n"
+            "Perfil del usuario:\n"
+            "- Objetivo: " + perfil.get("objetivo", "no especificado") + "\n"
+            "- Intolerancias: " + perfil.get("intolerancias", "ninguna") + "\n"
+            "- Supermercado: " + perfil.get("supermercado", "Mercadona") + "\n"
+            "- Plan: " + perfil.get("plan", "free")
+        )
 
         messages = [{"role": "system", "content": system_prompt}]
         messages += historial[-10:]
@@ -271,4 +268,4 @@ Máximo 3-4 párrafos cortos. Nunca respondas con listas largas sin contexto."""
         respuesta = response.choices[0].message.content
         return jsonify({"ok": True, "respuesta": respuesta})
     except Exception as e:
-        return jsonify({"ok": False, "errostr(e)}), 500
+        return jsonify({"ok": False, "error": str(e)}), 500
