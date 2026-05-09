@@ -1,64 +1,50 @@
 import os
 import json
 import stripe
-from flask import Flask, request, jsonify, make_response
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
-from supabase import create_client
 
 load_dotenv()
 
+# Importar el engine existente
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.engine import ZiaEngine
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=False)
+CORS(app, origins=["https://zianutricion.com", "https://www.zianutricion.com", "http://localhost:3000", "http://localhost:5001"])
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
-@app.after_request
-def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    return response
+from supabase import create_client
+supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
 @app.route("/web/health", methods=["GET"])
 def health():
     return jsonify({"status": "ok", "service": "zia-nutricion-web"})
 
-@app.route("/web/registro", methods=["POST", "OPTIONS"])
+@app.route("/web/registro", methods=["POST"])
 def registro():
-    if request.method == "OPTIONS":
-        return make_response('', 204)
     try:
         data = request.json
         res = supabase.auth.sign_up({
             "email": data.get("email"),
             "password": data.get("password")
         })
-        if res.user is None:
-            return jsonify({"ok": False, "error": "No se pudo crear el usuario"}), 400
         user_id = res.user.id
-        try:
-            supabase.table("usuarios").insert({
-                "id": user_id,
-                "email": data.get("email"),
-                "nombre": data.get("nombre", ""),
-                "plan": "free"
-            }).execute()
-        except Exception as e_insert:
-            print(f"[WARN] No se pudo insertar en usuarios: {e_insert}")
+        supabase.table("usuarios").insert({
+            "id": user_id,
+            "email": data.get("email"),
+            "nombre": data.get("nombre"),
+            "plan": "free"
+        }).execute()
         return jsonify({"ok": True, "user_id": user_id})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/web/login", methods=["POST", "OPTIONS"])
+@app.route("/web/login", methods=["POST"])
 def login():
-    if request.method == "OPTIONS":
-        return make_response('', 204)
     try:
         data = request.json
         res = supabase.auth.sign_in_with_password({
@@ -73,10 +59,8 @@ def login():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 401
 
-@app.route("/web/perfil", methods=["POST", "OPTIONS"])
+@app.route("/web/perfil", methods=["POST"])
 def guardar_perfil():
-    if request.method == "OPTIONS":
-        return make_response('', 204)
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
@@ -95,15 +79,12 @@ def guardar_perfil():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
 
-@app.route("/web/generar-plan", methods=["POST", "OPTIONS"])
+@app.route("/web/generar-plan", methods=["POST"])
 def generar_plan():
-    if request.method == "OPTIONS":
-        return make_response('', 204)
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
         user_id = user.user.id
-        data = request.json
 
         usuario = supabase.table("usuarios").select("plan").eq("id", user_id).single().execute()
         plan_usuario = usuario.data.get("plan", "free")
@@ -122,7 +103,18 @@ def generar_plan():
 - Presupuesto semanal: {p['presupuesto']}
 
 Devuelve SOLO JSON con esta estructura:
-{{"dias": [{{"dia": "Lunes", "desayuno": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}, "comida": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}, "cena": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}}}], "lista_compra": null}}"""
+{{
+  "dias": [
+    {{
+      "dia": "Lunes",
+      "desayuno": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}},
+      "comida": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}},
+      "cena": {{"nombre": "", "calorias": 0, "proteinas": 0, "carbos": 0, "grasas": 0}}
+    }}
+  ],
+  "lista_compra": null
+}}
+lista_compra es null si son 3 días (free). Si son 7 días incluye lista agrupada por categorías."""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -130,7 +122,8 @@ Devuelve SOLO JSON con esta estructura:
             response_format={"type": "json_object"},
             max_tokens=4000
         )
-        plan_json = json.load(response.choices[0].message.content)
+
+        plan_json = json.loads(response.choices[0].message.content)
         plan_json["plan_usuario"] = plan_usuario
         plan_json["dias_generados"] = dias
 
@@ -143,50 +136,8 @@ Devuelve SOLO JSON con esta estructura:
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
-@app.route("/web/generar-plan-preview", methods=["POST", "OPTIONS"])
-def generar_plan_preview():
-    if request.method == "OPTIONS":
-        return make_response('', 204)
-    try:
-        data = request.json or {}
-        import openai
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        prompt = """Crea un plan de muestra de 1 día (solo lunes) para demostración. Devuelve SOLO JSON:
-{"dias": [{"dia": "Lunes", "desayuno": {"nombre": "Tostadas con aguacate y huevo pochado", "calorias": 380, "proteinas": 18, "carbos": 32, "grasas": 22}, "comida": {"nombre": "Pollo al horno con verduras",calorias": 520, "proteinas": 42, "carbos": 28, "grasas": 18}, "cena": {"nombre": "Crema de calabaza con tostadas", "calorias": 310, "proteinas": 12, "carbos": 38, "grasas": 14}}], "lista_compra": null}"""
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            max_tokens=500
-        )
-        plan_json = json.loads(response.choices[0].message.content)
-        return jsonify({"ok": True, "plan": plan_json})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-@app.route("/web/mi-plan", methods=["GET", "OPTIONS"])
-def mi_plan():
-    if request.method == "OPTIONS":
-        return make_response('', 204)
-    try:
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        user = supabase.auth.get_user(token)
-        user_id = user.user.id
-        plan = supabase.table("planes").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(1).single().execute()
-        usuario = supabase.table("usuarios").select("plan, nombre").eq("id", user_id).single().execute()
-        return jsonify({
-            "ok": True,
-            "plan": plan.data.get("plan_data"),
-            "plan_usuario": usuario.data.get("plan"),
-            "nombre": usuario.data.get("nombre")
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 404
-
-@app.route("/web/checkout", methods=["POST", "OPTIONS"])
+@app.route("/web/checkout", methods=["POST"])
 def checkout():
-    if request.method == "OPTIONS":
-        return make_response('', 204)
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
@@ -220,132 +171,64 @@ def webhook():
         supabase.table("usuarios").update({"plan": plan}).eq("id", user_id).execute()
     return jsonify({"ok": True})
 
+@app.route("/web/mi-plan", methods=["GET"])
+def mi_plan():
+    try:
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = supabase.auth.get_user(token)
+        user_id = user.user.id
+        plan = supabase.table("planes").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(1).single().execute()
+        usuario = supabase.table("usuarios").select("plan, nombre").eq("id", user_id).single().execute()
+        return jsonify({
+            "ok": True,
+            "plan": plan.data.get("plan_data"),
+            "plan_usuario": usuario.data.get("plan"),
+            "nombre": usuario.data.get("nombre")
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 404
+
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
 
-
-
-@app.route("/web/chat", methods=["POST", "OPTIONS"])
-def chat_web():
-    if request.method == "OPTIONS":
-        return make_response("", 204)
+@app.route("/web/chat", methods=["POST"])
+def web_chat():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
         user = supabase.auth.get_user(token)
+        user_id = user.user.id
         data = request.json
         mensaje = data.get("mensaje", "")
-        historial = data.get("historial", [])
-        perfil = data.get("perfil", {})
-        plan_usuario = perfil.get("plan", "free")
+
+        usuario = supabase.table("usuarios").select("plan, chat_count").eq("id", user_id).single().execute()
+        plan = usuario.data.get("plan", "free")
+        chat_count = usuario.data.get("chat_count", 0) or 0
+
+        if plan == "free" and chat_count >= 1:
+            return jsonify({
+                "ok": True,
+                "respuesta": "Has alcanzado el límite del plan gratuito. Para seguir chateando con ZIA sin límites, elige tu plan 👇",
+                "paywall": True
+            })
 
         import openai
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        perfil = supabase.table("perfiles").select).eq("user_id", user_id).single().execute()
+        p = perfil.data or {}
 
-        if plan_usuario == "free":
-            system_prompt = (
-                "Eres ZIA, nutricionista experta y coach motivacional. "
-                "Respondes SIEMPRE en espanol, con calidez y cercania, como una amiga que sabe mucho de nutricion. "
-                "IMPORTANTE: Nunca uses markdown. Nada de asteriscos, almohadillas, guiones como lista, ni ningun formato especial. "
-                "Solo texto natural, como si fuera un mensaje de WhatsApp. "
-                "Eres motivadora, practica y concreta. Maximo 3-4 parrafos cortos. "
-                "Cuando el usuario pida ver su plan o lista, dile que puede verlos en las pestanas de arriba. "
-                "Perfil del usuario: "
-                "Objetivo: " + perfil.get("objetivo", "no especificado") + ". "
-                "Intolerancias: " + perfil.get("intolerancias", "ninguna") + ". "
-                "Supermercado: " + perfil.get("supermercado", "Mercadona") + "."
-            )
-        else:
-            system_prompt = (
-                "Eres ZIA, nutricionista experta y coach motivacional de ZIA Nutricion. "
-                "Respondes SIEMPRE en espanol, con calidez y cercania, como una amiga que sabe mucho de nutricion. "
-                "IMPORTANTE: Nunca uses markdown. Nada de asteriscos, almohadillas, guiones como lista, ni ningun formato especial. "
-                "Solo texto natural, como si fuera un mensaje de WhatsApp. Usa emojis con naturalidad. "
-                "Eres motivadora, practica y muy concreta. Conoces los precios de los supermercados espanoles. "
-                "Cuando el usuario pida ver su plan o lista, dile que puede verlos en las pestanas de arriba. "
-                "Haz seguimiento real: pregunta como le ha ido la semana, si ha cumplido el plan, si le ha sobrado o faltado comida. "
-                "Perfil completo del usuario: "
-                "Nombre: " + perfil.get("nombre", "Usuario") + ". "
-                "Objetivo: " + perfil.get("objetivo", "no especificado") + ". "
-                "Intolerancias: " + perfil.get("intolerancias", "ninguna") + ". "
-                "Supermercado: " + perfil.get("supermercado", "Mercadona") + ". "
-                "Presupuesto semanal: " + str(perfil.get("presupuesto", "60")) + " euros. "
-                "Ejercicio: " + perfil.get("ejercicio", "no especificado") + ". "
-                "Comidas al dia: " + perfil.get("comidas_dia", "3") + "."
-            )
-
-        messages = [{"role": "system", "content": system_prompt}]
-        messages += historial[-10:]
-        messages.append({"role": "user", "content": mensaje})
+        prompt = f"""Eres ZIA, nutricionista inteligente y cercana. Responde en español, sin markdown, máximo 3 párrafos cortos.
+Perfil del usuario: objetivo={p.get('objetivo','')}, intolerancias={p.get('intolerancias','')}, supermercado={p.get('supermercado','')}.
+Mensaje: {mensaje}"""
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages,
-            max_tokens=500,
-            temperature=0.85
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500
         )
-
         respuesta = response.choices[0].message.content
-        return jsonify({"ok": True, "respuesta": respuesta})
-    except Exception as e:
-        return jsonify({"ok": False, "error": str(e)}), 500
 
+        supabase.table("usuarios").update({"chat_count": chat_count + 1}).eq("id", user_id).execute()
 
-@app.route("/web/onboarding-pro", methods=["POST", "OPTIONS"])
-def onboarding_pro():
-    if request.method == "OPTIONS":
-        return make_response("", 204)
-    try:
-        token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        user = supabase.auth.get_user(token)
-        data = request.json
-        mensaje = data.get("mensaje", "")
-        historial = data.get("historial", [])
-        datos_recogidos = data.get("datos_recogidos", {})
-
-        import openai
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-        system_prompt = (
-            "Eres ZIA, nutricionista experta. Estas haciendo el onboarding de un nuevo usuario Pro. "
-            "Tu objetivo es recoger estos datos de forma conversacional y amigable, uno a uno: "
-            "nombre, genero, edad, peso en kg, altura en cm, objetivo principal (perder peso / ganar musculo / mas energia / comer sano / mejorar digestion), "
-            "nivel de ejercicio (nada / 1-2 dias / 3-4 dias / todos los dias), "
-            "relacion con la cocina (poco tiempo / cocina para vagos / me gusta cocinar / batch cooking), "
-            "comidas al dia (2 / 3 / 4-5 con snacks / ayuno intermitente), "
-            "intolerancias (ninguna / vegano / sin gluten / sin lactosa / alergia huevo / alergia frutos secos / sin pescado), "
-            "presupuesto semanal en euros, "
-            "supermercado habitual. "
-            "REGLAS IMPORTANTES: "
-            "1. Nunca uses markdown, asteriscos, almohadillas ni listas con guiones. Solo texto natural como WhatsApp. "
-            "2. Haz UNA sola pregunta a la vez. "
-            "3. Cuando el usuario responda, confirma brevemente y pasa a la siguiente pregunta. "
-            "4. Se cercana y motivadora, usa emojis con naturalidad. "
-            "5. Cuando tengas TODOS los datos, di exactamente: ONBOARDING_COMPLETO y resume los datos recogidos en formato JSON asi: "
-            "DATOS: {nombre: X, genero: X, edad: X, peso: X, altura: X, objetivo: X, ejercicio: X, cocina: X, comidas_dia: X, intolerancias: X, presupuesto: X, supermercado: X} "
-            "Datos ya recogidos: " + str(datos_recogidos)
-        )
-
-        messages = [{"role": "system", "content": system_prompt}]
-        if not historial:
-            messages.append({"role": "user", "content": "Hola, acabo de suscribirme al plan Pro"})
-        else:
-            messages += historial[-20:]
-            messages.append({"role": "user", "content": mensaje})
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            max_tokens=300,
-            temperature=0.8
-        )
-
-        respuesta = response.choices[0].message.content
-        completado = "ONBOARDING_COMPLETO" in respuesta
-
-        return jsonify({
-            "ok": True,
-            "respuesta": respuesta,
-            "completado": completado
-        })
+        return jsonify({"ok": True, "respuesta": respuesta, "paywall": False})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
