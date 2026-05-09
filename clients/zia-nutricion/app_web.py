@@ -13,7 +13,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..'))
 from core.engine import ZiaEngine
 
 app = Flask(__name__)
-CORS(app, origins=["https://zianutricion.com", "https://www.zianutricion.com", "http://localhost:3000", "http://localhost:5001"])
+CORS(app, origins="*")
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
