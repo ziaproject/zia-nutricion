@@ -222,3 +222,53 @@ def webhook():
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
+
+@app.route("/web/chat", methods=["POST", "OPTIONS"])
+def chat_web():
+    if request.method == "OPTIONS":
+        return make_response('', 204)
+    try:
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = supabase.auth.get_user(token)
+        user_id = user.user.id
+        data = request.json
+        mensaje = data.get("mensaje", "")
+        historial = data.get("historial", [])
+        perfil = data.get("perfil", {})
+
+        import openai
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        system_prompt = f"""Eres ZIA, nutricionista experta Y coach motivacional. Respondes siempre en español con calidez, empatía y conocimiento real de nutrición.
+
+Tu personalidad:
+- Hablas como una amiga que sabe muchísimo de nutrición, no como un robot
+- Eres motivadora y celebras los logros del usuario
+- Das consejos prácticos y concretos, no genéricos
+- Conoces los precios depermercados españoles
+- Usas emojis con naturalidad pero sin exceso
+
+Perfil del usuario:
+- Objetivo: {perfil.get('objetivo', 'no especificado')}
+- Intolerancias: {perfil.get('intolerancias', 'ninguna')}
+- Supermercado: {perfil.get('supermercado', 'Mercadona')}
+- Plan: {perfil.get('plan', 'free')}
+
+Cuando el usuario te pida su plan o lista de la compra, dile que puede verlos en las pestañas de arriba.
+Máximo 3-4 párrafos cortos. Nunca respondas con listas largas sin contexto."""
+
+        messages = [{"role": "system", "content": system_prompt}]
+        messages += historial[-10:]
+        messages.append({"role": "user", "content": mensaje})
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=400,
+            temperature=0.85
+        )
+
+        respuesta = response.choices[0].message.content
+        return jsonify({"ok": True, "respuesta": respuesta})
+    except Exception as e:
+        return jsonify({"ok": False, "errostr(e)}), 500
