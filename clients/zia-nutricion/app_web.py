@@ -224,6 +224,7 @@ if __name__ == "__main__":
     app.run(debug=True, port=5001)
 
 
+
 @app.route("/web/chat", methods=["POST", "OPTIONS"])
 def chat_web():
     if request.method == "OPTIONS":
@@ -235,24 +236,42 @@ def chat_web():
         mensaje = data.get("mensaje", "")
         historial = data.get("historial", [])
         perfil = data.get("perfil", {})
+        plan_usuario = perfil.get("plan", "free")
 
         import openai
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-        system_prompt = (
-            "Eres ZIA, nutricionista experta y coach motivacional. "
-            "Respondes siempre en espanol con calidez, empatia y conocimiento real de nutricion. "
-            "Hablas como una amiga que sabe muchisimo de nutricion, no como un robot. "
-            "Eres motivadora, celebras los logros del usuario y das consejos practicos y concretos. "
-            "Conoces los precios de los supermercados espanoles. "
-            "Cuando el usuario pida ver su plan o lista, dile que puede verlos en las pestanas de arriba. "
-            "Maximo 3-4 parrafos cortos. Usa emojis con naturalidad pero sin exceso.\n\n"
-            "Perfil del usuario:\n"
-            "- Objetivo: " + perfil.get("objetivo", "no especificado") + "\n"
-            "- Intolerancias: " + perfil.get("intolerancias", "ninguna") + "\n"
-            "- Supermercado: " + perfil.get("supermercado", "Mercadona") + "\n"
-            "- Plan: " + perfil.get("plan", "free")
-        )
+        if plan_usuario == "free":
+            system_prompt = (
+                "Eres ZIA, nutricionista experta y coach motivacional. "
+                "Respondes SIEMPRE en espanol, con calidez y cercania, como una amiga que sabe mucho de nutricion. "
+                "IMPORTANTE: Nunca uses markdown. Nada de asteriscos, almohadillas, guiones como lista, ni ningun formato especial. "
+                "Solo texto natural, como si fuera un mensaje de WhatsApp. "
+                "Eres motivadora, practica y concreta. Maximo 3-4 parrafos cortos. "
+                "Cuando el usuario pida ver su plan o lista, dile que puede verlos en las pestanas de arriba. "
+                "Perfil del usuario: "
+                "Objetivo: " + perfil.get("objetivo", "no especificado") + ". "
+                "Intolerancias: " + perfil.get("intolerancias", "ninguna") + ". "
+                "Supermercado: " + perfil.get("supermercado", "Mercadona") + "."
+            )
+        else:
+            system_prompt = (
+                "Eres ZIA, nutricionista experta y coach motivacional de ZIA Nutricion. "
+                "Respondes SIEMPRE en espanol, con calidez y cercania, como una amiga que sabe mucho de nutricion. "
+                "IMPORTANTE: Nunca uses markdown. Nada de asteriscos, almohadillas, guiones como lista, ni ningun formato especial. "
+                "Solo texto natural, como si fuera un mensaje de WhatsApp. Usa emojis con naturalidad. "
+                "Eres motivadora, practica y muy concreta. Conoces los precios de los supermercados espanoles. "
+                "Cuando el usuario pida ver su plan o lista, dile que puede verlos en las pestanas de arriba. "
+                "Haz seguimiento real: pregunta como le ha ido la semana, si ha cumplido el plan, si le ha sobrado o faltado comida. "
+                "Perfil completo del usuario: "
+                "Nombre: " + perfil.get("nombre", "Usuario") + ". "
+                "Objetivo: " + perfil.get("objetivo", "no especificado") + ". "
+                "Intolerancias: " + perfil.get("intolerancias", "ninguna") + ". "
+                "Supermercado: " + perfil.get("supermercado", "Mercadona") + ". "
+                "Presupuesto semanal: " + str(perfil.get("presupuesto", "60")) + " euros. "
+                "Ejercicio: " + perfil.get("ejercicio", "no especificado") + ". "
+                "Comidas al dia: " + perfil.get("comidas_dia", "3") + "."
+            )
 
         messages = [{"role": "system", "content": system_prompt}]
         messages += historial[-10:]
@@ -261,11 +280,72 @@ def chat_web():
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            max_tokens=400,
+            max_tokens=500,
             temperature=0.85
         )
 
         respuesta = response.choices[0].message.content
         return jsonify({"ok": True, "respuesta": respuesta})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/web/onboarding-pro", methods=["POST", "OPTIONS"])
+def onboarding_pro():
+    if request.method == "OPTIONS":
+        return make_response("", 204)
+    try:
+        token = request.headers.get("Authorization", "").replace("Bearer ", "")
+        user = supabase.auth.get_user(token)
+        data = request.json
+        mensaje = data.get("mensaje", "")
+        historial = data.get("historial", [])
+        datos_recogidos = data.get("datos_recogidos", {})
+
+        import openai
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+        system_prompt = (
+            "Eres ZIA, nutricionista experta. Estas haciendo el onboarding de un nuevo usuario Pro. "
+            "Tu objetivo es recoger estos datos de forma conversacional y amigable, uno a uno: "
+            "nombre, genero, edad, peso en kg, altura en cm, objetivo principal (perder peso / ganar musculo / mas energia / comer sano / mejorar digestion), "
+            "nivel de ejercicio (nada / 1-2 dias / 3-4 dias / todos los dias), "
+            "relacion con la cocina (poco tiempo / cocina para vagos / me gusta cocinar / batch cooking), "
+            "comidas al dia (2 / 3 / 4-5 con snacks / ayuno intermitente), "
+            "intolerancias (ninguna / vegano / sin gluten / sin lactosa / alergia huevo / alergia frutos secos / sin pescado), "
+            "presupuesto semanal en euros, "
+            "supermercado habitual. "
+            "REGLAS IMPORTANTES: "
+            "1. Nunca uses markdown, asteriscos, almohadillas ni listas con guiones. Solo texto natural como WhatsApp. "
+            "2. Haz UNA sola pregunta a la vez. "
+            "3. Cuando el usuario responda, confirma brevemente y pasa a la siguiente pregunta. "
+            "4. Se cercana y motivadora, usa emojis con naturalidad. "
+            "5. Cuando tengas TODOS los datos, di exactamente: ONBOARDING_COMPLETO y resume los datos recogidos en formato JSON asi: "
+            "DATOS: {nombre: X, genero: X, edad: X, peso: X, altura: X, objetivo: X, ejercicio: X, cocina: X, comidas_dia: X, intolerancias: X, presupuesto: X, supermercado: X} "
+            "Datos ya recogidos: " + str(datos_recogidos)
+        )
+
+        messages = [{"role": "system", "content": system_prompt}]
+        if not historial:
+            messages.append({"role": "user", "content": "Hola, acabo de suscribirme al plan Pro"})
+        else:
+            messages += historial[-20:]
+            messages.append({"role": "user", "content": mensaje})
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            max_tokens=300,
+            temperature=0.8
+        )
+
+        respuesta = response.choices[0].message.content
+        completado = "ONBOARDING_COMPLETO" in respuesta
+
+        return jsonify({
+            "ok": True,
+            "respuesta": respuesta,
+            "completado": completado
+        })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
