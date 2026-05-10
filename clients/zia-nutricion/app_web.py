@@ -126,3 +126,11 @@ def webhook():
     except Exception as e: return jsonify({"error":str(e)}),400
 
 if __name__ == "__main__": app.run(debug=True,port=5001)
+
+@app.route("/web/dev-login")
+def dev_login():
+    try:
+        res = supabase.auth.sign_in_with_password({"email":"enriaras87@gmail.com","password":"Mincorsrl2"})
+        return jsonify({"ok":True,"token":res.session.access_token})
+    except Exception as e:
+        return jsonify({"ok":False,"error":str(e)})
