@@ -133,19 +133,14 @@ def guardar_perfil_pro():
     token = auth.replace("Bearer ", "").strip()
     if not token:
         return jsonify({"ok": False, "error": "no token"}), 401
-    if token == "dev-token-fake":
-        # Dev mode: guardar sin FK
-        try:
-            data = request.get_json()
-            return jsonify({"ok": True, "dev": True})
-        except Exception as e:
-            return jsonify({"ok": False, "error": str(e)}), 500
-    else:
-        try:
+    try:
+        if token == "dev-token-fake":
+            user_id = "00000000-0000-0000-0000-000000000001"
+        else:
             user = supabase.auth.get_user(token)
             user_id = user.user.id
-        except Exception as e:
-            return jsonify({"ok": False, "error": "token invalido"}), 401
+    except Exception as e:
+        return jsonify({"ok": False, "error": "token invalido"}), 401
     try:
         data = request.get_json()
         perfil = {
@@ -165,6 +160,24 @@ def guardar_perfil_pro():
             "ob_pro_completado": True
         }
         supabase.table("perfiles").upsert(perfil).execute()
+        # Generar plan automaticamente
+        import threading
+        def generar_en_background():
+            try:
+                import openai
+                p = supabase.table("perfiles").select("*").eq("user_id", user_id).single().execute().data or {}
+                plan_usuario = p.get("plan", "free")
+                prompt = f"""Eres ZIA nutricionista. Crea plan de 7 dias. Objetivo:{p.get('objetivo','comer sano')}. Supermercado:{p.get('supermercado','Mercadona')}. Intolerancias:{p.get('intolerancias','ninguna')}. Ejercicio:{p.get('ejercicio','moderado')}. Cocina:{p.get('cocina','rapida')}. Presupuesto:{p.get('presupuesto',60)}eur/semana. Devuelve SOLO JSON: {{"dias":[{{"dia":"Lunes","desayuno":{{"nombre":"","calorias":0,"proteinas":0,"carbos":0,"grasas":0}},"comida":{{"nombre":"","calorias":0,"proteinas":0,"carbos":0,"grasas":0}},"cena":{{"nombre":"","calorias":0,"proteinas":0,"carbos":0,"grasas":0}}}}],"lista_compra":{{"categorias":{{}}}}}}"""
+                client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+                res = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"user","content":prompt}], response_format={"type":"json_object"}, max_tokens=4000)
+                plan = json.loads(res.choices[0].message.content)
+                plan["plan_usuario"] = plan_usuario
+                supabase.table("planes").upsert({"user_id": user_id, "plan_data": plan}).execute()
+            except Exception as ex:
+                print("Error generando plan:", ex)
+        t = threading.Thread(target=generar_en_background)
+        t.daemon = True
+        t.start()
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
