@@ -125,6 +125,42 @@ def webhook():
         return jsonify({"ok":True})
     except Exception as e: return jsonify({"error":str(e)}),400
 
+
+@app.route("/web/guardar-perfil-pro", methods=["POST"])
+def guardar_perfil_pro():
+    from functools import wraps
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "no token"}), 401
+    try:
+        user = supabase.auth.get_user(token)
+        user_id = user.user.id
+    except Exception as e:
+        return jsonify({"ok": False, "error": "token invalido"}), 401
+    try:
+        data = request.get_json()
+        perfil = {
+            "user_id": user_id,
+            "nombre": data.get("nombre"),
+            "genero": data.get("genero"),
+            "edad": data.get("edad"),
+            "peso": data.get("peso"),
+            "altura": data.get("altura"),
+            "objetivo": data.get("objetivo"),
+            "ejercicio": data.get("ejercicio"),
+            "cocina": data.get("cocina"),
+            "comidas_dia": data.get("comidas_dia"),
+            "intolerancias": data.get("intolerancias", []),
+            "presupuesto": data.get("presupuesto"),
+            "supermercado": data.get("supermercado"),
+            "ob_pro_completado": True
+        }
+        supabase.table("perfiles").upsert(perfil).execute()
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 if __name__ == "__main__": app.run(debug=True,port=5001)
 
 @app.route("/web/dev-login")
