@@ -79,12 +79,17 @@ def mi_plan():
             uid = "00000000-0000-0000-0000-000000000001"
         else:
             uid = supabase.auth.get_user(token).user.id
-        try: plan = supabase.table("planes").select("*").eq("user_id",uid).order("created_at",desc=True).limit(1).single().execute().data.get("plan_data")
+        plan = None
+        try:
+            plan = supabase.table("planes").select("*").eq("user_id",uid).order("created_at",desc=True).limit(1).execute().data
+            if plan: plan = plan[0]
         except: plan = None
-        try: pf = supabase.table("perfiles").select("nombre,plan").eq("user_id",uid).single().execute().data
+        try:
+            pf = supabase.table("perfiles").select("nombre,plan").eq("user_id",uid).single().execute().data or {}
         except: pf = {}
-        return jsonify({"ok":True,"plan":plan,"plan_usuario":pf.get("plan","free"),"nombre":pf.get("nombre",""),"email":user.email})
-    except Exception as e: return jsonify({"ok":False,"error":str(e)}),404
+        return jsonify({"ok":True,"plan":plan["plan_data"] if plan else None,"plan_usuario":pf.get("plan","free"),"nombre":pf.get("nombre","")})
+    except Exception as e:
+        return jsonify({"ok":False,"error":str(e)}),404
 
 @app.route("/web/chat", methods=["POST"])
 def chat():
