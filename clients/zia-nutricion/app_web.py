@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from supabase import create_client
 app = Flask(__name__)
+CORS(app, origins=["https://zianutricion.com", "https://www.zianutricion.com", "*"])
 CORS(app, origins=["https://zianutricion.com","https://www.zianutricion.com","http://localhost:5001"])
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
