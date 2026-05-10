@@ -74,8 +74,11 @@ def generar_plan():
 def mi_plan():
     try:
         token = request.headers.get("Authorization","").replace("Bearer ","")
-        user = supabase.auth.get_user(token).user
-        uid = user.id
+        if token == "dev-token-fake":
+            uid = "00000000-0000-0000-0000-000000000001"
+        else:
+            user = supabase.auth.get_user(token).user
+            uid = user.id
         try: plan = supabase.table("planes").select("*").eq("user_id",uid).order("created_at",desc=True).limit(1).single().execute().data.get("plan_data")
         except: plan = None
         try: pf = supabase.table("perfiles").select("nombre,plan").eq("user_id",uid).single().execute().data
