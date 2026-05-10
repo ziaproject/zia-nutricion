@@ -159,7 +159,7 @@ def guardar_perfil_pro():
             "supermercado": data.get("supermercado"),
             "ob_pro_completado": True
         }
-        supabase.table("perfiles").upsert(perfil).execute()
+        supabase.table("perfiles").upsert(perfil, on_conflict="user_id").execute()
         # Generar plan automaticamente
         import threading
         def generar_en_background():
