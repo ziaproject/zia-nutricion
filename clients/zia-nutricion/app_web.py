@@ -1,4 +1,5 @@
 import os, json, stripe
+import sys; sys.stdout = open(sys.stdout.fileno(), mode="w", encoding="utf-8", buffering=1)
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
