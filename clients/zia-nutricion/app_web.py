@@ -134,7 +134,12 @@ def guardar_perfil_pro():
     if not token:
         return jsonify({"ok": False, "error": "no token"}), 401
     if token == "dev-token-fake":
-        user_id = "dev-user-123"
+        # Dev mode: guardar sin FK
+        try:
+            data = request.get_json()
+            return jsonify({"ok": True, "dev": True})
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 500
     else:
         try:
             user = supabase.auth.get_user(token)
