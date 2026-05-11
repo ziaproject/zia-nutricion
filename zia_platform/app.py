@@ -26,28 +26,6 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-try:
-    from flask_cors import CORS
-
-    CORS(
-        app,
-        resources={
-            re.compile(r"^/web/.*$"): {
-                "origins": "*",
-                "allow_headers": [
-                    "Content-Type",
-                    "Authorization",
-                    "X-Requested-With",
-                    "Accept",
-                ],
-                "methods": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
-                "max_age": 86400,
-            }
-        },
-    )
-except ImportError:
-    logger.warning("flask-cors no instalado; el front en otro dominio puede fallar por CORS")
-
 CLIENT_ID = os.environ.get('CLIENT_ID', 'zia-nutricion')
 logger.info(f"🚀 ZIA Platform iniciando para cliente: {CLIENT_ID}")
 
@@ -746,18 +724,16 @@ Devuelve SOLO JSON válido con esta estructura:
 
 @app.after_request
 def _cors_headers_web(resp):
-    """Cabeceras CORS para /web/* (complementa flask-cors y cubre si no está instalado)."""
+    """CORS para /web/* sin flask-cors: cualquier origen."""
     if request.path.startswith("/web/"):
-        resp.headers.setdefault("Access-Control-Allow-Origin", "*")
-        resp.headers.setdefault(
-            "Access-Control-Allow-Headers",
-            "Content-Type, Authorization, X-Requested-With, Accept",
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Headers"] = (
+            "Content-Type, Authorization, X-Requested-With, Accept"
         )
-        resp.headers.setdefault(
-            "Access-Control-Allow-Methods",
-            "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS",
+        resp.headers["Access-Control-Allow-Methods"] = (
+            "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS"
         )
-        resp.headers.setdefault("Access-Control-Max-Age", "86400")
+        resp.headers["Access-Control-Max-Age"] = "86400"
     return resp
 
 
