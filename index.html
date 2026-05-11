@@ -297,6 +297,97 @@ html, body {
 .item-row .nom-cant { flex: 1; padding-right: 12px; font-size: 14px; }
 .item-row .precio-solo { font-weight: 600; color: var(--verde); flex-shrink: 0; font-size: 14px; }
 .cat-block h4 { font-size: 15px; font-weight: 600; color: var(--texto); margin-bottom: 8px; }
+.plan-banner-hoy {
+  background: linear-gradient(135deg, #2D5016 0%, #4A7C2E 100%);
+  color: #fff;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.plan-banner-hoy.hidden { display: none !important; }
+.plan-banner-hoy p { margin: 0; font-size: 14px; line-height: 1.45; flex: 1; min-width: 200px; }
+.btn-banner-receta {
+  flex-shrink: 0;
+  background: #fff;
+  color: #2D5016;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-banner-receta:active { opacity: 0.92; }
+.btn-ver-receta {
+  font-size: 12px;
+  padding: 6px 10px;
+  margin-top: 8px;
+  border: 1px solid #4A7C2E;
+  background: #fff;
+  color: #2D5016;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn-ver-receta:disabled { opacity: 0.6; cursor: wait; }
+.modal-receta {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.modal-receta.hidden { display: none !important; }
+.modal-receta-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+}
+.modal-receta-panel {
+  position: relative;
+  background: var(--blanco);
+  border-radius: 14px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+}
+.modal-receta-cerrar {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--texto-suave);
+  z-index: 2;
+}
+.modal-receta-panel h3 {
+  padding: 16px 40px 8px 16px;
+  font-size: 17px;
+  margin: 0;
+  color: var(--texto);
+}
+.modal-receta-body {
+  padding: 8px 16px 20px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: var(--texto);
+}
 .chat-post-lista {
   margin-top: 28px;
   padding-top: 20px;
@@ -495,6 +586,7 @@ html, body {
       <h2 class="paso-titulo" style="margin:0">Tu plan de 7 días</h2>
       <button type="button" class="btn-secondary" onclick="window.location.reload()">Empezar de nuevo</button>
     </div>
+    <div id="planBannerHoy" class="plan-banner-hoy hidden" aria-live="polite"></div>
     <div id="plan-contenido"></div>
     <div class="cambios-box" id="cambiosBox">
       <p><strong>¿Quieres cambiar algo?</strong> Cuéntanos qué ajustar (por ejemplo: más proteína el miércoles, sin legumbres el jueves…).</p>
@@ -541,6 +633,15 @@ html, body {
       </div>
     </div>
     <div class="preloader hidden" id="listaLoading"><div class="spinner"></div><p>Generando categorías, pesos y precios…</p></div>
+  </div>
+</div>
+
+<div id="modalReceta" class="modal-receta hidden" role="dialog" aria-modal="true" aria-labelledby="modalRecetaTitulo">
+  <div class="modal-receta-backdrop" id="modalRecetaBackdrop"></div>
+  <div class="modal-receta-panel">
+    <button type="button" class="modal-receta-cerrar" id="modalRecetaCerrar" aria-label="Cerrar">×</button>
+    <h3 id="modalRecetaTitulo">Receta</h3>
+    <div id="modalRecetaBody" class="modal-receta-body"></div>
   </div>
 </div>
 
@@ -853,7 +954,8 @@ function perfilPayload() {
   };
 }
 
-async function llamarChat(mensaje) {
+async function llamarChat(mensaje, opts) {
+  opts = opts || {};
   const body = {
     mensaje,
     historial: historialChat.slice(-12),
@@ -869,7 +971,7 @@ async function llamarChat(mensaje) {
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'error');
-  if (data.respuesta != null && data.respuesta !== '') {
+  if (data.respuesta != null && data.respuesta !== '' && !opts.omitHistorial) {
     const asst = typeof data.respuesta === 'string' ? data.respuesta : JSON.stringify(data.respuesta);
     historialChat.push({ role: 'user', content: mensaje.slice(0, 500) });
     historialChat.push({ role: 'assistant', content: asst.slice(0, 8000) });
@@ -1074,24 +1176,105 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+function normalizarNombreDia(str) {
+  return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+function nombreDiaHoyES() {
+  return new Date().toLocaleDateString('es-ES', { weekday: 'long' });
+}
+
+function capitalizarDiaEs(s) {
+  const t = String(s || '').trim();
+  if (!t) return '';
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+function buscarIndiceDiaHoyEnPlan(plan) {
+  if (!plan || !Array.isArray(plan.dias)) return -1;
+  const hoy = nombreDiaHoyES();
+  const hNorm = normalizarNombreDia(hoy);
+  for (let i = 0; i < plan.dias.length; i++) {
+    if (normalizarNombreDia(plan.dias[i].dia) === hNorm) return i;
+  }
+  return -1;
+}
+
+async function pedirRecetaYMostrarModal(nombreDiaPlan, comida) {
+  const modal = document.getElementById('modalReceta');
+  const titulo = document.getElementById('modalRecetaTitulo');
+  const body = document.getElementById('modalRecetaBody');
+  modal.classList.remove('hidden');
+  titulo.textContent = (comida && comida.nombre) ? comida.nombre : 'Receta';
+  body.textContent = 'ZIA está escribiendo la receta…';
+  const ing = comida && (comida.ingredientes_texto || '').trim();
+  const desc = comida && (comida.descripcion_breve || '').trim();
+  const tipo = comida && (comida.tipo || '').trim();
+  const msg =
+    `Eres ZIA, nutricionista. Escribe la RECETA COMPLETA del plato "${(comida && comida.nombre) ? comida.nombre : ''}"` +
+    (tipo ? ` (${tipo})` : '') + ` correspondiente al día ${nombreDiaPlan} de mi plan semanal.\n` +
+    `Incluye obligatoriamente: (1) lista de ingredientes con CANTIDADES EXACTAS en gramos, mililitros o unidades (ud); (2) pasos numerados y claros para prepararlo.\n` +
+    (desc ? `Resumen que tengo en el plan: ${desc}\n` : '') +
+    (ing ? `Ingredientes ya previstos en el plan (respétalos y concretados): ${ing}\n` : '') +
+    `Respuesta en español, texto corrido o listas, sin JSON.`;
+  try {
+    authToken = localStorage.getItem('zia_token') || authToken;
+    const data = await llamarChat(msg, { omitHistorial: true });
+    const txt = typeof data.respuesta === 'string' ? data.respuesta : JSON.stringify(data.respuesta);
+    body.textContent = txt || '(Sin respuesta)';
+  } catch (e) {
+    body.textContent = 'No se pudo cargar la receta. ' + (e.message || e);
+  }
+}
+
+window.verRecetaDesdePlan = function (diaIdx, comidaIdx) {
+  if (!planActual || !planActual.dias || !planActual.dias[diaIdx]) return;
+  const comidas = planActual.dias[diaIdx].comidas || [];
+  if (!comidas[comidaIdx]) return;
+  pedirRecetaYMostrarModal(planActual.dias[diaIdx].dia || '', comidas[comidaIdx]);
+};
+
 function renderPlan(plan) {
+  const bannerEl = document.getElementById('planBannerHoy');
   const div = document.getElementById('plan-contenido');
-  if (!plan || !plan.dias) { div.innerHTML = '<p>Error al cargar el plan</p>'; return; }
-  div.innerHTML = plan.dias.map(dia => `
-    <div style="margin-bottom:24px">
-      <div style="background:#2D5016;color:white;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:600">${dia.dia}</div>
-      <div style="border:1px solid #E0D9CE;border-top:none;border-radius:0 0 8px 8px">
-        ${dia.comidas.map(c => `
-          <div style="padding:12px 16px;border-bottom:1px solid #E0D9CE">
-            <div style="font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px">${c.tipo}</div>
-            <div style="font-weight:600;margin:4px 0">${c.nombre}</div>
-            <div style="font-size:13px;color:#6B6B6B;margin-bottom:6px">${c.descripcion_breve || ''}</div>
-            <div style="font-size:12px;color:#4A7C2E">${c.kcal} kcal · P ${c.proteinas_g}g · C ${c.carbos_g}g · G ${c.grasas_g}g</div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-  `).join('');
+  if (!plan || !plan.dias) {
+    bannerEl.classList.add('hidden');
+    bannerEl.innerHTML = '';
+    div.innerHTML = '<p>Error al cargar el plan</p>';
+    return;
+  }
+  const idxHoy = buscarIndiceDiaHoyEnPlan(plan);
+  const hoyLabel = capitalizarDiaEs(nombreDiaHoyES());
+  const comidasHoy = idxHoy >= 0 ? (plan.dias[idxHoy].comidas || []) : [];
+  const primera = comidasHoy[0];
+  if (idxHoy >= 0 && primera) {
+    const nombrePrimera = primera.nombre ? escapeHtml(primera.nombre) : '—';
+    bannerEl.classList.remove('hidden');
+    bannerEl.innerHTML =
+      '<p>Hoy es ' + escapeHtml(hoyLabel) + ' — te toca: <strong>' + nombrePrimera + '</strong></p>' +
+      '<button type="button" class="btn-banner-receta" onclick="verRecetaDesdePlan(' + idxHoy + ',0)">Ver receta</button>';
+  } else {
+    bannerEl.classList.add('hidden');
+    bannerEl.innerHTML = '';
+  }
+  let html = '';
+  plan.dias.forEach(function (dia, di) {
+    const dname = escapeHtml(dia.dia || '');
+    html += '<div style="margin-bottom:24px">';
+    html += '<div style="background:#2D5016;color:white;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:600">' + dname + '</div>';
+    html += '<div style="border:1px solid #E0D9CE;border-top:none;border-radius:0 0 8px 8px">';
+    (dia.comidas || []).forEach(function (c, ci) {
+      html += '<div style="padding:12px 16px;border-bottom:1px solid #E0D9CE">';
+      html += '<div style="font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px">' + escapeHtml(c.tipo || '') + '</div>';
+      html += '<div style="font-weight:600;margin:4px 0">' + escapeHtml(c.nombre || '') + '</div>';
+      html += '<div style="font-size:13px;color:#6B6B6B;margin-bottom:6px">' + escapeHtml(c.descripcion_breve || '') + '</div>';
+      html += '<div style="font-size:12px;color:#4A7C2E">' + escapeHtml(String(c.kcal != null ? c.kcal : 0)) + ' kcal · P ' + escapeHtml(String(c.proteinas_g != null ? c.proteinas_g : 0)) + 'g · C ' + escapeHtml(String(c.carbos_g != null ? c.carbos_g : 0)) + 'g · G ' + escapeHtml(String(c.grasas_g != null ? c.grasas_g : 0)) + 'g</div>';
+      html += '<button type="button" class="btn-ver-receta" onclick="verRecetaDesdePlan(' + di + ',' + ci + ')">Ver receta 📖</button>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  div.innerHTML = html;
 }
 
 function tituloCategoriaConIcono(cat) {
@@ -1193,6 +1376,16 @@ document.getElementById('panelChatPostLista').addEventListener('click', function
   const msg = b.getAttribute('data-msg');
   if (msg) enviarMensajeChat(msg);
 });
+
+(function initModalReceta() {
+  const m = document.getElementById('modalReceta');
+  function cerrar() { m.classList.add('hidden'); }
+  document.getElementById('modalRecetaCerrar').addEventListener('click', cerrar);
+  document.getElementById('modalRecetaBackdrop').addEventListener('click', cerrar);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && m && !m.classList.contains('hidden')) cerrar();
+  });
+})();
 
 showPaso(1);
 </script>
