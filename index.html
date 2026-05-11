@@ -201,6 +201,56 @@ html, body {
   font-size: 15px;
   font-weight: 600;
 }
+.plan-dia-card {
+  background: #E8F4E0;
+  border: 2px solid var(--verde-medio);
+  border-radius: 16px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(45, 80, 22, 0.08);
+}
+.plan-dia-card .plan-dia-titulo {
+  margin: 0;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, var(--verde) 0%, var(--verde-medio) 100%);
+  color: var(--blanco);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.plan-dia-card .comidas-wrap { background: rgba(255,255,255,0.65); }
+.comida-fila {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(74, 124, 46, 0.2);
+}
+.comida-fila:first-of-type { border-top: none; }
+.comida-fila .comida-tipo-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-variant: small-caps;
+  letter-spacing: 0.12em;
+  color: var(--verde-medio);
+  margin-bottom: 6px;
+}
+.comida-fila .comida-nombre { font-weight: 700; font-size: 15px; color: var(--texto); line-height: 1.3; }
+.comida-fila .comida-desc {
+  font-size: 13px;
+  color: var(--texto-suave);
+  margin-top: 6px;
+  line-height: 1.4;
+}
+.comida-fila .comida-ing {
+  font-size: 12px;
+  color: var(--texto);
+  margin-top: 8px;
+  line-height: 1.4;
+}
+.comida-fila .comida-macros {
+  font-size: 12px;
+  color: var(--texto-suave);
+  margin-top: 10px;
+}
 .comida-block { padding: 12px 14px; border-top: 1px solid var(--borde); }
 .comida-block:first-of-type { border-top: none; }
 .comida-block .tipo { font-size: 10px; text-transform: uppercase; color: var(--texto-suave); letter-spacing: 0.5px; }
@@ -679,8 +729,9 @@ document.getElementById('btnAplicarCambios').addEventListener('click', async () 
   try {
     const mensaje = `El usuario ya tiene este plan de 7 días (JSON o texto previo):\n${JSON.stringify(planActual || textoPlanRaw).slice(0, 12000)}\n\nSOLICITUD DE CAMBIO:\n${texto}\n\nDevuelve el plan COMPLETO actualizado en JSON con la misma estructura. Cada comida debe incluir "ingredientes_texto" con cantidades exactas en g, ml o ud por item (ej. Pechuga de pollo 150g, Huevos 2 ud). Incluye 7 días. Solo JSON, sin markdown.`;
     const data = await llamarChat(mensaje);
-    planActual = extraerPlanJson(data);
-    textoPlanRaw = respuestaPlanRaw(data);
+    const pr = consolidarPlanTrasChat(data);
+    planActual = pr.plan;
+    textoPlanRaw = pr.raw;
     renderPlan(planActual, textoPlanRaw);
     document.getElementById('inputCambios').value = '';
     mostrarVista('vista-resultado');
@@ -850,6 +901,26 @@ function extraerJsonDeTexto(text) {
   return null;
 }
 
+function desentranarObjetoJson(r) {
+  let j = null;
+  if (r != null && typeof r === 'object' && !Array.isArray(r)) j = r;
+  else if (typeof r === 'string') j = extraerJsonDeTexto(r);
+  else return null;
+  let depth = 0;
+  while (typeof j === 'string' && depth < 5) {
+    const s = j.trim();
+    if (!s.startsWith('{') && !s.startsWith('[')) break;
+    try {
+      j = JSON.parse(j);
+      depth++;
+    } catch (e) {
+      j = extraerJsonDeTexto(j);
+      break;
+    }
+  }
+  return j && typeof j === 'object' ? j : null;
+}
+
 const BLOQUES_COMIDA_ORDEN = [
   ['desayuno', 'Desayuno'],
   ['desayuno_colacion', 'Snack'],
@@ -887,9 +958,10 @@ function normalizarComida(c) {
 
 function comidasDesdeDia(d) {
   if (!d || typeof d !== 'object') return [];
-  if (Array.isArray(d.comidas)) return d.comidas.map(normalizarComida);
-  if (d.comidas && typeof d.comidas === 'object' && !Array.isArray(d.comidas)) {
-    return Object.values(d.comidas).map(normalizarComida);
+  const lista = d.comidas != null ? d.comidas : (d.Comidas != null ? d.Comidas : d.meals);
+  if (Array.isArray(lista)) return lista.map(normalizarComida);
+  if (lista && typeof lista === 'object' && !Array.isArray(lista)) {
+    return Object.values(lista).map(normalizarComida);
   }
   const out = [];
   for (let i = 0; i < BLOQUES_COMIDA_ORDEN.length; i++) {
@@ -912,11 +984,12 @@ function diaNormalizado(d, idx) {
 
 function normalizarPlanJsonData(j) {
   if (!j || typeof j !== 'object') return null;
-  let raw = j.dias;
-  if (raw == null && j.plan && typeof j.plan === 'object') raw = j.plan.dias;
+  let raw = j.dias != null ? j.dias : (j.Dias != null ? j.Dias : (j.days != null ? j.days : null));
+  if (raw == null && j.plan && typeof j.plan === 'object') raw = j.plan.dias != null ? j.plan.dias : j.plan.Dias;
+  if (raw == null && j.data && typeof j.data === 'object') raw = j.data.dias != null ? j.data.dias : j.data.Dias;
   if (raw == null) return null;
   let listaDias;
-  if (Array.isArray(raw)) listaDias = raw;
+  if (Array.isArray(raw)) listaDias = raw.filter(Boolean);
   else if (typeof raw === 'object') {
     listaDias = Object.keys(raw).sort(function (a, b) {
       const na = parseInt(a, 10); const nb = parseInt(b, 10);
@@ -926,7 +999,7 @@ function normalizarPlanJsonData(j) {
       const v = raw[k];
       if (v && typeof v === 'object' && !Array.isArray(v) && !(v.dia || v.día || v.day)) return Object.assign({ dia: k }, v);
       return v;
-    });
+    }).filter(Boolean);
   } else return null;
   const dias = listaDias.map(function (d, i) { return diaNormalizado(d, i); });
   const base = { dias: dias };
@@ -936,12 +1009,21 @@ function normalizarPlanJsonData(j) {
 }
 
 function extraerPlanJson(data) {
-  let j = null;
-  const r = data && data.respuesta;
-  if (r != null && typeof r === 'object' && !Array.isArray(r)) j = r;
-  else j = extraerJsonDeTexto(typeof r === 'string' ? r : '');
-  if (!j && data && typeof data === 'object' && (data.dias != null || (data.plan && data.plan.dias != null))) j = data;
+  let j = desentranarObjetoJson(data && data.respuesta);
+  if (!j && data && typeof data === 'object' && (data.dias != null || data.Dias != null || (data.plan && (data.plan.dias != null || data.plan.Dias != null)))) {
+    j = data;
+  }
   return normalizarPlanJsonData(j);
+}
+
+function consolidarPlanTrasChat(data) {
+  let plan = extraerPlanJson(data);
+  const raw = respuestaPlanRaw(data);
+  if (!plan || !Array.isArray(plan.dias) || !plan.dias.length) {
+    const alt = normalizarPlanJsonData(desentranarObjetoJson(raw));
+    if (alt && Array.isArray(alt.dias) && alt.dias.length) plan = alt;
+  }
+  return { plan: plan, raw: raw };
 }
 
 function extraerListaJson(data) {
@@ -974,8 +1056,9 @@ async function generarPlanInicial() {
 
   try {
     const data = await llamarChat(mensaje);
-    planActual = extraerPlanJson(data);
-    textoPlanRaw = respuestaPlanRaw(data);
+    const pr = consolidarPlanTrasChat(data);
+    planActual = pr.plan;
+    textoPlanRaw = pr.raw;
     renderPlan(planActual, textoPlanRaw);
     mostrarVista('vista-resultado');
   } catch (e) {
@@ -993,34 +1076,40 @@ function escapeHtml(s) {
 
 function renderPlan(plan, raw) {
   const el = document.getElementById('planContainer');
-  const dias = plan && Array.isArray(plan.dias) ? plan.dias : null;
+  let p = plan;
+  if (!p || !Array.isArray(p.dias) || !p.dias.length) {
+    const n = raw ? normalizarPlanJsonData(desentranarObjetoJson(raw)) : null;
+    if (n && n.dias && n.dias.length) p = n;
+  }
+  const dias = p && Array.isArray(p.dias) ? p.dias : null;
   if (!dias || !dias.length) {
-    const fb = raw || (plan ? JSON.stringify(plan, null, 2) : 'Sin datos.');
+    const fb = raw || (p ? JSON.stringify(p, null, 2) : 'Sin datos.');
     el.innerHTML = '<div class="raw-fallback">' + escapeHtml(typeof fb === 'string' ? fb : JSON.stringify(fb)) + '</div>';
     return;
   }
   let html = '';
-  if (plan.notas) {
-    html += '<div class="dia-card" style="margin-bottom:12px"><p class="meta" style="margin:0">' + escapeHtml(String(plan.notas)) + '</p></div>';
+  if (p.notas) {
+    html += '<div class="dia-card" style="margin-bottom:12px"><p class="meta" style="margin:0;color:var(--texto-suave);font-size:13px">' + escapeHtml(String(p.notas)) + '</p></div>';
   }
-  dias.forEach(d => {
-    html += '<div class="dia-card"><h3>' + escapeHtml(d.dia || 'Día') + '</h3>';
+  dias.forEach(function (d) {
+    html += '<div class="plan-dia-card dia-card"><h3 class="plan-dia-titulo">' + escapeHtml(d.dia || 'Día') + '</h3><div class="comidas-wrap">';
     const comidas = d.comidas || [];
     if (!comidas.length) {
-      html += '<div class="comida-block"><div class="meta">No hay comidas reconocidas en este día.</div></div>';
+      html += '<div class="comida-fila"><div class="comida-desc">No hay comidas en este día.</div></div>';
     } else {
-      comidas.forEach(c => {
+      comidas.forEach(function (c) {
+        const tipoUp = (c.tipo || '').toUpperCase();
         const ing = (c.ingredientes_texto || '').trim();
-        html += '<div class="comida-block">' +
-          '<div class="tipo">' + escapeHtml(c.tipo || '') + '</div>' +
-          '<div class="nombre">' + escapeHtml(c.nombre || '') + '</div>' +
-          (c.descripcion_breve ? '<div class="meta">' + escapeHtml(c.descripcion_breve) + '</div>' : '') +
-          (ing ? '<div class="meta" style="margin-top:6px;font-weight:500;color:var(--texto)">' + escapeHtml(ing) + '</div>' : '') +
-          '<div class="meta">~' + (c.kcal || 0) + ' kcal · P ' + (c.proteinas_g || 0) + ' g · C ' + (c.carbos_g || 0) + ' g · G ' + (c.grasas_g || 0) + ' g</div>' +
+        html += '<div class="comida-fila">' +
+          '<div class="comida-tipo-label">' + escapeHtml(tipoUp) + '</div>' +
+          '<div class="comida-nombre">' + escapeHtml(c.nombre || '') + '</div>' +
+          (c.descripcion_breve ? '<div class="comida-desc">' + escapeHtml(c.descripcion_breve) + '</div>' : '') +
+          (ing ? '<div class="comida-ing">' + escapeHtml(ing) + '</div>' : '') +
+          '<div class="comida-macros">~' + (c.kcal || 0) + ' kcal · P ' + (c.proteinas_g || 0) + ' g · C ' + (c.carbos_g || 0) + ' g · G ' + (c.grasas_g || 0) + ' g</div>' +
           '</div>';
       });
     }
-    html += '</div>';
+    html += '</div></div>';
   });
   el.innerHTML = html;
 }
