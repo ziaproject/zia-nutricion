@@ -108,8 +108,11 @@ def login():
 def perfil():
     try:
         token = request.headers.get("Authorization", "").replace("Bearer ", "")
-        user = supabase.auth.get_user(token)
-        user_id = user.user.id
+        if token and token != "anonimo":
+            user = supabase.auth.get_user(token)
+            user_id = user.user.id
+        else:
+            user_id = "anonimo"
         user_email = user.user.email
         try:
             plan_row = supabase.table("planes").select("*").eq("user_id", user_id).order("created_at", desc=True).limit(1).single().execute()
