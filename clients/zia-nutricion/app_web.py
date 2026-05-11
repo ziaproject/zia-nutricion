@@ -94,23 +94,67 @@ def mi_plan():
 @app.route("/web/chat", methods=["POST"])
 def chat():
     try:
-        token = request.headers.get("Authorization","").replace("Bearer ","")
-        uid = supabase.auth.get_user(token).user.id
+        token = (request.headers.get("Authorization") or "").replace("Bearer ", "").strip()
         data = request.get_json(force=True)
-        pf = supabase.table("perfiles").select("*").eq("user_id",uid).single().execute().data or {}
-        plan = pf.get("plan","free")
-        cnt = pf.get("chat_count",0) or 0
-        if plan == "free" and cnt >= 3:
-            return jsonify({"ok":True,"respuesta":"Has usado tus mensajes gratuitos. Elige un plan para continuar.","paywall":True})
+        body_perfil = data.get("perfil")
+        if not isinstance(body_perfil, dict):
+            body_perfil = {}
+
+        uid = None
+        if not token or token.lower() == "anonimo":
+            pf = body_perfil
+        else:
+            try:
+                uid = supabase.auth.get_user(token).user.id
+            except Exception:
+                uid = None
+                pf = body_perfil
+            else:
+                try:
+                    pf = (
+                        supabase.table("perfiles")
+                        .select("*")
+                        .eq("user_id", uid)
+                        .single()
+                        .execute()
+                        .data
+                        or {}
+                    )
+                except Exception:
+                    pf = {}
+                if not pf:
+                    pf = body_perfil
+
+        plan = pf.get("plan", "free")
+        cnt = pf.get("chat_count", 0) or 0
+        if uid is not None and plan == "free" and cnt >= 3:
+            return jsonify({"ok": True, "respuesta": "Has usado tus mensajes gratuitos. Elige un plan para continuar.", "paywall": True})
         import openai
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        msgs = [{"role":"system","content":f"Eres ZIA, nutricionista cercana. Espanol, sin markdown, maximo 3 parrafos. Perfil: objetivo={pf.get('objetivo','')}, supermercado={pf.get('supermercado','Mercadona')}."}]
-        for h in data.get("historial",[])[-6:]: msgs.append({"role":h["role"],"content":h["content"]})
-        msgs.append({"role":"user","content":data.get("mensaje","")})
-        res = client.chat.completions.create(model="gpt-4o-mini",messages=msgs,max_tokens=500)
-        supabase.table("perfiles").update({"chat_count":cnt+1}).eq("user_id",uid).execute()
-        return jsonify({"ok":True,"respuesta":res.choices[0].message.content,"paywall":False})
-    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+        genero_o_sexo = pf.get("genero", "") or pf.get("sexo", "")
+        intol = pf.get("intolerancias", "ninguna")
+        if not isinstance(intol, str):
+            intol = str(intol)
+        sys_content = (
+            f"Eres ZIA, nutricionista cercana. Espanol, sin markdown salvo que el usuario pida JSON. "
+            f"Perfil: nombre={pf.get('nombre', '')}, genero={genero_o_sexo}, edad={pf.get('edad', '')}, "
+            f"peso={pf.get('peso', '')}, altura={pf.get('altura', '')}, objetivo={pf.get('objetivo', '')}, "
+            f"ejercicio={pf.get('ejercicio', '')}, cocina={pf.get('cocina', '')}, comidas_dia={pf.get('comidas_dia', '')}, "
+            f"intolerancias={intol}, presupuesto={pf.get('presupuesto', 60)}, supermercado={pf.get('supermercado', 'Mercadona')}."
+        )
+        msgs = [{"role": "system", "content": sys_content}]
+        for h in data.get("historial", [])[-6:]:
+            msgs.append({"role": h["role"], "content": h["content"]})
+        msgs.append({"role": "user", "content": data.get("mensaje", "")})
+        res = client.chat.completions.create(model="gpt-4o-mini", messages=msgs, max_tokens=2000)
+        if uid is not None:
+            try:
+                supabase.table("perfiles").update({"chat_count": cnt + 1}).eq("user_id", uid).execute()
+            except Exception:
+                pass
+        return jsonify({"ok": True, "respuesta": res.choices[0].message.content, "paywall": False})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.route("/web/checkout", methods=["POST"])
 def checkout():
