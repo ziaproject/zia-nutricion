@@ -355,7 +355,6 @@ html, body {
           <div class="field"><label for="peso">Peso (kg)</label><input id="peso" type="number" min="30" max="200" step="0.1" placeholder="70"></div>
           <div class="field"><label for="altura">Altura (cm)</label><input id="altura" type="number" min="100" max="220" placeholder="170"></div>
         </div>
-        <div class="field"><label for="email">Email (opcional)</label><input id="email" type="email" placeholder="tu@email.com" autocomplete="email"></div>
       </section>
 
       <section class="paso hidden" data-paso="2">
@@ -373,10 +372,10 @@ html, body {
         <h2 class="paso-titulo">Ejercicio</h2>
         <p class="paso-desc">¿Cuánto te mueves en una semana típica?</p>
         <div class="opciones" data-grupo="ejercicio">
-          <button type="button" class="opcion" data-val="sedentario">Sedentario <small> poco o ningún ejercicio</small></button>
-          <button type="button" class="opcion" data-val="ligero">Ligero <small> 1–2 días suave</small></button>
-          <button type="button" class="opcion" data-val="moderado">Moderado <small> 3–4 días</small></button>
-          <button type="button" class="opcion" data-val="intenso">Intenso <small> 5+ o trabajo físico</small></button>
+          <button type="button" class="opcion" data-val="sedentario">Sedentario · menos de 5.000 pasos/día</button>
+          <button type="button" class="opcion" data-val="ligero">Ligero · 5.000-7.500 pasos · 1-2 días ejercicio</button>
+          <button type="button" class="opcion" data-val="moderado">Moderado · 7.500-10.000 pasos · 3-4 días</button>
+          <button type="button" class="opcion" data-val="intenso">Intenso · +10.000 pasos · 5+ días o trabajo físico</button>
         </div>
       </section>
 
@@ -502,7 +501,7 @@ const API = 'https://zealous-forgiveness-production-a5a7.up.railway.app';
 let pasoActual = 1;
 const TOTAL_PASOS = 8;
 const datos = {
-  nombre: '', edad: '', sexo: '', peso: '', altura: '', email: '',
+  nombre: '', edad: '', sexo: '', peso: '', altura: '',
   objetivo: '', ejercicio: '', cocina: '', comidas_dia: '',
   intolerancias: [], presupuesto: '', supermercado: ''
 };
@@ -598,7 +597,6 @@ function leerPaso1() {
   datos.sexo = document.getElementById('sexo').value;
   datos.peso = document.getElementById('peso').value.trim();
   datos.altura = document.getElementById('altura').value.trim();
-  datos.email = document.getElementById('email').value.trim();
   if (!datos.nombre) return 'Indica tu nombre.';
   if (!datos.edad || !datos.sexo || !datos.peso || !datos.altura) return 'Completa edad, sexo, peso y altura.';
   const edad = Number(datos.edad);
@@ -680,7 +678,7 @@ document.getElementById('btnAplicarCambios').addEventListener('click', async () 
   mostrarVista('vista-generando');
   document.getElementById('generandoTexto').textContent = 'Aplicando tus cambios al plan…';
   try {
-    const mensaje = `El usuario ya tiene este plan de 7 días (JSON o texto previo):\n${JSON.stringify(planActual || textoPlanRaw).slice(0, 12000)}\n\nSOLICITUD DE CAMBIO:\n${texto}\n\nDevuelve el plan COMPLETO actualizado en JSON con la misma estructura: { "dias": [ { "dia": "Lunes", "comidas": [ { "tipo": "Desayuno", "nombre": "", "ingredientes": "", "kcal": 0, "proteinas_g": 0 } ] } ], "notas": "" }. Incluye 7 días. Solo JSON, sin markdown.`;
+    const mensaje = `El usuario ya tiene este plan de 7 días (JSON o texto previo):\n${JSON.stringify(planActual || textoPlanRaw).slice(0, 12000)}\n\nSOLICITUD DE CAMBIO:\n${texto}\n\nDevuelve el plan COMPLETO actualizado en JSON con la misma estructura. Cada comida debe incluir "ingredientes_texto" con cantidades exactas en g, ml o ud por item (ej. Pechuga de pollo 150g, Huevos 2 ud). Incluye 7 días. Solo JSON, sin markdown.`;
     const data = await llamarChat(mensaje);
     planActual = extraerPlanJson(data);
     textoPlanRaw = typeof data.respuesta === 'string' ? data.respuesta : '';
@@ -701,7 +699,7 @@ document.getElementById('btnListaOK').addEventListener('click', async () => {
     return;
   }
   document.getElementById('regNombre').value = datos.nombre || '';
-  document.getElementById('regEmail').value = datos.email || '';
+  document.getElementById('regEmail').value = '';
   const re = document.getElementById('regError');
   re.textContent = '';
   re.classList.remove('visible');
@@ -740,7 +738,6 @@ document.getElementById('btnGuardarPlanGratis').addEventListener('click', async 
     authToken = logData.token;
     localStorage.setItem('zia_token', authToken);
     datos.nombre = nombre;
-    datos.email = email;
     await sincronizarPerfilServidor();
     await irAListaGenerar();
   } catch (e) {
@@ -776,7 +773,7 @@ async function irAListaGenerar() {
   document.getElementById('chatMensajes').innerHTML = '';
   document.getElementById('listaSuper').textContent = 'Supermercado: ' + (datos.supermercado || '—');
 
-  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${(datos.intolerancias || []).join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS. Para los precios, usa como referencia PRECIO REAL ACTUAL en España en 2025 típico de Mercadona (venta al público en tienda u online); si el supermercado del usuario no es Mercadona, indica precios equivalentes realistas para esa cadena tomando como ancla los niveles de Mercadona España 2025.\n\nPara cada ítem: nombre del producto y cantidad con unidad separados por un punto medio (ej. producto "Espinacas", cantidad "300g" → mostrar como "Espinacas · 300g"); el precio_estimado_eur es solo el importe en EUR de esa línea.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
+  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${(datos.intolerancias || []).join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS. Especifica cantidades EXACTAS en gramos, mililitros o unidades (ud) de cada producto en la lista, coherentes con el plan (mismo criterio que en cada comida del JSON).\n\nPara los precios, usa como referencia PRECIO REAL ACTUAL en España en 2025 típico de Mercadona (venta al público en tienda u online); si el supermercado del usuario no es Mercadona, indica precios equivalentes realistas para esa cadena tomando como ancla los niveles de Mercadona España 2025.\n\nCada línea de compra debe poder mostrarse como: columna izquierda "NombreProducto CANTIDAD+unidad" todo junto sin separador extra (ej. "Espinacas 300g", "Huevos 6 ud"); en JSON usa producto+nombre y cantidad/peso_o_unidad para ello. precio_estimado_eur es solo el número; el front mostrará como 1.50€.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
   try {
     const data = await llamarChat(mensaje);
     const lista = extraerListaJson(data);
@@ -870,9 +867,10 @@ async function generarPlanInicial() {
     `- Intolerancias/preferencias: ${datos.intolerancias.join(', ')}\n` +
     `- Presupuesto compra semanal: ~${datos.presupuesto} €\n` +
     `- Suele comprar en: ${datos.supermercado}\n\n` +
+    `IMPORTANTE: en CADA comida debes especificar cantidades EXACTAS en gramos (g), mililitros (ml) o unidades (ud) de cada ingrediente principal del plato. Ejemplos de líneas válidas: "Pechuga de pollo 150g", "Huevos 2 ud", "Arroz integral 80g".\n\n` +
     `Responde SOLO con un JSON válido (sin markdown, sin texto extra) con esta estructura:\n` +
-    `{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Comida","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Cena","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}]}\n` +
-    `Incluye exactamente 7 elementos en "dias" (Lunes a Domingo). Ritmo comidas_dia="${datos.comidas_dia}": si es 2-ayuno-16h, solo 2 comidas principales al día; si 3-comidas, desayuno+comida+cena; si 3-comidas-snacks o 5-comidas-snacks, añade snacks/meriendas explícitos con tipo "Snack" o "Merienda".`;
+    `{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","ingredientes_texto":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Comida","nombre":"","ingredientes_texto":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Cena","nombre":"","ingredientes_texto":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}]}\n` +
+    `En "ingredientes_texto" incluye una lista clara separada por comas con cada alimento y su cantidad (g, ml o ud). Incluye exactamente 7 elementos en "dias" (Lunes a Domingo). Ritmo comidas_dia="${datos.comidas_dia}": si es 2-ayuno-16h, solo 2 comidas principales al día; si 3-comidas, desayuno+comida+cena; si 3-comidas-snacks o 5-comidas-snacks, añade snacks/meriendas explícitos con tipo "Snack" o "Merienda", siempre con ingredientes_texto con cantidades exactas.`;
 
   try {
     const data = await llamarChat(mensaje);
@@ -903,9 +901,11 @@ function renderPlan(plan, raw) {
   plan.dias.forEach(d => {
     html += '<div class="dia-card"><h3>' + escapeHtml(d.dia || 'Día') + '</h3>';
     (d.comidas || []).forEach(c => {
+      const ing = (c.ingredientes_texto || c.ingredientes_cantidades || c.ingredientes_detalle || c.ingredientes || '').trim();
       html += '<div class="comida-block">' +
         '<div class="tipo">' + escapeHtml(c.tipo || '') + '</div>' +
         '<div class="nombre">' + escapeHtml(c.nombre || '') + '</div>' +
+        (ing ? '<div class="meta" style="margin-top:6px;font-weight:500;color:var(--texto)">' + escapeHtml(ing) + '</div>' : '') +
         (c.descripcion_breve ? '<div class="meta">' + escapeHtml(c.descripcion_breve) + '</div>' : '') +
         '<div class="meta">~' + (c.kcal || 0) + ' kcal · P ' + (c.proteinas_g || 0) + ' g · C ' + (c.carbos_g || 0) + ' g · G ' + (c.grasas_g || 0) + ' g</div>' +
         '</div>';
@@ -987,17 +987,21 @@ function renderLista(lista, raw) {
       const parteCant = [cant, pu].filter(Boolean).join(' ').trim();
       let nombreLinea = prod;
       if (parteCant) {
-        const pl = prod.toLowerCase();
-        const cl = parteCant.toLowerCase();
-        if (!pl.includes(cl)) nombreLinea = (prod + ' · ' + parteCant).trim();
+        const pC = prod.toLowerCase().replace(/\s/g, '');
+        const cC = parteCant.toLowerCase().replace(/\s/g, '');
+        if (pC && !pC.includes(cC)) nombreLinea = (prod + ' ' + parteCant).trim();
+        else if (!pC) nombreLinea = parteCant;
       }
-      const precio = item.precio_estimado_eur != null ? Number(item.precio_estimado_eur).toFixed(2) + ' €' : '';
+      let precio = '';
+      if (item.precio_estimado_eur != null && item.precio_estimado_eur !== '') {
+        precio = Number(item.precio_estimado_eur).toFixed(2) + '€';
+      }
       html += '<div class="item-row"><span class="nom-cant">' + escapeHtml(nombreLinea || '—') + '</span><span class="precio-solo">' + (precio ? escapeHtml(precio) : '—') + '</span></div>';
     });
     html += '</div>';
   });
   if (total != null) {
-    html += '<div class="dia-card" style="margin-top:16px;padding:14px"><strong>Total estimado:</strong> ' + Number(total).toFixed(2) + ' €</div>';
+    html += '<div class="dia-card" style="margin-top:16px;padding:14px"><strong>Total estimado:</strong> ' + Number(total).toFixed(2) + '€</div>';
   }
   el.innerHTML = html;
   actualizarChatSaludo();
