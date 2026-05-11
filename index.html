@@ -495,7 +495,7 @@ html, body {
       <h2 class="paso-titulo" style="margin:0">Tu plan de 7 días</h2>
       <button type="button" class="btn-secondary" onclick="window.location.reload()">Empezar de nuevo</button>
     </div>
-    <div id="planContainer"></div>
+    <div id="plan-contenido"></div>
     <div class="cambios-box" id="cambiosBox">
       <p><strong>¿Quieres cambiar algo?</strong> Cuéntanos qué ajustar (por ejemplo: más proteína el miércoles, sin legumbres el jueves…).</p>
       <textarea id="inputCambios" placeholder="Ej.: Menos pasta y más pescado a mitad de semana…"></textarea>
@@ -732,7 +732,7 @@ document.getElementById('btnAplicarCambios').addEventListener('click', async () 
     const pr = consolidarPlanTrasChat(data);
     planActual = pr.plan;
     textoPlanRaw = pr.raw;
-    renderPlan(planActual, textoPlanRaw);
+    renderPlan(planActual);
     document.getElementById('inputCambios').value = '';
     mostrarVista('vista-resultado');
   } catch (e) {
@@ -1059,10 +1059,10 @@ async function generarPlanInicial() {
     const pr = consolidarPlanTrasChat(data);
     planActual = pr.plan;
     textoPlanRaw = pr.raw;
-    renderPlan(planActual, textoPlanRaw);
+    renderPlan(planActual);
     mostrarVista('vista-resultado');
   } catch (e) {
-    document.getElementById('planContainer').innerHTML =
+    document.getElementById('plan-contenido').innerHTML =
       '<p class="raw-fallback">No se pudo generar el plan. ' + escapeHtml(String(e.message || e)) + '</p>';
     mostrarVista('vista-resultado');
   }
@@ -1074,44 +1074,24 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
-function renderPlan(plan, raw) {
-  const el = document.getElementById('planContainer');
-  let p = plan;
-  if (!p || !Array.isArray(p.dias) || !p.dias.length) {
-    const n = raw ? normalizarPlanJsonData(desentranarObjetoJson(raw)) : null;
-    if (n && n.dias && n.dias.length) p = n;
-  }
-  const dias = p && Array.isArray(p.dias) ? p.dias : null;
-  if (!dias || !dias.length) {
-    const fb = raw || (p ? JSON.stringify(p, null, 2) : 'Sin datos.');
-    el.innerHTML = '<div class="raw-fallback">' + escapeHtml(typeof fb === 'string' ? fb : JSON.stringify(fb)) + '</div>';
-    return;
-  }
-  let html = '';
-  if (p.notas) {
-    html += '<div class="dia-card" style="margin-bottom:12px"><p class="meta" style="margin:0;color:var(--texto-suave);font-size:13px">' + escapeHtml(String(p.notas)) + '</p></div>';
-  }
-  dias.forEach(function (d) {
-    html += '<div class="plan-dia-card dia-card"><h3 class="plan-dia-titulo">' + escapeHtml(d.dia || 'Día') + '</h3><div class="comidas-wrap">';
-    const comidas = d.comidas || [];
-    if (!comidas.length) {
-      html += '<div class="comida-fila"><div class="comida-desc">No hay comidas en este día.</div></div>';
-    } else {
-      comidas.forEach(function (c) {
-        const tipoUp = (c.tipo || '').toUpperCase();
-        const ing = (c.ingredientes_texto || '').trim();
-        html += '<div class="comida-fila">' +
-          '<div class="comida-tipo-label">' + escapeHtml(tipoUp) + '</div>' +
-          '<div class="comida-nombre">' + escapeHtml(c.nombre || '') + '</div>' +
-          (c.descripcion_breve ? '<div class="comida-desc">' + escapeHtml(c.descripcion_breve) + '</div>' : '') +
-          (ing ? '<div class="comida-ing">' + escapeHtml(ing) + '</div>' : '') +
-          '<div class="comida-macros">~' + (c.kcal || 0) + ' kcal · P ' + (c.proteinas_g || 0) + ' g · C ' + (c.carbos_g || 0) + ' g · G ' + (c.grasas_g || 0) + ' g</div>' +
-          '</div>';
-      });
-    }
-    html += '</div></div>';
-  });
-  el.innerHTML = html;
+function renderPlan(plan) {
+  const div = document.getElementById('plan-contenido');
+  if (!plan || !plan.dias) { div.innerHTML = '<p>Error al cargar el plan</p>'; return; }
+  div.innerHTML = plan.dias.map(dia => `
+    <div style="margin-bottom:24px">
+      <div style="background:#2D5016;color:white;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:600">${dia.dia}</div>
+      <div style="border:1px solid #E0D9CE;border-top:none;border-radius:0 0 8px 8px">
+        ${dia.comidas.map(c => `
+          <div style="padding:12px 16px;border-bottom:1px solid #E0D9CE">
+            <div style="font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px">${c.tipo}</div>
+            <div style="font-weight:600;margin:4px 0">${c.nombre}</div>
+            <div style="font-size:13px;color:#6B6B6B;margin-bottom:6px">${c.descripcion_breve || ''}</div>
+            <div style="font-size:12px;color:#4A7C2E">${c.kcal} kcal · P ${c.proteinas_g}g · C ${c.carbos_g}g · G ${c.grasas_g}g</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 function tituloCategoriaConIcono(cat) {
