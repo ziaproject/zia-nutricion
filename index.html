@@ -348,11 +348,12 @@ html, body {
 
       <section class="paso hidden" data-paso="5">
         <h2 class="paso-titulo">Comidas al día</h2>
-        <p class="paso-desc">Incluyendo snacks si los quieres planificados.</p>
-        <div class="opcion-grid" data-grupo="comidas_dia">
-          <button type="button" class="opcion" data-val="3">3 comidas</button>
-          <button type="button" class="opcion" data-val="4">4 comidas</button>
-          <button type="button" class="opcion" data-val="5">5 comidas</button>
+        <p class="paso-desc">Define tu ritmo: ayuno, comidas clásicas o snacks entre horas.</p>
+        <div class="opciones opcion-grid" data-grupo="comidas_dia">
+          <button type="button" class="opcion" data-val="2-ayuno-16h">2 comidas (ayuno 16h)</button>
+          <button type="button" class="opcion" data-val="3-comidas">3 comidas</button>
+          <button type="button" class="opcion" data-val="3-comidas-snacks">3 comidas + snacks</button>
+          <button type="button" class="opcion" data-val="5-comidas-snacks">5 comidas + snacks</button>
         </div>
       </section>
 
@@ -512,6 +513,11 @@ document.querySelectorAll('.opciones').forEach(box => {
     btn.addEventListener('click', () => {
       box.querySelectorAll('.opcion').forEach(b => b.classList.remove('seleccionada'));
       btn.classList.add('seleccionada');
+      if (box.dataset.grupo === 'comidas_dia' && pasoActual === 5) {
+        datos.comidas_dia = btn.dataset.val || '';
+        showOnbError('');
+        showPaso(6);
+      }
     });
   });
 });
@@ -711,7 +717,7 @@ async function generarPlanInicial() {
     `- Suele comprar en: ${datos.supermercado}\n\n` +
     `Responde SOLO con un JSON válido (sin markdown, sin texto extra) con esta estructura:\n` +
     `{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Comida","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Cena","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}]}\n` +
-    `Incluye exactamente 7 elementos en "dias" (Lunes a Domingo). Si comidas_dia es 4 o 5, añade comidas extra con tipo "Snack" o "Merienda" cada día.`;
+    `Incluye exactamente 7 elementos en "dias" (Lunes a Domingo). Ritmo comidas_dia="${datos.comidas_dia}": si es 2-ayuno-16h, solo 2 comidas principales al día; si 3-comidas, desayuno+comida+cena; si 3-comidas-snacks o 5-comidas-snacks, añade snacks/meriendas explícitos con tipo "Snack" o "Merienda".`;
 
   try {
     const data = await llamarChat(mensaje);
