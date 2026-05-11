@@ -1148,216 +1148,192 @@ function perfilPayload() {
   };
 }
 
-async function llamarChat(mensaje, opts) {
-  opts = opts || {};
-  const body = {
-    mensaje,
-    historial: historialChat.slice(-12),
-    perfil: perfilPayload(),
-  };
-  if (opts.imagenes && opts.imagenes.length) body.imagenes = opts.imagenes;
-  const headers = { 'Content-Type': 'application/json' };
-  if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-  const res = await fetch(API + '/web/chat', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'error');
-  if (data.respuesta != null && data.respuesta !== '' && !opts.omitHistorial) {
-    const asst = typeof data.respuesta === 'string' ? data.respuesta : JSON.stringify(data.respuesta);
-    let userHist = mensaje.slice(0, 500);
-    if (opts.imagenes && opts.imagenes.length) userHist = (mensaje + ' [imagen adjunta]').slice(0, 500);
-    historialChat.push({ role: 'user', content: userHist });
-    historialChat.push({ role: 'assistant', content: asst.slice(0, 8000) });
-  }
-  return data;
-}
-
-function respuestaPlanRaw(data) {
-  const r = data && data.respuesta;
-  if (r == null || r === '') return '';
-  return typeof r === 'string' ? r : JSON.stringify(r);
-}
-
-function extraerJsonDeTexto(text) {
-  if (text == null) return null;
-  if (typeof text === 'object' && !Array.isArray(text)) return text;
-  if (typeof text !== 'string') return null;
-  const trimmed = text.trim();
-  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fence) { try { return JSON.parse(fence[1].trim()); } catch (e) {} }
-  if (trimmed.startsWith('{')) {
-    try { return JSON.parse(trimmed); } catch (e) {}
-  }
-  const i = trimmed.indexOf('{');
-  const j = trimmed.lastIndexOf('}');
-  if (i >= 0 && j > i) {
-    try { return JSON.parse(trimmed.slice(i, j + 1)); } catch (e) {}
-  }
-  return null;
-}
-
-function desentranarObjetoJson(r) {
-  let j = null;
-  if (r != null && typeof r === 'object' && !Array.isArray(r)) j = r;
-  else if (typeof r === 'string') j = extraerJsonDeTexto(r);
-  else return null;
-  let depth = 0;
-  while (typeof j === 'string' && depth < 5) {
-    const s = j.trim();
-    if (!s.startsWith('{') && !s.startsWith('[')) break;
-    try {
-      j = JSON.parse(j);
-      depth++;
-    } catch (e) {
-      j = extraerJsonDeTexto(j);
-      break;
-    }
-  }
-  return j && typeof j === 'object' ? j : null;
-}
-
-const BLOQUES_COMIDA_ORDEN = [
-  ['desayuno', 'Desayuno'],
-  ['desayuno_colacion', 'Snack'],
-  ['almuerzo', 'Comida'],
-  ['comida', 'Comida'],
-  ['comida_principal', 'Comida'],
-  ['merienda', 'Merienda'],
-  ['snack', 'Snack'],
-  ['snack_am', 'Snack'],
-  ['snack_pm', 'Snack'],
-  ['cena', 'Cena'],
-  ['cena_colacion', 'Snack'],
-];
-
-function normalizarComida(c) {
-  if (!c || typeof c !== 'object') {
-    return { tipo: '', nombre: '', descripcion_breve: '', ingredientes_texto: '', kcal: 0, proteinas_g: 0, carbos_g: 0, grasas_g: 0 };
-  }
-  const kcal = Number(c.kcal != null ? c.kcal : (c.calorias != null ? c.calorias : 0)) || 0;
-  const proteinas_g = Number(c.proteinas_g != null ? c.proteinas_g : (c.proteinas != null ? c.proteinas : 0)) || 0;
-  const carbos_g = Number(c.carbos_g != null ? c.carbos_g : (c.carbos != null ? c.carbos : 0)) || 0;
-  const grasas_g = Number(c.grasas_g != null ? c.grasas_g : (c.grasas != null ? c.grasas : 0)) || 0;
-  let ing = '';
-  if (typeof c.ingredientes === 'string') ing = c.ingredientes;
-  else if (Array.isArray(c.ingredientes)) ing = c.ingredientes.map(x => (typeof x === 'string' ? x : (x.item || x.nombre || '') + (x.cantidad ? ' ' + x.cantidad : ''))).filter(Boolean).join(', ');
-  ing = (c.ingredientes_texto || c.ingredientes_cantidades || c.ingredientes_detalle || ing || '').trim();
-  return {
-    tipo: (c.tipo || '').trim(),
-    nombre: (c.nombre || c.titulo || '').trim(),
-    descripcion_breve: (c.descripcion_breve || c.descripcion || '').trim(),
-    ingredientes_texto: ing,
-    kcal, proteinas_g, carbos_g, grasas_g,
-  };
-}
-
-function comidasDesdeDia(d) {
-  if (!d || typeof d !== 'object') return [];
-  const lista = d.comidas != null ? d.comidas : (d.Comidas != null ? d.Comidas : d.meals);
-  if (Array.isArray(lista)) return lista.map(normalizarComida);
-  if (lista && typeof lista === 'object' && !Array.isArray(lista)) {
-    return Object.values(lista).map(normalizarComida);
-  }
+function comidasDesdeDiaLegacy(dia) {
   const out = [];
-  for (let i = 0; i < BLOQUES_COMIDA_ORDEN.length; i++) {
-    const key = BLOQUES_COMIDA_ORDEN[i][0];
-    const tipoDef = BLOQUES_COMIDA_ORDEN[i][1];
-    const block = d[key];
-    if (!block || typeof block !== 'object' || Array.isArray(block)) continue;
-    const row = normalizarComida(block);
-    if (!row.tipo) row.tipo = tipoDef;
-    out.push(row);
+  const pairs = [
+    ['Desayuno', dia.desayuno],
+    ['Comida', dia.comida || dia.almuerzo],
+    ['Cena', dia.cena],
+    ['Merienda', dia.merienda],
+    ['Snack', dia.snack],
+  ];
+  for (let i = 0; i < pairs.length; i++) {
+    const tipo = pairs[i][0];
+    const block = pairs[i][1];
+    if (!block || typeof block !== 'object') continue;
+    out.push({
+      tipo: tipo,
+      nombre: block.nombre || block.titulo || block.plato || '',
+      descripcion_breve: block.descripcion_breve || block.descripcion || '',
+      ingredientes_texto: block.ingredientes_texto || block.ingredientes || '',
+      kcal: block.kcal != null ? block.kcal : block.calorias,
+      proteinas_g: block.proteinas_g != null ? block.proteinas_g : block.proteinas,
+      carbos_g: block.carbos_g != null ? block.carbos_g : block.carbos,
+      grasas_g: block.grasas_g != null ? block.grasas_g : block.grasas,
+    });
   }
   return out;
 }
 
-function diaNormalizado(d, idx) {
-  if (!d || typeof d !== 'object') return { dia: 'Día ' + (idx + 1), comidas: [] };
-  const dia = (d.dia || d.día || d.day || '').trim() || ('Día ' + (idx + 1));
-  return { dia, comidas: comidasDesdeDia(d) };
-}
-
-function normalizarPlanJsonData(j) {
-  if (!j || typeof j !== 'object') return null;
-  let raw = j.dias != null ? j.dias : (j.Dias != null ? j.Dias : (j.days != null ? j.days : null));
-  if (raw == null && j.plan && typeof j.plan === 'object') raw = j.plan.dias != null ? j.plan.dias : j.plan.Dias;
-  if (raw == null && j.data && typeof j.data === 'object') raw = j.data.dias != null ? j.data.dias : j.data.Dias;
-  if (raw == null) return null;
-  let listaDias;
-  if (Array.isArray(raw)) listaDias = raw.filter(Boolean);
-  else if (typeof raw === 'object') {
-    listaDias = Object.keys(raw).sort(function (a, b) {
-      const na = parseInt(a, 10); const nb = parseInt(b, 10);
-      if (!isNaN(na) && !isNaN(nb) && String(na) === a && String(nb) === b) return na - nb;
-      return a.localeCompare(b, 'es');
-    }).map(function (k) {
-      const v = raw[k];
-      if (v && typeof v === 'object' && !Array.isArray(v) && !(v.dia || v.día || v.day)) return Object.assign({ dia: k }, v);
-      return v;
-    }).filter(Boolean);
-  } else return null;
-  const dias = listaDias.map(function (d, i) { return diaNormalizado(d, i); });
-  const base = { dias: dias };
-  if (j.notas != null) base.notas = j.notas;
-  else if (j.plan && j.plan.notas != null) base.notas = j.plan.notas;
-  return base;
-}
-
-function extraerPlanJson(data) {
-  let j = desentranarObjetoJson(data && data.respuesta);
-  if (!j && data && typeof data === 'object' && (data.dias != null || data.Dias != null || (data.plan && (data.plan.dias != null || data.plan.Dias != null)))) {
-    j = data;
+function normalizarPlanParaVista(plan) {
+  if (plan == null) return null;
+  if (typeof plan === 'string') {
+    try {
+      const t = plan.trim();
+      const fi = t.indexOf('{');
+      const li = t.lastIndexOf('}');
+      plan = JSON.parse(fi >= 0 && li > fi ? t.slice(fi, li + 1) : t);
+    } catch (e) {
+      return null;
+    }
   }
-  return normalizarPlanJsonData(j);
+  if (!plan || typeof plan !== 'object') return null;
+  let p = plan;
+  if (p.plan && typeof p.plan === 'object' && Array.isArray(p.plan.dias)) p = p.plan;
+  else if (p.plan_data && typeof p.plan_data === 'object' && Array.isArray(p.plan_data.dias)) p = p.plan_data;
+  else if (p.data && typeof p.data === 'object' && Array.isArray(p.data.dias)) p = p.data;
+  if (!Array.isArray(p.dias)) return null;
+  const dias = p.dias.map(function (dia) {
+    if (!dia || typeof dia !== 'object') return { dia: '', comidas: [] };
+    let comidas = Array.isArray(dia.comidas) ? dia.comidas.slice() : [];
+    if (!comidas.length) comidas = comidasDesdeDiaLegacy(dia);
+    const copy = {};
+    for (var k in dia) {
+      if (Object.prototype.hasOwnProperty.call(dia, k)) copy[k] = dia[k];
+    }
+    copy.comidas = comidas;
+    return copy;
+  });
+  var out = {};
+  for (var k2 in p) {
+    if (Object.prototype.hasOwnProperty.call(p, k2)) out[k2] = p[k2];
+  }
+  out.dias = dias;
+  return out;
 }
 
-function consolidarPlanTrasChat(data) {
-  let plan = extraerPlanJson(data);
-  const raw = respuestaPlanRaw(data);
-  if (!plan || !Array.isArray(plan.dias) || !plan.dias.length) {
-    const alt = normalizarPlanJsonData(desentranarObjetoJson(raw));
-    if (alt && Array.isArray(alt.dias) && alt.dias.length) plan = alt;
-  }
-  return { plan: plan, raw: raw };
+function extraerPlanDesdeRespuestaApi(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (Array.isArray(data.dias)) return normalizarPlanParaVista(data);
+  if (data.plan) return normalizarPlanParaVista(data.plan);
+  return normalizarPlanParaVista(data);
 }
 
 function extraerListaJson(data) {
-  const r = data && data.respuesta;
-  let j = null;
-  if (r != null && typeof r === 'object' && !Array.isArray(r)) j = r;
-  else j = extraerJsonDeTexto(typeof r === 'string' ? r : '');
-  if (j && j.categorias) return j;
+  if (!data) return null;
+  if (typeof data === 'object') {
+    if (data.categorias && typeof data.categorias === 'object') return data;
+    var t = data.respuesta || data.response;
+    if (t && typeof t === 'object' && t.categorias) return t;
+  }
+  var texto = typeof data === 'string' ? data : (data.respuesta || data.response || '');
+  if (typeof texto !== 'string') return null;
+  try {
+    var j = JSON.parse(texto.trim());
+    if (j && j.categorias) return j;
+  } catch (e1) {}
+  var m1 = texto.match(/```json\s*([\s\S]*?)```/);
+  if (m1) {
+    try {
+      var j2 = JSON.parse(m1[1].trim());
+      if (j2 && j2.categorias) return j2;
+    } catch (e2) {}
+  }
+  var fi = texto.indexOf('{');
+  var li = texto.lastIndexOf('}');
+  if (fi !== -1 && li !== -1 && li > fi) {
+    try {
+      var j3 = JSON.parse(texto.slice(fi, li + 1));
+      if (j3 && j3.categorias) return j3;
+    } catch (e3) {}
+  }
   return null;
+}
+
+async function llamarChat(mensaje, opts) {
+  authToken = localStorage.getItem('zia_token') || authToken || '';
+  const res = await fetch(API + '/web/chat', {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (authToken || "anonimo") },
+    body: JSON.stringify({ mensaje: mensaje, historial: (historialChat||[]).slice(-10), perfil: datos })
+  });
+  if (!res.ok) throw new Error("API error " + res.status);
+  const data = await res.json();
+  const texto = data.respuesta || data.response || "";
+  historialChat = [...(historialChat||[]), { role: "user", content: mensaje }, { role: "assistant", content: texto }];
+  return data;
+}
+
+function consolidarPlanTrasChat(input) {
+  if (input && typeof input === 'object' && !Array.isArray(input)) {
+    var direct = normalizarPlanParaVista(input);
+    if (direct && direct.dias && direct.dias.length) {
+      return { plan: direct, raw: JSON.stringify(input) };
+    }
+    var sub = input.respuesta || input.response || '';
+    if (typeof sub === 'object' && sub !== null) {
+      var d2 = normalizarPlanParaVista(sub);
+      if (d2 && d2.dias && d2.dias.length) return { plan: d2, raw: JSON.stringify(sub) };
+    }
+    if (typeof sub === 'string') input = sub;
+    else input = JSON.stringify(sub || '');
+  }
+  var texto = typeof input === 'string' ? input : String(input || '');
+  var plan = null;
+  try {
+    plan = JSON.parse(texto.trim());
+    plan = normalizarPlanParaVista(plan);
+    if (plan && plan.dias && plan.dias.length) return { plan: plan, raw: texto };
+  } catch (e0) {}
+  var m1 = texto.match(/```json\s*([\s\S]*?)```/);
+  if (m1) {
+    try {
+      plan = JSON.parse(m1[1].trim());
+      plan = normalizarPlanParaVista(plan);
+      if (plan && plan.dias && plan.dias.length) return { plan: plan, raw: texto };
+    } catch (e1) {}
+  }
+  var m2 = texto.match(/(\{[\s\S]*"dias"[\s\S]*\})/);
+  if (m2) {
+    try {
+      plan = JSON.parse(m2[1]);
+      plan = normalizarPlanParaVista(plan);
+      if (plan && plan.dias && plan.dias.length) return { plan: plan, raw: texto };
+    } catch (e2) {}
+  }
+  var fi = texto.indexOf("{");
+  var li = texto.lastIndexOf("}");
+  if (fi !== -1 && li !== -1 && li > fi) {
+    try {
+      plan = JSON.parse(texto.slice(fi, li + 1));
+      plan = normalizarPlanParaVista(plan);
+      if (plan && plan.dias && plan.dias.length) return { plan: plan, raw: texto };
+    } catch (e3) {}
+  }
+  console.warn("No se pudo parsear JSON:", texto.slice(0, 300));
+  return { plan: null, raw: texto };
 }
 
 async function generarPlanInicial() {
   mostrarVista('vista-generando');
   document.getElementById('generandoTexto').textContent = 'ZIA está creando tu plan, dame unos segundos…';
   historialChat = [];
-
-  const mensaje = `Eres ZIA, nutricionista. Crea un plan de ALIMENTACIÓN para 7 DÍAS (Lunes a Domingo) personalizado con estos datos:\n` +
-    `- Nombre: ${datos.nombre}, ${datos.edad} años, ${datos.sexo}, ${datos.peso} kg, ${datos.altura} cm\n` +
-    `- Objetivo: ${datos.objetivo}\n` +
-    `- Ejercicio: ${datos.ejercicio}\n` +
-    `- Cocina: ${datos.cocina}\n` +
-    `- Comidas al día: ${datos.comidas_dia}\n` +
-    `- Intolerancias/preferencias: ${datos.intolerancias.join(', ')}\n` +
-    `- Presupuesto compra semanal: ~${datos.presupuesto} €\n` +
-    `- Suele comprar en: ${datos.supermercado}\n\n` +
-    `IMPORTANTE: en CADA comida debes especificar cantidades EXACTAS en gramos (g), mililitros (ml) o unidades (ud) de cada ingrediente principal del plato. Ejemplos de líneas válidas: "Pechuga de pollo 150g", "Huevos 2 ud", "Arroz integral 80g".\n\n` +
-    `Responde SOLO con un JSON válido (sin markdown, sin texto extra) con esta estructura:\n` +
-    `{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","ingredientes_texto":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Comida","nombre":"","ingredientes_texto":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Cena","nombre":"","ingredientes_texto":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}]}\n` +
-    `En "ingredientes_texto" incluye una lista clara separada por comas con cada alimento y su cantidad (g, ml o ud). Incluye exactamente 7 elementos en "dias" (Lunes a Domingo). Ritmo comidas_dia="${datos.comidas_dia}": si es 2-ayuno-16h, solo 2 comidas principales al día; si 3-comidas, desayuno+comida+cena; si 3-comidas-snacks o 5-comidas-snacks, añade snacks/meriendas explícitos con tipo "Snack" o "Merienda", siempre con ingredientes_texto con cantidades exactas.`;
-
+  authToken = localStorage.getItem('zia_token') || authToken || '';
   try {
-    const data = await llamarChat(mensaje);
-    const pr = consolidarPlanTrasChat(data);
-    planActual = pr.plan;
-    textoPlanRaw = pr.raw;
+    const res = await fetch(API + '/web/generar-plan', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (authToken || 'anonimo'),
+      },
+      body: JSON.stringify(perfilPayload()),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    const plan = extraerPlanDesdeRespuestaApi(data);
+    if (!plan || !plan.dias || !plan.dias.length) throw new Error('Respuesta sin días de plan');
+    planActual = plan;
+    textoPlanRaw = JSON.stringify(planActual);
     renderPlan(planActual);
     mostrarVista('vista-resultado');
   } catch (e) {
@@ -1472,29 +1448,17 @@ async function pedirRecetaYMostrarModal(nombreDiaPlan, comida) {
   const modal = document.getElementById('modalReceta');
   const titulo = document.getElementById('modalRecetaTitulo');
   const body = document.getElementById('modalRecetaBody');
+  titulo.textContent = comida.nombre || 'Receta';
+  body.innerHTML = '<p style=olor:#888">Cargando receta...</p>';
   modal.classList.remove('hidden');
-  titulo.textContent = (comida && comida.nombre) ? comida.nombre : 'Receta';
-  body.className = 'modal-receta-body';
-  body.textContent = 'ZIA está escribiendo la receta…';
-  const ing = comida && (comida.ingredientes_texto || '').trim();
-  const desc = comida && (comida.descripcion_breve || '').trim();
-  const tipo = comida && (comida.tipo || '').trim();
-  const msg =
-    `Eres ZIA, nutricionista. Escribe la RECETA COMPLETA del plato "${(comida && comida.nombre) ? comida.nombre : ''}"` +
-    (tipo ? ` (${tipo})` : '') + ` correspondiente al día ${nombreDiaPlan} de mi plan semanal.\n` +
-    `Incluye obligatoriamente: (1) lista de ingredientes con CANTIDADES EXACTAS en gramos, mililitros o unidades (ud); (2) pasos numerados y claros para prepararlo.\n` +
-    (desc ? `Resumen que tengo en el plan: ${desc}\n` : '') +
-    (ing ? `Ingredientes ya previstos en el plan (respétalos y concretados): ${ing}\n` : '') +
-    `Respuesta en español, texto corrido o listas, sin JSON.`;
   try {
-    authToken = localStorage.getItem('zia_token') || authToken;
-    const data = await llamarChat(msg, { omitHistorial: true });
-    const txt = typeof data.respuesta === 'string' ? data.respuesta : JSON.stringify(data.respuesta);
-    body.className = 'modal-receta-body z-rich';
-    body.innerHTML = formatearRespuestaZia(txt || '(Sin respuesta)');
-  } catch (e) {
-    body.className = 'modal-receta-body';
-    body.textContent = 'No se pudo cargar la receta. ' + (e.message || e);
+    const prompt = 'Dame la receta completa paso a paso de: ' + (comida.nombre||'') + '. Ingredientes: ' + (comida.ingredientes_texto||'') + '. Intolerancias del usuario: ' + ((datos.intolerancias||[]).join(', ')||'ninguna') + '. Formato: primero ingredientes con cantidades exactas, luego pasos numerados. Sin markdown, texto plano.';
+    authToken = localStorage.getItem('zia_token') || authToken || '';
+    const data = await llamarChat(prompt);
+    const texto = (data && (data.respuesta || data.response)) ? String(data.respuesta || data.response) : '';
+    body.innerHTML = formatearRespuestaZia(texto);
+  } catch(e) {
+    body.innerHTML = '<p style="color:red">No se pudo cargar la receta. Inténtalo de nuevo.</p>';
   }
 }
 
@@ -1508,15 +1472,8 @@ window.verRecetaDesdePlan = function (diaIdx, comidaIdx) {
 function renderPlan(plan) {
   const bannerEl = document.getElementById('planBannerHoy');
   const div = document.getElementById('plan-contenido');
-  if (typeof plan === 'string') {
-    try { plan = JSON.parse(plan); } catch (e) {
-      bannerEl.classList.add('hidden');
-      bannerEl.innerHTML = '';
-      div.innerHTML = '<p>Error al cargar el plan</p>';
-      return;
-    }
-  }
-  if (!plan || !plan.dias) {
+  plan = normalizarPlanParaVista(plan);
+  if (!plan || !plan.dias || !plan.dias.length) {
     bannerEl.classList.add('hidden');
     bannerEl.innerHTML = '';
     div.innerHTML = '<p>Error al cargar el plan</p>';
