@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from supabase import create_client
 app = Flask(__name__)
-CORS(app, origins=["https://zianutricion.com","https://www.zianutricion.com","http://localhost:5001"])
+CORS(app, origins="*")
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
@@ -162,7 +162,12 @@ def webhook():
     except Exception as e: return jsonify({"error":str(e)}),400
 
 
-@app.route("/web/plan-simple", methods=["POST"])
+@app.route("/web/plan-simple", methods=["POST","OPTIONS"])
+def plan_simple_options():
+    if request.method == "OPTIONS":
+        return "", 204
+
+@app.route("/web/plan-simple-x", methods=["POST"])
 def plan_simple():
     try:
         p = request.json
