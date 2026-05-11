@@ -161,4 +161,20 @@ def webhook():
         return jsonify({"ok":True})
     except Exception as e: return jsonify({"error":str(e)}),400
 
+
+@app.route("/web/plan-simple", methods=["POST"])
+def plan_simple():
+    try:
+        p = request.json
+        intol = p.get("intolerancias","ninguna")
+        if isinstance(intol, list): intol = ", ".join(intol)
+        import openai
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        prompt = f"Genera plan 7 dias para objetivo:{p.get('objetivo','comer sano')}, ejercicio:{p.get('ejercicio','')}, cocina:{p.get('cocina','')}, comidas/dia:{p.get('comidas_dia','3')}, intolerancias:{intol}, presupuesto:{p.get('presupuesto',60)}eu, supermercado:{p.get('supermercado','Mercadona')}, nombre:{p.get('nombre','')}. Solo JSON: {{dias:[{{dia:string,comidas:[{{tipo,nombre,descripcion_breve,ingredientes_texto,kcal,proteinas_g,carbos_g,grasas_g}}]}}],lista_compra:{{categorias:{{categoria:[{{producto,cantidad,peso_o_unidad,precio_estimado_eur}}]}},total_estimado_eur}}}}"
+        res = client.chat.completions.create(model="gpt-4o-mini",messages=[{"role":"user","content":prompt}],response_format={"type":"json_object"},max_tokens=4000)
+        plan = json.loads(res.choices[0].message.content)
+        return jsonify({"ok":True,"plan":plan})
+    except Exception as e:
+        return jsonify({"ok":False,"error":str(e)}),500
+
 if __name__=="__main__": app.run(debug=True,port=5001)
