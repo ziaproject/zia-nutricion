@@ -46,26 +46,65 @@ def perfil():
 
 @app.route("/web/generar-plan", methods=["POST"])
 def generar_plan():
-        try:
-        token=request.headers.get("Authorization","").replace("Bearer ","")
-        if token in ("anonimo", "", None):
-            uid = "anonimo"
+    try:
+        token = request.headers.get("Authorization","").replace("Bearer ","")
+        anonimo = token in ("anonimo", "", None)
+        if not anonimo:
+            try:
+                uid = supabase.auth.get_user(token).user.id
+            except:
+                anonimo = True
+                uid = "anonimo"
         else:
-            uid = "anonimo" if token in ("anonimo", "", None) else supabase.auth.get_user(token).user.id
-        p=supabase.table("perfiles").select("*").eq("user_id",uid).single().execute().data or {}
-        plan_usuario=p.get("plan","free")
-        dias=7 if plan_usuario!="free" else 1
+            uid = "anonimo"
+
+        p = request.json
+        intolerancias = p.get("intolerancias","ninguna")
+        if isinstance(intolerancias, list):
+            intolerancias = ", ".join(intolerancias)
+
+        plan_usuario = "free"
+        if not anonimo:
+            try:
+                pf = supabase.table("perfiles").select("plan").eq("user_id",uid).single().execute()
+                plan_usuario = pf.data.get("plan","free") if pf.data else "free"
+            except:
+                plan_usuario = "free"
+
+        dias = 7 if plan_usuario != "free" else 1
         import openai
-        client=openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        prompt=f"""Eres ZIA nutricionista. Crea plan de {dias} día(s).
-Objetivo:{p.get('objetivo','comer sano')}, Intolerancias:{p.get('intolerancias','ninguna')}, Supermercado:{p.get('supermercado','Mercadona')}
-Devuelve SOLO JSON: {{"dias":[{{"dia":"Lunes","desayuno":{{"nombre":"","calorias":0,"proteinas":0,"carbos":0,"grasas":0}},"comida":{{"nombre":"","calorias":0,"proteinas":0,"carbos":0,grasas":0}},"cena":{{"nombre":"","calorias":0,"proteinas":0,"carbos":0,"grasas":0}}}}],"lista_compra":null}}"""
-        res=client.chat.completions.create(model="gpt-4o-mini",messages=[{"role":"user","content":prompt}],response_format={"type":"json_object"},max_tokens=4000)
-        plan=json.loads(res.choices[0].message.content)
-        plan["plan_usuario"]=plan_usuario
-        supabase.table("planes").upsert({"user_id":uid,"plan_data":plan}).execute()
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        prompt = f"""Genera un plan de alimentacion de {dias} dias para:
+Nombre: {p.get("nombre","")}
+Objetivo: {p.get("objetivo","comer sano")}
+Ejercicio: {p.get("ejercicio","")}
+Cocina: {p.get("cocina","")}
+Comidas al dia: {p.get("comidas_dia","3")}
+Intolerancias: {intolerancias}
+Presupuesto: {p.get("presupuesto",60)}eu/semana
+Supermercado: {p.get("supermercado","Mercadona")}
+
+Responde SOLO con JSON valido, sin markdown. Estructura:
+{{"dias":[{{"dia":"Lunes","comidas":[{{"tipo":"Desayuno","nombre":"Nombre plato","descripcion_breve":"Descripcion corta","ingredientes_texto":"Ingrediente 1 150g, Ingrediente 2 2ud","kcal":400,"proteinas_g":25,"carbos_g":40,"grasas_g":12}}]}}],"lista_compra":{{"categorias":{{"Frutas y Verduras":[{{"producto":"Tomates","cantidad":"500g","peso_o_unidad":"500g","precio_estimado_eur":1.50}}]}},"total_estimado_eur":55.00}}}}"""
+
+        res = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role":"user","content":prompt}],
+            response_format={"type":"json_object"},
+            max_tokens=4000
+        )
+        plan = json.loads(res.choices[0].message.content)
+
+        if not anonimo:
+            try:
+                supabase.table("planes").upsert({"user_id":uid,"plan_data":plan}).execute()
+            except:
+                pass
+
         return jsonify({"ok":True,"plan":plan})
-    except Exception as e: return jsonify({"ok":False,"error":str(e)}),500
+    except Exception as e:
+        return jsonify({"ok":False,"error":str(e)}), 500
+
 
 @app.route("/web/mi-plan")
 def mi_plan():
