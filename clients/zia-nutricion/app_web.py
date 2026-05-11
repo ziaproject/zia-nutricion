@@ -1,16 +1,166 @@
-import os, json, stripe
+# -*- coding: utf-8 -*-
+import os, json, stripe, sys, logging, re
+sys.stdout.reconfigure(encoding='utf-8')
+sys.stderr.reconfigure(encoding='utf-8')
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
 load_dotenv()
 from supabase import create_client
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s %(message)s",
+)
+log = logging.getLogger("zia_nutricion_web")
+
 app = Flask(__name__)
 CORS(app, origins="*")
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 
+
+def _perfil_desde_json_body(body):
+    if not isinstance(body, dict):
+        body = {}
+    intol = body.get("intolerancias")
+    if isinstance(intol, list):
+        intol = ", ".join(str(x) for x in intol)
+    return {
+        "objetivo": body.get("objetivo") or "",
+        "peso": body.get("peso") or "",
+        "altura": body.get("altura") or "",
+        "intolerancias": intol or "ninguna",
+        "supermercado": body.get("supermercado") or "",
+        "presupuesto": body.get("presupuesto") or "",
+        "nombre": body.get("nombre") or "",
+        "edad": body.get("edad") or "",
+        "sexo": body.get("sexo") or "",
+        "ejercicio": body.get("ejercicio") or "",
+        "cocina": body.get("cocina") or "",
+        "comidas_dia": body.get("comidas_dia") or "",
+    }
+
+
+def _desanidar_plan_bruto(raw):
+    if not isinstance(raw, dict):
+        return {}
+    inner = raw.get("plan")
+    if isinstance(inner, dict) and isinstance(inner.get("dias"), list):
+        return inner
+    inner2 = raw.get("plan_data")
+    if isinstance(inner2, dict) and isinstance(inner2.get("dias"), list):
+        return inner2
+    return raw
+
+
+def _normalizar_lista_compra(lc):
+    if not isinstance(lc, dict):
+        lc = {}
+    out = dict(lc)
+    cats = out.get("categorias")
+    out["categorias"] = cats if isinstance(cats, dict) else {}
+    return out
+
+
+def _parse_json_desde_texto_llm(text):
+    if not text or not str(text).strip():
+        return {}
+    t = str(text).strip()
+    try:
+        return json.loads(t)
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r"```(?:json)?\s*([\s\S]*?)```", t)
+    if m:
+        try:
+            return json.loads(m.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    i, j = t.find("{"), t.rfind("}")
+    if i >= 0 and j > i:
+        try:
+            return json.loads(t[i : j + 1])
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+
+def _anthropic_message_text(message):
+    parts = []
+    for block in message.content:
+        if getattr(block, "type", None) == "text":
+            parts.append(getattr(block, "text", "") or "")
+    return "".join(parts).strip()
+
 @app.route("/web/health")
 def health(): return jsonify({"ok":True})
+
+
+@app.route("/web/plan-simple", methods=["POST"])
+def plan_simple():
+    """Plan 7 días en JSON vía Anthropic; sin Supabase (Bearer anonimo u omitido)."""
+    import anthropic
+
+    try:
+        api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+        if not api_key:
+            log.error("plan-simple: ANTHROPIC_API_KEY no configurada")
+            return jsonify({"ok": False, "error": "ANTHROPIC_API_KEY no configurada"}), 500
+
+        body = request.get_json(force=True, silent=True) or {}
+        p = _perfil_desde_json_body(body)
+        try:
+            dias = int(body.get("dias") or 7)
+        except (TypeError, ValueError):
+            dias = 7
+        dias = max(1, min(dias, 7))
+        nm = p.get("nombre") or ""
+
+        schema = (
+            '{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","descripcion_breve":"",'
+            '"ingredientes_texto":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}],'
+            '"lista_compra":{"categorias":{"Fruta y Verdura":[{"producto":"","cantidad":"","peso_o_unidad":"",'
+            '"precio_estimado_eur":0}]},"total_estimado_eur":0}}'
+        )
+        prompt = f"""Eres ZIA, nutricionista inteligente. Crea un plan de {dias} días para:
+- Nombre: {nm}, edad {p.get('edad','')}, sexo {p.get('sexo','')}, {p.get('peso','')} kg, {p.get('altura','')} cm
+- Objetivo: {p.get('objetivo','')}
+- Ejercicio: {p.get('ejercicio','')}
+- Cocina / tiempo: {p.get('cocina','')}
+- Comidas al día (ritmo): {p.get('comidas_dia','')}
+- Intolerancias: {p.get('intolerancias','')}
+- Supermercado: {p.get('supermercado','')}
+- Presupuesto semanal: {p.get('presupuesto','')}
+
+En cada comida, "ingredientes_texto" debe listar cantidades en g, ml o ud (ej. Pechuga 150g, Huevos 2 ud).
+Respeta el ritmo comidas_dia.
+
+Devuelve SOLO un objeto JSON válido (sin markdown, sin texto antes ni después) con esta forma lógica:
+{schema}
+Genera exactamente {dias} elementos en "dias". lista_compra siempre con "categorias" (mapa) y "total_estimado_eur" número."""
+
+        model = os.getenv("ANTHROPIC_PLAN_MODEL", "claude-sonnet-4-5")
+        log.info("plan-simple: llamando Anthropic model=%s dias=%s", model, dias)
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model=model,
+            max_tokens=8192,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        texto = _anthropic_message_text(message)
+        raw = _parse_json_desde_texto_llm(texto)
+        raw = _desanidar_plan_bruto(raw)
+        dias_arr = raw.get("dias")
+        if not isinstance(dias_arr, list):
+            dias_arr = []
+        lista_compra = _normalizar_lista_compra(raw.get("lista_compra"))
+        limpio = {"dias": dias_arr, "lista_compra": lista_compra}
+        return jsonify({"ok": True, **limpio})
+    except Exception as e:
+        log.exception("plan-simple: error exacto (traza arriba): %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 @app.route("/web/registro", methods=["POST"])
 def registro():
