@@ -481,6 +481,128 @@ html, body {
 .modal-receta-body.z-rich .z-ch-h { margin: 0.5em 0 0.35em; font-size: 1.05em; color: var(--verde); font-weight: 600; }
 .modal-receta-body.z-rich .z-ch-ul { margin: 0.35em 0 0.5em 1.15em; }
 .modal-receta-body.z-rich .z-ch-pre { font-size: 12px; background: #f3f3f0; padding: 10px; border-radius: 8px; white-space: pre-wrap; }
+.chat-full-vista {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--crema);
+  max-width: 520px;
+  margin: 0 auto;
+}
+.chat-full-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--blanco);
+  border-bottom: 1px solid var(--borde);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.chat-full-header .logo-zia { font-size: 20px; margin: 0; }
+.chat-full-header .chat-full-title { flex: 1; font-weight: 600; font-size: 16px; color: var(--texto); }
+.chat-full-mensajes {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 120px;
+}
+.msg-full-zia {
+  align-self: flex-start;
+  max-width: 88%;
+  background: var(--crema);
+  border: 2px solid var(--verde);
+  padding: 12px 14px;
+  border-radius: 16px 16px 16px 6px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--texto);
+}
+.msg-full-user {
+  align-self: flex-end;
+  max-width: 88%;
+  background: var(--verde);
+  color: var(--blanco);
+  padding: 12px 14px;
+  border-radius: 16px 16px 6px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.msg-full-typing {
+  font-style: italic;
+  color: var(--texto-suave);
+}
+.msg-full-zia.z-rich { word-break: break-word; }
+.msg-full-zia.z-rich .z-ch-p { margin: 0 0 0.5em; }
+.msg-full-zia.z-rich .z-ch-p:last-child { margin-bottom: 0; }
+.msg-full-zia.z-rich .z-ch-h { margin: 0.55em 0 0.3em; font-size: 1.05em; color: var(--verde); font-weight: 600; }
+.msg-full-zia.z-rich .z-ch-ul { margin: 0.35em 0 0.5em 1.15em; padding: 0; }
+.msg-full-zia.z-rich .z-ch-ul li { margin: 0.2em 0; }
+.msg-full-zia.z-rich .z-ch-pre {
+  font-size: 12px;
+  background: rgba(255,255,255,0.75);
+  padding: 10px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  border: 1px solid var(--borde);
+  margin: 0.45em 0;
+}
+.chat-full-footer {
+  flex-shrink: 0;
+  padding: 10px 12px max(18px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+  background: var(--blanco);
+  border-top: 1px solid var(--borde);
+}
+.chat-full-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+#inputChatCompleto {
+  flex: 1;
+  min-height: 44px;
+  max-height: 140px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  font-size: 15px;
+  font-family: inherit;
+  resize: none;
+  background: var(--blanco);
+  color: var(--texto);
+}
+.btn-chat-full-foto {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 2px solid var(--verde);
+  background: var(--blanco);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-chat-full-enviar {
+  flex-shrink: 0;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 12px;
+  background: var(--verde);
+  color: var(--blanco);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn-chat-full-enviar:disabled { opacity: 0.55; cursor: not-allowed; }
 .preloader {
   text-align: center;
   padding: 40px 20px;
@@ -682,10 +804,29 @@ html, body {
           </div>
         </div>
         <button type="button" class="btn-chat-accion" data-msg="📄 Enviar plan por email">📄 Enviar plan por email</button>
-        <button type="button" class="btn-chat-accion" data-msg="💬 Hablar con ZIA">💬 Hablar con ZIA</button>
+        <button type="button" class="btn-chat-accion" id="btnAbrirChatCompleto">💬 Hablar con ZIA</button>
       </div>
     </div>
     <div class="preloader hidden" id="listaLoading"><div class="spinner"></div><p>Generando categorías, pesos y precios…</p></div>
+  </div>
+</div>
+
+<div id="vista-chat-completo" class="vista">
+  <div class="chat-full-vista">
+    <header class="chat-full-header">
+      <button type="button" class="btn-secondary" id="btnVolverChatCompleto" style="padding:8px 12px;font-size:13px">← Volver</button>
+      <span class="logo-zia">ZIA</span>
+      <span class="chat-full-title">Chat</span>
+    </header>
+    <div id="chatFullMensajes" class="chat-full-mensajes" aria-live="polite"></div>
+    <footer class="chat-full-footer">
+      <input type="file" id="inputFotoChatCompleto" class="hidden-input-file" accept="image/*" aria-hidden="true">
+      <div class="chat-full-input-row">
+        <button type="button" class="btn-chat-full-foto" id="btnFotoChatCompleto" title="Enviar foto (nevera)">📷</button>
+        <textarea id="inputChatCompleto" rows="1" placeholder="Escribe un mensaje…"></textarea>
+        <button type="button" class="btn-chat-full-enviar" id="btnEnviarChatCompleto">Enviar</button>
+      </div>
+    </footer>
   </div>
 </div>
 
@@ -1367,6 +1508,14 @@ window.verRecetaDesdePlan = function (diaIdx, comidaIdx) {
 function renderPlan(plan) {
   const bannerEl = document.getElementById('planBannerHoy');
   const div = document.getElementById('plan-contenido');
+  if (typeof plan === 'string') {
+    try { plan = JSON.parse(plan); } catch (e) {
+      bannerEl.classList.add('hidden');
+      bannerEl.innerHTML = '';
+      div.innerHTML = '<p>Error al cargar el plan</p>';
+      return;
+    }
+  }
   if (!plan || !plan.dias) {
     bannerEl.classList.add('hidden');
     bannerEl.innerHTML = '';
@@ -1429,6 +1578,63 @@ function actualizarChatSaludo() {
   document.getElementById('chatSaludo').textContent = n
     ? ('¡Hola, ' + n + '! Soy ZIA. Elige una opción o escribe lo que necesites.')
     : '¡Hola! Soy ZIA. Elige una opción para seguir.';
+}
+
+function abrirChatCompleto() {
+  mostrarVista('vista-chat-completo');
+  const box = document.getElementById('chatFullMensajes');
+  if (box.children.length === 0) {
+    const n = (datos.nombre || '').trim();
+    const saludo = document.createElement('div');
+    saludo.className = 'msg-full-zia z-rich';
+    const txt = n
+      ? ('¡Hola, **' + n + '**! Soy ZIA. ¿En qué puedo ayudarte hoy? Puedes contarme sobre nutrición, recetas, suplementación o hábitos.')
+      : '¡Hola! Soy ZIA. ¿En qué puedo ayudarte hoy?';
+    saludo.innerHTML = formatearRespuestaZia(txt);
+    box.appendChild(saludo);
+  }
+  box.scrollTop = box.scrollHeight;
+  const inp = document.getElementById('inputChatCompleto');
+  if (inp) { inp.focus(); }
+}
+
+async function enviarChatCompleto(texto, opts) {
+  opts = opts || {};
+  const box = document.getElementById('chatFullMensajes');
+  const u = document.createElement('div');
+  u.className = 'msg-full-user';
+  u.textContent = texto;
+  box.appendChild(u);
+  const typing = document.createElement('div');
+  typing.className = 'msg-full-zia msg-full-typing';
+  typing.textContent = 'ZIA está escribiendo…';
+  box.appendChild(typing);
+  box.scrollTop = box.scrollHeight;
+  try {
+    authToken = localStorage.getItem('zia_token') || authToken;
+    const data = await llamarChat(texto, opts);
+    typing.remove();
+    const z = document.createElement('div');
+    if (data.paywall) {
+      z.className = 'msg-full-zia';
+      z.style.borderColor = '#FECACA';
+      z.style.background = '#FEF2F2';
+      z.textContent = data.respuesta || '(Sin respuesta)';
+    } else {
+      z.className = 'msg-full-zia z-rich';
+      z.innerHTML = formatearRespuestaZia(data.respuesta || '(Sin respuesta)');
+    }
+    box.appendChild(z);
+  } catch (err) {
+    typing.remove();
+    const z = document.createElement('div');
+    z.className = 'msg-full-zia';
+    z.style.borderColor = '#FECACA';
+    z.style.background = '#FEF2F2';
+    z.textContent = 'No pude responder ahora. ' + (err.message || err);
+    box.appendChild(z);
+  }
+  box.scrollTop = box.scrollHeight;
 }
 
 async function enviarMensajeChat(texto, opts) {
@@ -1518,8 +1724,59 @@ document.getElementById('panelChatPostLista').addEventListener('click', function
   }
   const b = e.target.closest('.btn-chat-accion');
   if (!b) return;
+  if (b.id === 'btnAbrirChatCompleto') {
+    abrirChatCompleto();
+    return;
+  }
   const msg = b.getAttribute('data-msg');
   if (msg) enviarMensajeChat(msg);
+});
+
+document.getElementById('btnVolverChatCompleto').addEventListener('click', function () {
+  mostrarVista('vista-lista');
+});
+
+document.getElementById('btnEnviarChatCompleto').addEventListener('click', function () {
+  const inp = document.getElementById('inputChatCompleto');
+  const t = (inp && inp.value) ? inp.value.trim() : '';
+  if (!t) return;
+  inp.value = '';
+  enviarChatCompleto(t);
+});
+
+document.getElementById('inputChatCompleto').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    document.getElementById('btnEnviarChatCompleto').click();
+  }
+});
+
+document.getElementById('btnFotoChatCompleto').addEventListener('click', function () {
+  document.getElementById('inputFotoChatCompleto').click();
+});
+
+document.getElementById('inputFotoChatCompleto').addEventListener('change', function (ev) {
+  const f = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!f || !/^image\//.test(f.type)) return;
+  if (f.size > 8 * 1024 * 1024) {
+    alert('Elige una imagen de menos de 8 MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function () {
+    const dataUrl = reader.result;
+    const msg = 'Analiza mi nevera y dame 2 recetas con lo que ves';
+    const enviar = function (url) {
+      enviarChatCompleto(msg, { imagenes: [url] });
+    };
+    if (f.size > 550000 || f.type === 'image/png' || f.type === 'image/webp') {
+      compactarDataUrlJpeg(dataUrl, 1280, 0.82, enviar);
+    } else {
+      enviar(dataUrl);
+    }
+  };
+  reader.readAsDataURL(f);
 });
 
 document.getElementById('btnFotoNevera').addEventListener('click', function (e) {
