@@ -136,7 +136,11 @@ def chat():
         if not isinstance(intol, str):
             intol = str(intol)
         sys_content = (
-            f"Eres ZIA, nutricionista cercana. Espanol, sin markdown salvo que el usuario pida JSON. "
+            "Eres ZIA, nutricionista inteligente. Responde siempre usando los datos del perfil del usuario. "
+            "Para suplementación recomienda solo suplementos con evidencia científica: creatina, magnesio bisglicinato, omega 3, vitamina D3+K2, proteína whey si aplica. "
+            "Nunca termogénicos ni fat burners. Tono cercano y profesional. "
+            "Puedes usar títulos (## o ###), listas y **negritas**; el cliente mostrará el contenido formateado. "
+            "Si el usuario envía una foto de nevera o despensa, analízala y responde en función de lo visible. "
             f"Perfil: nombre={pf.get('nombre', '')}, genero={genero_o_sexo}, edad={pf.get('edad', '')}, "
             f"peso={pf.get('peso', '')}, altura={pf.get('altura', '')}, objetivo={pf.get('objetivo', '')}, "
             f"ejercicio={pf.get('ejercicio', '')}, cocina={pf.get('cocina', '')}, comidas_dia={pf.get('comidas_dia', '')}, "
@@ -145,7 +149,16 @@ def chat():
         msgs = [{"role": "system", "content": sys_content}]
         for h in data.get("historial", [])[-6:]:
             msgs.append({"role": h["role"], "content": h["content"]})
-        msgs.append({"role": "user", "content": data.get("mensaje", "")})
+        user_msg = data.get("mensaje", "") or ""
+        imagenes = data.get("imagenes") or []
+        if isinstance(imagenes, list) and len(imagenes) > 0:
+            parts = [{"type": "text", "text": user_msg or "Describe esta imagen."}]
+            for im in imagenes[:2]:
+                if isinstance(im, str) and im.startswith("data:image") and len(im) < 6_000_000:
+                    parts.append({"type": "image_url", "image_url": {"url": im}})
+            msgs.append({"role": "user", "content": parts})
+        else:
+            msgs.append({"role": "user", "content": user_msg})
         res = client.chat.completions.create(model="gpt-4o-mini", messages=msgs, max_tokens=2000)
         if uid is not None:
             try:

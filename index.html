@@ -438,6 +438,49 @@ html, body {
 }
 .btn-chat-accion:hover { border-color: var(--verde-medio); background: #F7FBF4; }
 .btn-chat-accion:active { opacity: 0.92; }
+.hidden-input-file { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+.chat-submenu-wrap { position: relative; }
+.chat-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 8px;
+  border-left: 3px solid var(--verde-medio);
+}
+.btn-chat-submenu {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--blanco);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-chat-submenu:hover { border-color: var(--verde-medio); background: #F7FBF4; }
+.msg-zia-bubble.z-rich { word-break: break-word; }
+.msg-zia-bubble.z-rich .z-ch-p { margin: 0 0 0.5em; }
+.msg-zia-bubble.z-rich .z-ch-p:last-child { margin-bottom: 0; }
+.msg-zia-bubble.z-rich .z-ch-h { margin: 0.55em 0 0.3em; font-size: 1.05em; color: var(--verde); font-weight: 600; }
+.msg-zia-bubble.z-rich .z-ch-ul { margin: 0.35em 0 0.5em 1.15em; padding: 0; }
+.msg-zia-bubble.z-rich .z-ch-ul li { margin: 0.2em 0; }
+.msg-zia-bubble.z-rich .z-ch-pre {
+  font-size: 12px;
+  background: #f3f3f0;
+  padding: 10px;
+  border-radius: 8px;
+  overflow: auto;
+  margin: 0.45em 0;
+  white-space: pre-wrap;
+  border: 1px solid var(--borde);
+}
+.modal-receta-body.z-rich .z-ch-p { margin: 0 0 0.55em; }
+.modal-receta-body.z-rich .z-ch-h { margin: 0.5em 0 0.35em; font-size: 1.05em; color: var(--verde); font-weight: 600; }
+.modal-receta-body.z-rich .z-ch-ul { margin: 0.35em 0 0.5em 1.15em; }
+.modal-receta-body.z-rich .z-ch-pre { font-size: 12px; background: #f3f3f0; padding: 10px; border-radius: 8px; white-space: pre-wrap; }
 .preloader {
   text-align: center;
   padding: 40px 20px;
@@ -626,8 +669,18 @@ html, body {
       <p id="chatSaludo" class="chat-saludo"></p>
       <div id="chatMensajes" class="chat-mensajes"></div>
       <div class="chat-acciones-rapidas">
-        <button type="button" class="btn-chat-accion" data-msg="📸 Foto nevera → recetas">📸 Foto nevera → recetas</button>
-        <button type="button" class="btn-chat-accion" data-msg="💊 Suplementación">💊 Suplementación</button>
+        <input type="file" id="inputFotoNevera" class="hidden-input-file" accept="image/*" aria-hidden="true">
+        <button type="button" class="btn-chat-accion" id="btnFotoNevera">📸 Foto nevera → recetas</button>
+        <div class="chat-submenu-wrap">
+          <button type="button" class="btn-chat-accion" id="btnSuplementacionToggle" aria-expanded="false">💊 Suplementación</button>
+          <div id="submenuSuplementacion" class="chat-submenu hidden">
+            <button type="button" class="btn-chat-submenu" data-suple="ganar músculo">💪 Ganar músculo</button>
+            <button type="button" class="btn-chat-submenu" data-suple="perder grasa">🔥 Perder grasa</button>
+            <button type="button" class="btn-chat-submenu" data-suple="mejorar el sueño">😴 Mejorar el sueño</button>
+            <button type="button" class="btn-chat-submenu" data-suple="energía y rendimiento">⚡ Energía y rendimiento</button>
+            <button type="button" class="btn-chat-submenu" data-suple="salud general">❤️ Salud general</button>
+          </div>
+        </div>
         <button type="button" class="btn-chat-accion" data-msg="📄 Enviar plan por email">📄 Enviar plan por email</button>
         <button type="button" class="btn-chat-accion" data-msg="💬 Hablar con ZIA">💬 Hablar con ZIA</button>
       </div>
@@ -961,6 +1014,7 @@ async function llamarChat(mensaje, opts) {
     historial: historialChat.slice(-12),
     perfil: perfilPayload(),
   };
+  if (opts.imagenes && opts.imagenes.length) body.imagenes = opts.imagenes;
   const headers = { 'Content-Type': 'application/json' };
   if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
   const res = await fetch(API + '/web/chat', {
@@ -973,7 +1027,9 @@ async function llamarChat(mensaje, opts) {
   if (!data.ok) throw new Error(data.error || 'error');
   if (data.respuesta != null && data.respuesta !== '' && !opts.omitHistorial) {
     const asst = typeof data.respuesta === 'string' ? data.respuesta : JSON.stringify(data.respuesta);
-    historialChat.push({ role: 'user', content: mensaje.slice(0, 500) });
+    let userHist = mensaje.slice(0, 500);
+    if (opts.imagenes && opts.imagenes.length) userHist = (mensaje + ' [imagen adjunta]').slice(0, 500);
+    historialChat.push({ role: 'user', content: userHist });
     historialChat.push({ role: 'assistant', content: asst.slice(0, 8000) });
   }
   return data;
@@ -1176,6 +1232,77 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+function inlineFormatMarkdownSegment(raw) {
+  if (!raw) return '';
+  const re = /(\*\*[^*]+\*\*|\*[^*]+\*)/g;
+  const parts = String(raw).split(re);
+  return parts.map(function (p) {
+    if (/^\*\*[^*]+\*\*$/.test(p)) return '<strong>' + escapeHtml(p.slice(2, -2)) + '</strong>';
+    if (/^\*[^*]+\*$/.test(p)) return '<em>' + escapeHtml(p.slice(1, -1)) + '</em>';
+    return escapeHtml(p);
+  }).join('');
+}
+
+function formatearRespuestaZia(md) {
+  const s = String(md || '');
+  const blocks = s.split(/(```[\s\S]*?```)/g);
+  let html = '';
+  for (let b = 0; b < blocks.length; b++) {
+    const seg = blocks[b];
+    if (seg.startsWith('```')) {
+      const inner = seg.replace(/^```(?:\w+)?\n?/, '').replace(/```\s*$/, '');
+      html += '<pre class="z-ch-pre">' + escapeHtml(inner.trim()) + '</pre>';
+      continue;
+    }
+    const lines = seg.split('\n');
+    let listOpen = false;
+    const closeList = function () {
+      if (listOpen) { html += '</ul>'; listOpen = false; }
+    };
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const t = line.trim();
+      if (!t) { closeList(); html += '<br>'; continue; }
+      if (/^###\s+/.test(t)) { closeList(); html += '<h4 class="z-ch-h">' + inlineFormatMarkdownSegment(t.replace(/^###\s+/, '')) + '</h4>'; continue; }
+      if (/^##\s+/.test(t)) { closeList(); html += '<h4 class="z-ch-h">' + inlineFormatMarkdownSegment(t.replace(/^##\s+/, '')) + '</h4>'; continue; }
+      if (/^#\s+/.test(t)) { closeList(); html += '<h4 class="z-ch-h">' + inlineFormatMarkdownSegment(t.replace(/^#\s+/, '')) + '</h4>'; continue; }
+      if (/^[-*]\s+/.test(t)) {
+        if (!listOpen) { html += '<ul class="z-ch-ul">'; listOpen = true; }
+        html += '<li>' + inlineFormatMarkdownSegment(t.replace(/^[-*]\s+/, '')) + '</li>';
+        continue;
+      }
+      closeList();
+      html += '<p class="z-ch-p">' + inlineFormatMarkdownSegment(line) + '</p>';
+    }
+    closeList();
+  }
+  return html;
+}
+
+function compactarDataUrlJpeg(dataUrl, maxAncho, calidad, callback) {
+  const img = new Image();
+  img.onload = function () {
+    let w = img.width;
+    let h = img.height;
+    if (w > maxAncho) {
+      h = Math.round(h * maxAncho / w);
+      w = maxAncho;
+    }
+    const c = document.createElement('canvas');
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    try {
+      callback(c.toDataURL('image/jpeg', calidad));
+    } catch (e) {
+      callback(dataUrl);
+    }
+  };
+  img.onerror = function () { callback(dataUrl); };
+  img.src = dataUrl;
+}
+
 function normalizarNombreDia(str) {
   return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
 }
@@ -1206,6 +1333,7 @@ async function pedirRecetaYMostrarModal(nombreDiaPlan, comida) {
   const body = document.getElementById('modalRecetaBody');
   modal.classList.remove('hidden');
   titulo.textContent = (comida && comida.nombre) ? comida.nombre : 'Receta';
+  body.className = 'modal-receta-body';
   body.textContent = 'ZIA está escribiendo la receta…';
   const ing = comida && (comida.ingredientes_texto || '').trim();
   const desc = comida && (comida.descripcion_breve || '').trim();
@@ -1221,8 +1349,10 @@ async function pedirRecetaYMostrarModal(nombreDiaPlan, comida) {
     authToken = localStorage.getItem('zia_token') || authToken;
     const data = await llamarChat(msg, { omitHistorial: true });
     const txt = typeof data.respuesta === 'string' ? data.respuesta : JSON.stringify(data.respuesta);
-    body.textContent = txt || '(Sin respuesta)';
+    body.className = 'modal-receta-body z-rich';
+    body.innerHTML = formatearRespuestaZia(txt || '(Sin respuesta)');
   } catch (e) {
+    body.className = 'modal-receta-body';
     body.textContent = 'No se pudo cargar la receta. ' + (e.message || e);
   }
 }
@@ -1301,7 +1431,8 @@ function actualizarChatSaludo() {
     : '¡Hola! Soy ZIA. Elige una opción para seguir.';
 }
 
-async function enviarMensajeChat(texto) {
+async function enviarMensajeChat(texto, opts) {
+  opts = opts || {};
   const box = document.getElementById('chatMensajes');
   const u = document.createElement('div');
   u.className = 'msg-user-bubble';
@@ -1314,12 +1445,16 @@ async function enviarMensajeChat(texto) {
   box.scrollTop = box.scrollHeight;
   try {
     authToken = localStorage.getItem('zia_token') || authToken;
-    const data = await llamarChat(texto);
+    const data = await llamarChat(texto, opts);
     typing.remove();
     const z = document.createElement('div');
-    z.className = 'msg-zia-bubble';
-    if (data.paywall) z.classList.add('error');
-    z.textContent = data.respuesta || '(Sin respuesta)';
+    if (data.paywall) {
+      z.className = 'msg-zia-bubble error';
+      z.textContent = data.respuesta || '(Sin respuesta)';
+    } else {
+      z.className = 'msg-zia-bubble z-rich';
+      z.innerHTML = formatearRespuestaZia(data.respuesta || '(Sin respuesta)');
+    }
     box.appendChild(z);
   } catch (err) {
     typing.remove();
@@ -1371,10 +1506,67 @@ function renderLista(lista, raw) {
 }
 
 document.getElementById('panelChatPostLista').addEventListener('click', function (e) {
+  const subBtn = e.target.closest('.btn-chat-submenu');
+  if (subBtn) {
+    const obj = subBtn.getAttribute('data-suple');
+    if (obj) {
+      enviarMensajeChat('Suplementación para ' + obj);
+      document.getElementById('submenuSuplementacion').classList.add('hidden');
+      document.getElementById('btnSuplementacionToggle').setAttribute('aria-expanded', 'false');
+    }
+    return;
+  }
   const b = e.target.closest('.btn-chat-accion');
   if (!b) return;
   const msg = b.getAttribute('data-msg');
   if (msg) enviarMensajeChat(msg);
+});
+
+document.getElementById('btnFotoNevera').addEventListener('click', function (e) {
+  e.preventDefault();
+  document.getElementById('inputFotoNevera').click();
+});
+
+document.getElementById('inputFotoNevera').addEventListener('change', function (ev) {
+  const f = ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!f || !/^image\//.test(f.type)) return;
+  if (f.size > 8 * 1024 * 1024) {
+    alert('Elige una imagen de menos de 8 MB.');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function () {
+    const dataUrl = reader.result;
+    const msg = 'Analiza mi nevera y dame 2 recetas con lo que ves';
+    const enviar = function (url) {
+      enviarMensajeChat(msg, { imagenes: [url] });
+    };
+    if (f.size > 550000 || f.type === 'image/png' || f.type === 'image/webp') {
+      compactarDataUrlJpeg(dataUrl, 1280, 0.82, enviar);
+    } else {
+      enviar(dataUrl);
+    }
+  };
+  reader.readAsDataURL(f);
+});
+
+document.getElementById('btnSuplementacionToggle').addEventListener('click', function (e) {
+  e.stopPropagation();
+  const sub = document.getElementById('submenuSuplementacion');
+  const tgl = document.getElementById('btnSuplementacionToggle');
+  sub.classList.toggle('hidden');
+  tgl.setAttribute('aria-expanded', sub.classList.contains('hidden') ? 'false' : 'true');
+});
+
+document.addEventListener('click', function (e) {
+  if (e.target.closest('.chat-submenu-wrap')) return;
+  const sub = document.getElementById('submenuSuplementacion');
+  if (sub && !sub.classList.contains('hidden')) {
+    sub.classList.add('hidden');
+    const tgl = document.getElementById('btnSuplementacionToggle');
+    if (tgl) tgl.setAttribute('aria-expanded', 'false');
+  }
 });
 
 (function initModalReceta() {
