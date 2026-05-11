@@ -1118,11 +1118,25 @@ async function irAListaGenerar() {
   document.getElementById('chatMensajes').innerHTML = '';
   document.getElementById('listaSuper').textContent = 'Supermercado: ' + (datos.supermercado || '—');
 
-  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${(datos.intolerancias || []).join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS. Especifica cantidades EXACTAS en gramos, mililitros o unidades (ud) de cada producto en la lista, coherentes con el plan (mismo criterio que en cada comida del JSON).\n\nPara los precios, usa como referencia PRECIO REAL ACTUAL en España en 2025 típico de Mercadona (venta al público en tienda u online); si el supermercado del usuario no es Mercadona, indica precios equivalentes realistas para esa cadena tomando como ancla los niveles de Mercadona España 2025.\n\nCada línea de compra debe poder mostrarse como: columna izquierda "NombreProducto CANTIDAD+unidad" todo junto sin separador extra (ej. "Espinacas 300g", "Huevos 6 ud"); en JSON usa producto+nombre y cantidad/peso_o_unidad para ello. precio_estimado_eur es solo el número; el front mostrará como 1.50€.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
   try {
-    const data = await llamarChat(mensaje);
+    authToken = localStorage.getItem('zia_token') || authToken || '';
+    const resLista = await fetch(API + '/web/lista-compra', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (authToken || 'anonimo'),
+      },
+      body: JSON.stringify({
+        plan: planActual,
+        supermercado: datos.supermercado,
+        presupuesto: datos.presupuesto,
+        intolerancias: datos.intolerancias,
+      }),
+    });
+    const data = await resLista.json();
+    if (!data.ok) throw new Error(data.error || ('HTTP ' + resLista.status));
     const lista = extraerListaJson(data);
-    renderLista(lista, data.respuesta);
+    renderLista(lista, JSON.stringify(data));
   } catch (e) {
     document.getElementById('listaContainer').innerHTML = '<p class="raw-fallback">No se pudo generar la lista automáticamente. Revisa la conexión o inténtalo más tarde.</p>';
     document.getElementById('panelChatPostLista').classList.add('hidden');
@@ -1320,7 +1334,7 @@ async function generarPlanInicial() {
   historialChat = [];
   authToken = localStorage.getItem('zia_token') || authToken || '';
   try {
-    const res = await fetch(API + '/web/generar-plan', {
+    const res = await fetch(API + '/web/plan-simple', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1449,13 +1463,25 @@ async function pedirRecetaYMostrarModal(nombreDiaPlan, comida) {
   const titulo = document.getElementById('modalRecetaTitulo');
   const body = document.getElementById('modalRecetaBody');
   titulo.textContent = comida.nombre || 'Receta';
-  body.innerHTML = '<p style=olor:#888">Cargando receta...</p>';
+  body.innerHTML = '<p style="color:#888">Cargando receta...</p>';
   modal.classList.remove('hidden');
   try {
-    const prompt = 'Dame la receta completa paso a paso de: ' + (comida.nombre||'') + '. Ingredientes: ' + (comida.ingredientes_texto||'') + '. Intolerancias del usuario: ' + ((datos.intolerancias||[]).join(', ')||'ninguna') + '. Formato: primero ingredientes con cantidades exactas, luego pasos numerados. Sin markdown, texto plano.';
     authToken = localStorage.getItem('zia_token') || authToken || '';
-    const data = await llamarChat(prompt);
-    const texto = (data && (data.respuesta || data.response)) ? String(data.respuesta || data.response) : '';
+    const resRec = await fetch(API + '/web/receta', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + (authToken || 'anonimo'),
+      },
+      body: JSON.stringify({
+        nombre: comida.nombre || '',
+        ingredientes: comida.ingredientes_texto || '',
+        intolerancias: datos.intolerancias,
+      }),
+    });
+    const data = await resRec.json();
+    if (!data.ok) throw new Error(data.error || ('HTTP ' + resRec.status));
+    const texto = data.receta != null ? String(data.receta) : '';
     body.innerHTML = formatearRespuestaZia(texto);
   } catch(e) {
     body.innerHTML = '<p style="color:red">No se pudo cargar la receta. Inténtalo de nuevo.</p>';
@@ -1472,40 +1498,57 @@ window.verRecetaDesdePlan = function (diaIdx, comidaIdx) {
 function renderPlan(plan) {
   const bannerEl = document.getElementById('planBannerHoy');
   const div = document.getElementById('plan-contenido');
-  plan = normalizarPlanParaVista(plan);
+  
+  // Parser robusto - acepta string, objeto, anidado
+  if (typeof plan === 'string') {
+    try {
+      const t = plan.trim();
+      const fi = t.indexOf('{'); const li = t.lastIndexOf('}');
+      plan = JSON.parse(fi >= 0 ? t.slice(fi, li+1) : t);
+    } catch(e) { plan = null; }
+  }
+  // Buscar dias en cualquier nivel
+  if (plan && !plan.dias) {
+    if (plan.plan && plan.plan.dias) plan = plan.plan;
+    else if (plan.data && plan.data.dias) plan = plan.data;
+    else if (plan.result && plan.result.dias) plan = plan.result;
+  }
+  // dias como objeto {0:..., 1:...} -> array
+  if (plan && plan.dias && !Array.isArray(plan.dias)) {
+    plan.dias = Object.values(plan.dias);
+  }
+  
   if (!plan || !plan.dias || !plan.dias.length) {
-    bannerEl.classList.add('hidden');
-    bannerEl.innerHTML = '';
+    if (bannerEl) { bannerEl.classList.add('hidden'); bannerEl.innerHTML = ''; }
     div.innerHTML = '<p>Error al cargar el plan</p>';
     return;
   }
+  
   const idxHoy = buscarIndiceDiaHoyEnPlan(plan);
   const hoyLabel = capitalizarDiaEs(nombreDiaHoyES());
   const comidasHoy = idxHoy >= 0 ? (plan.dias[idxHoy].comidas || []) : [];
   const primera = comidasHoy[0];
-  if (idxHoy >= 0 && primera) {
+  if (idxHoy >= 0 && primera && bannerEl) {
     const nombrePrimera = primera.nombre ? escapeHtml(primera.nombre) : '—';
     bannerEl.classList.remove('hidden');
-    bannerEl.innerHTML =
-      '<p>Hoy es ' + escapeHtml(hoyLabel) + ' — te toca: <strong>' + nombrePrimera + '</strong></p>' +
-      '<button type="button" class="btn-banner-receta" onclick="verRecetaDesdePlan(' + idxHoy + ',0)">Ver receta</button>';
-  } else {
+    bannerEl.innerHTML = '<p>Hoy es ' + escapeHtml(hoyLabel) + ' — te toca: <strong>' + nombrePrimera + '</strong></p><button type="button" class="btn-banner-receta" onclick="verRecetaDesdePlan(' + idxHoy + ',0)">Ver receta</button>';
+  } else if (bannerEl) {
     bannerEl.classList.add('hidden');
     bannerEl.innerHTML = '';
   }
+
   let html = '';
-  plan.dias.forEach(function (dia, di) {
+  plan.dias.forEach(function(dia, di) {
     const dname = escapeHtml(dia.dia || '');
-    html += '<div style="margin-bottom:24px">';
-    html += '<div style="background:#2D5016;color:white;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:600">' + dname + '</div>';
+    html += '<div style="margin-bottom:24px"><div style="background:#2D5016;color:white;padding:10px 16px;border-radius:8px 8px 0 0;font-weight:600">' + dname + '</div>';
     html += '<div style="border:1px solid #E0D9CE;border-top:none;border-radius:0 0 8px 8px">';
-    (dia.comidas || []).forEach(function (c, ci) {
+    (dia.comidas || []).forEach(function(c, ci) {
       html += '<div style="padding:12px 16px;border-bottom:1px solid #E0D9CE">';
       html += '<div style="font-size:11px;color:#6B6B6B;text-transform:uppercase;letter-spacing:0.5px">' + escapeHtml(c.tipo || '') + '</div>';
       html += '<div style="font-weight:600;margin:4px 0">' + escapeHtml(c.nombre || '') + '</div>';
       html += '<div style="font-size:13px;color:#6B6B6B;margin-bottom:6px">' + escapeHtml(c.descripcion_breve || '') + '</div>';
-      html += '<div style="font-size:12px;color:#4A7C2E">' + escapeHtml(String(c.kcal != null ? c.kcal : 0)) + ' kcal · P ' + escapeHtml(String(c.proteinas_g != null ? c.proteinas_g : 0)) + 'g · C ' + escapeHtml(String(c.carbos_g != null ? c.carbos_g : 0)) + 'g · G ' + escapeHtml(String(c.grasas_g != null ? c.grasas_g : 0)) + 'g</div>';
-      html += '<button type="button" class="btn-ver-receta" onclick="verRecetaDesdePlan(' + di + ',' + ci + ')">Ver receta 📖</button>';
+      html += '<div style="font-size:12px;color:#4A7C2E">' + escapeHtml(String(c.kcal != null ? c.kcal : 0)) + ' kcal · P ' + escapeHtml(String(c.proteinas_g != null ? c.proteinas_g : 0)) + 'g · C ' + escapeHtml(Sing(c.carbos_g != null ? c.carbos_g : 0)) + 'g · G ' + escapeHtml(String(c.grasas_g != null ? c.grasas_g : 0)) + 'g</div>';
+      html += '<button type="button" class="btn-ver-receta" onclick="verRecetaDesdePlan(' + di + ',' + ci + ')">Ver receta 📋</button>';
       html += '</div>';
     });
     html += '</div></div>';
