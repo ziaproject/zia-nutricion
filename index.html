@@ -484,11 +484,10 @@ html, body {
       <p id="chatSaludo" class="chat-saludo"></p>
       <div id="chatMensajes" class="chat-mensajes"></div>
       <div class="chat-acciones-rapidas">
-        <button type="button" class="btn-chat-accion" data-msg="🛒 Hazme la lista de la compra">🛒 Hazme la lista de la compra</button>
-        <button type="button" class="btn-chat-accion" data-msg="💰 Quiero ahorrar esta semana">💰 Quiero ahorrar esta semana</button>
-        <button type="button" class="btn-chat-accion" data-msg="🍽️ ¿Qué como con lo que tengo?">🍽️ ¿Qué como con lo que tengo?</button>
-        <button type="button" class="btn-chat-accion" data-msg="📅 Planifícame la semana">📅 Planifícame la semana</button>
+        <button type="button" class="btn-chat-accion" data-msg="📸 Foto nevera → recetas">📸 Foto nevera → recetas</button>
         <button type="button" class="btn-chat-accion" data-msg="💊 Suplementación">💊 Suplementación</button>
+        <button type="button" class="btn-chat-accion" data-msg="📄 Enviar plan por email">📄 Enviar plan por email</button>
+        <button type="button" class="btn-chat-accion" data-msg="💬 Hablar con ZIA">💬 Hablar con ZIA</button>
       </div>
     </div>
     <div class="preloader hidden" id="listaLoading"><div class="spinner"></div><p>Generando categorías, pesos y precios…</p></div>
@@ -681,7 +680,7 @@ document.getElementById('btnAplicarCambios').addEventListener('click', async () 
     const mensaje = `El usuario ya tiene este plan de 7 días (JSON o texto previo):\n${JSON.stringify(planActual || textoPlanRaw).slice(0, 12000)}\n\nSOLICITUD DE CAMBIO:\n${texto}\n\nDevuelve el plan COMPLETO actualizado en JSON con la misma estructura. Cada comida debe incluir "ingredientes_texto" con cantidades exactas en g, ml o ud por item (ej. Pechuga de pollo 150g, Huevos 2 ud). Incluye 7 días. Solo JSON, sin markdown.`;
     const data = await llamarChat(mensaje);
     planActual = extraerPlanJson(data);
-    textoPlanRaw = typeof data.respuesta === 'string' ? data.respuesta : '';
+    textoPlanRaw = respuestaPlanRaw(data);
     renderPlan(planActual, textoPlanRaw);
     document.getElementById('inputCambios').value = '';
     mostrarVista('vista-resultado');
@@ -819,36 +818,137 @@ async function llamarChat(mensaje) {
   if (!res.ok) throw new Error('HTTP ' + res.status);
   const data = await res.json();
   if (!data.ok) throw new Error(data.error || 'error');
-  if (data.respuesta) {
+  if (data.respuesta != null && data.respuesta !== '') {
+    const asst = typeof data.respuesta === 'string' ? data.respuesta : JSON.stringify(data.respuesta);
     historialChat.push({ role: 'user', content: mensaje.slice(0, 500) });
-    historialChat.push({ role: 'assistant', content: String(data.respuesta).slice(0, 8000) });
+    historialChat.push({ role: 'assistant', content: asst.slice(0, 8000) });
   }
   return data;
 }
 
+function respuestaPlanRaw(data) {
+  const r = data && data.respuesta;
+  if (r == null || r === '') return '';
+  return typeof r === 'string' ? r : JSON.stringify(r);
+}
+
 function extraerJsonDeTexto(text) {
-  if (!text) return null;
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (text == null) return null;
+  if (typeof text === 'object' && !Array.isArray(text)) return text;
+  if (typeof text !== 'string') return null;
+  const trimmed = text.trim();
+  const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (fence) { try { return JSON.parse(fence[1].trim()); } catch (e) {} }
-  const i = text.indexOf('{');
-  const j = text.lastIndexOf('}');
+  if (trimmed.startsWith('{')) {
+    try { return JSON.parse(trimmed); } catch (e) {}
+  }
+  const i = trimmed.indexOf('{');
+  const j = trimmed.lastIndexOf('}');
   if (i >= 0 && j > i) {
-    try { return JSON.parse(text.slice(i, j + 1)); } catch (e) {}
+    try { return JSON.parse(trimmed.slice(i, j + 1)); } catch (e) {}
   }
   return null;
 }
 
+const BLOQUES_COMIDA_ORDEN = [
+  ['desayuno', 'Desayuno'],
+  ['desayuno_colacion', 'Snack'],
+  ['almuerzo', 'Comida'],
+  ['comida', 'Comida'],
+  ['comida_principal', 'Comida'],
+  ['merienda', 'Merienda'],
+  ['snack', 'Snack'],
+  ['snack_am', 'Snack'],
+  ['snack_pm', 'Snack'],
+  ['cena', 'Cena'],
+  ['cena_colacion', 'Snack'],
+];
+
+function normalizarComida(c) {
+  if (!c || typeof c !== 'object') {
+    return { tipo: '', nombre: '', descripcion_breve: '', ingredientes_texto: '', kcal: 0, proteinas_g: 0, carbos_g: 0, grasas_g: 0 };
+  }
+  const kcal = Number(c.kcal != null ? c.kcal : (c.calorias != null ? c.calorias : 0)) || 0;
+  const proteinas_g = Number(c.proteinas_g != null ? c.proteinas_g : (c.proteinas != null ? c.proteinas : 0)) || 0;
+  const carbos_g = Number(c.carbos_g != null ? c.carbos_g : (c.carbos != null ? c.carbos : 0)) || 0;
+  const grasas_g = Number(c.grasas_g != null ? c.grasas_g : (c.grasas != null ? c.grasas : 0)) || 0;
+  let ing = '';
+  if (typeof c.ingredientes === 'string') ing = c.ingredientes;
+  else if (Array.isArray(c.ingredientes)) ing = c.ingredientes.map(x => (typeof x === 'string' ? x : (x.item || x.nombre || '') + (x.cantidad ? ' ' + x.cantidad : ''))).filter(Boolean).join(', ');
+  ing = (c.ingredientes_texto || c.ingredientes_cantidades || c.ingredientes_detalle || ing || '').trim();
+  return {
+    tipo: (c.tipo || '').trim(),
+    nombre: (c.nombre || c.titulo || '').trim(),
+    descripcion_breve: (c.descripcion_breve || c.descripcion || '').trim(),
+    ingredientes_texto: ing,
+    kcal, proteinas_g, carbos_g, grasas_g,
+  };
+}
+
+function comidasDesdeDia(d) {
+  if (!d || typeof d !== 'object') return [];
+  if (Array.isArray(d.comidas)) return d.comidas.map(normalizarComida);
+  if (d.comidas && typeof d.comidas === 'object' && !Array.isArray(d.comidas)) {
+    return Object.values(d.comidas).map(normalizarComida);
+  }
+  const out = [];
+  for (let i = 0; i < BLOQUES_COMIDA_ORDEN.length; i++) {
+    const key = BLOQUES_COMIDA_ORDEN[i][0];
+    const tipoDef = BLOQUES_COMIDA_ORDEN[i][1];
+    const block = d[key];
+    if (!block || typeof block !== 'object' || Array.isArray(block)) continue;
+    const row = normalizarComida(block);
+    if (!row.tipo) row.tipo = tipoDef;
+    out.push(row);
+  }
+  return out;
+}
+
+function diaNormalizado(d, idx) {
+  if (!d || typeof d !== 'object') return { dia: 'Día ' + (idx + 1), comidas: [] };
+  const dia = (d.dia || d.día || d.day || '').trim() || ('Día ' + (idx + 1));
+  return { dia, comidas: comidasDesdeDia(d) };
+}
+
+function normalizarPlanJsonData(j) {
+  if (!j || typeof j !== 'object') return null;
+  let raw = j.dias;
+  if (raw == null && j.plan && typeof j.plan === 'object') raw = j.plan.dias;
+  if (raw == null) return null;
+  let listaDias;
+  if (Array.isArray(raw)) listaDias = raw;
+  else if (typeof raw === 'object') {
+    listaDias = Object.keys(raw).sort(function (a, b) {
+      const na = parseInt(a, 10); const nb = parseInt(b, 10);
+      if (!isNaN(na) && !isNaN(nb) && String(na) === a && String(nb) === b) return na - nb;
+      return a.localeCompare(b, 'es');
+    }).map(function (k) {
+      const v = raw[k];
+      if (v && typeof v === 'object' && !Array.isArray(v) && !(v.dia || v.día || v.day)) return Object.assign({ dia: k }, v);
+      return v;
+    });
+  } else return null;
+  const dias = listaDias.map(function (d, i) { return diaNormalizado(d, i); });
+  const base = { dias: dias };
+  if (j.notas != null) base.notas = j.notas;
+  else if (j.plan && j.plan.notas != null) base.notas = j.plan.notas;
+  return base;
+}
+
 function extraerPlanJson(data) {
-  const t = data.respuesta || '';
-  const j = extraerJsonDeTexto(t);
-  if (j && Array.isArray(j.dias)) return j;
-  if (j && j.plan && Array.isArray(j.plan.dias)) return j.plan;
-  return null;
+  let j = null;
+  const r = data && data.respuesta;
+  if (r != null && typeof r === 'object' && !Array.isArray(r)) j = r;
+  else j = extraerJsonDeTexto(typeof r === 'string' ? r : '');
+  if (!j && data && typeof data === 'object' && (data.dias != null || (data.plan && data.plan.dias != null))) j = data;
+  return normalizarPlanJsonData(j);
 }
 
 function extraerListaJson(data) {
-  const t = data.respuesta || '';
-  const j = extraerJsonDeTexto(t);
+  const r = data && data.respuesta;
+  let j = null;
+  if (r != null && typeof r === 'object' && !Array.isArray(r)) j = r;
+  else j = extraerJsonDeTexto(typeof r === 'string' ? r : '');
   if (j && j.categorias) return j;
   return null;
 }
@@ -875,7 +975,7 @@ async function generarPlanInicial() {
   try {
     const data = await llamarChat(mensaje);
     planActual = extraerPlanJson(data);
-    textoPlanRaw = typeof data.respuesta === 'string' ? data.respuesta : '';
+    textoPlanRaw = respuestaPlanRaw(data);
     renderPlan(planActual, textoPlanRaw);
     mostrarVista('vista-resultado');
   } catch (e) {
@@ -893,23 +993,33 @@ function escapeHtml(s) {
 
 function renderPlan(plan, raw) {
   const el = document.getElementById('planContainer');
-  if (!plan || !Array.isArray(plan.dias)) {
-    el.innerHTML = '<div class="raw-fallback">' + escapeHtml(raw || 'Sin datos.') + '</div>';
+  const dias = plan && Array.isArray(plan.dias) ? plan.dias : null;
+  if (!dias || !dias.length) {
+    const fb = raw || (plan ? JSON.stringify(plan, null, 2) : 'Sin datos.');
+    el.innerHTML = '<div class="raw-fallback">' + escapeHtml(typeof fb === 'string' ? fb : JSON.stringify(fb)) + '</div>';
     return;
   }
   let html = '';
-  plan.dias.forEach(d => {
+  if (plan.notas) {
+    html += '<div class="dia-card" style="margin-bottom:12px"><p class="meta" style="margin:0">' + escapeHtml(String(plan.notas)) + '</p></div>';
+  }
+  dias.forEach(d => {
     html += '<div class="dia-card"><h3>' + escapeHtml(d.dia || 'Día') + '</h3>';
-    (d.comidas || []).forEach(c => {
-      const ing = (c.ingredientes_texto || c.ingredientes_cantidades || c.ingredientes_detalle || c.ingredientes || '').trim();
-      html += '<div class="comida-block">' +
-        '<div class="tipo">' + escapeHtml(c.tipo || '') + '</div>' +
-        '<div class="nombre">' + escapeHtml(c.nombre || '') + '</div>' +
-        (ing ? '<div class="meta" style="margin-top:6px;font-weight:500;color:var(--texto)">' + escapeHtml(ing) + '</div>' : '') +
-        (c.descripcion_breve ? '<div class="meta">' + escapeHtml(c.descripcion_breve) + '</div>' : '') +
-        '<div class="meta">~' + (c.kcal || 0) + ' kcal · P ' + (c.proteinas_g || 0) + ' g · C ' + (c.carbos_g || 0) + ' g · G ' + (c.grasas_g || 0) + ' g</div>' +
-        '</div>';
-    });
+    const comidas = d.comidas || [];
+    if (!comidas.length) {
+      html += '<div class="comida-block"><div class="meta">No hay comidas reconocidas en este día.</div></div>';
+    } else {
+      comidas.forEach(c => {
+        const ing = (c.ingredientes_texto || '').trim();
+        html += '<div class="comida-block">' +
+          '<div class="tipo">' + escapeHtml(c.tipo || '') + '</div>' +
+          '<div class="nombre">' + escapeHtml(c.nombre || '') + '</div>' +
+          (c.descripcion_breve ? '<div class="meta">' + escapeHtml(c.descripcion_breve) + '</div>' : '') +
+          (ing ? '<div class="meta" style="margin-top:6px;font-weight:500;color:var(--texto)">' + escapeHtml(ing) + '</div>' : '') +
+          '<div class="meta">~' + (c.kcal || 0) + ' kcal · P ' + (c.proteinas_g || 0) + ' g · C ' + (c.carbos_g || 0) + ' g · G ' + (c.grasas_g || 0) + ' g</div>' +
+          '</div>';
+      });
+    }
     html += '</div>';
   });
   el.innerHTML = html;
