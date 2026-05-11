@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import os, json, stripe, sys, logging, re
+import os, json, stripe, sys, logging
 sys.stdout.reconfigure(encoding='utf-8')
 sys.stderr.reconfigure(encoding='utf-8')
 from flask import Flask, request, jsonify
@@ -63,103 +63,18 @@ def _normalizar_lista_compra(lc):
     return out
 
 
-def _parse_json_desde_texto_llm(text):
-    if not text or not str(text).strip():
-        return {}
-    t = str(text).strip()
-    try:
-        return json.loads(t)
-    except json.JSONDecodeError:
-        pass
-    m = re.search(r"```(?:json)?\s*([\s\S]*?)```", t)
-    if m:
-        try:
-            return json.loads(m.group(1).strip())
-        except json.JSONDecodeError:
-            pass
-    i, j = t.find("{"), t.rfind("}")
-    if i >= 0 and j > i:
-        try:
-            return json.loads(t[i : j + 1])
-        except json.JSONDecodeError:
-            pass
-    return {}
+def _plan_dias_lista(plan_dict):
+    """Normaliza la respuesta del LLM a {dias, lista_compra}."""
+    raw = _desanidar_plan_bruto(plan_dict if isinstance(plan_dict, dict) else {})
+    dias = raw.get("dias")
+    if not isinstance(dias, list):
+        dias = []
+    lista = _normalizar_lista_compra(raw.get("lista_compra"))
+    return {"dias": dias, "lista_compra": lista}
 
-
-def _anthropic_message_text(message):
-    parts = []
-    for block in message.content:
-        if getattr(block, "type", None) == "text":
-            parts.append(getattr(block, "text", "") or "")
-    return "".join(parts).strip()
 
 @app.route("/web/health")
 def health(): return jsonify({"ok":True})
-
-
-@app.route("/web/plan-simple", methods=["POST"])
-def plan_simple():
-    """Plan 7 días en JSON vía Anthropic; sin Supabase (Bearer anonimo u omitido)."""
-    import anthropic
-
-    try:
-        api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
-        if not api_key:
-            log.error("plan-simple: ANTHROPIC_API_KEY no configurada")
-            return jsonify({"ok": False, "error": "ANTHROPIC_API_KEY no configurada"}), 500
-
-        body = request.get_json(force=True, silent=True) or {}
-        p = _perfil_desde_json_body(body)
-        try:
-            dias = int(body.get("dias") or 7)
-        except (TypeError, ValueError):
-            dias = 7
-        dias = max(1, min(dias, 7))
-        nm = p.get("nombre") or ""
-
-        schema = (
-            '{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","descripcion_breve":"",'
-            '"ingredientes_texto":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}],'
-            '"lista_compra":{"categorias":{"Fruta y Verdura":[{"producto":"","cantidad":"","peso_o_unidad":"",'
-            '"precio_estimado_eur":0}]},"total_estimado_eur":0}}'
-        )
-        prompt = f"""Eres ZIA, nutricionista inteligente. Crea un plan de {dias} días para:
-- Nombre: {nm}, edad {p.get('edad','')}, sexo {p.get('sexo','')}, {p.get('peso','')} kg, {p.get('altura','')} cm
-- Objetivo: {p.get('objetivo','')}
-- Ejercicio: {p.get('ejercicio','')}
-- Cocina / tiempo: {p.get('cocina','')}
-- Comidas al día (ritmo): {p.get('comidas_dia','')}
-- Intolerancias: {p.get('intolerancias','')}
-- Supermercado: {p.get('supermercado','')}
-- Presupuesto semanal: {p.get('presupuesto','')}
-
-En cada comida, "ingredientes_texto" debe listar cantidades en g, ml o ud (ej. Pechuga 150g, Huevos 2 ud).
-Respeta el ritmo comidas_dia.
-
-Devuelve SOLO un objeto JSON válido (sin markdown, sin texto antes ni después) con esta forma lógica:
-{schema}
-Genera exactamente {dias} elementos en "dias". lista_compra siempre con "categorias" (mapa) y "total_estimado_eur" número."""
-
-        model = os.getenv("ANTHROPIC_PLAN_MODEL", "claude-sonnet-4-5")
-        log.info("plan-simple: llamando Anthropic model=%s dias=%s", model, dias)
-        client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model=model,
-            max_tokens=8192,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        texto = _anthropic_message_text(message)
-        raw = _parse_json_desde_texto_llm(texto)
-        raw = _desanidar_plan_bruto(raw)
-        dias_arr = raw.get("dias")
-        if not isinstance(dias_arr, list):
-            dias_arr = []
-        lista_compra = _normalizar_lista_compra(raw.get("lista_compra"))
-        limpio = {"dias": dias_arr, "lista_compra": lista_compra}
-        return jsonify({"ok": True, **limpio})
-    except Exception as e:
-        log.exception("plan-simple: error exacto (traza arriba): %s", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/web/registro", methods=["POST"])
@@ -197,63 +112,82 @@ def perfil():
 @app.route("/web/generar-plan", methods=["POST"])
 def generar_plan():
     try:
-        token = request.headers.get("Authorization","").replace("Bearer ","")
-        anonimo = token in ("anonimo", "", None)
-        if not anonimo:
-            try:
-                uid = supabase.auth.get_user(token).user.id
-            except:
-                anonimo = True
-                uid = "anonimo"
-        else:
-            uid = "anonimo"
+        token = (request.headers.get("Authorization") or "").replace("Bearer ", "").strip()
+        body = request.get_json(force=True, silent=True) or {}
+        anonimo = token.lower() in ("anonimo", "anonymous", "")
+        uid = None
 
-        p = request.json
-        intolerancias = p.get("intolerancias","ninguna")
-        if isinstance(intolerancias, list):
-            intolerancias = ", ".join(intolerancias)
-
-        plan_usuario = "free"
-        if not anonimo:
-            try:
-                pf = supabase.table("perfiles").select("plan").eq("user_id",uid).single().execute()
-                plan_usuario = pf.data.get("plan","free") if pf.data else "free"
-            except:
-                plan_usuario = "free"
-
-        dias = 7 if plan_usuario != "free" else 1
         import openai
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        prompt = f"""Genera un plan de alimentacion de {dias} dias para:
-Nombre: {p.get("nombre","")}
-Objetivo: {p.get("objetivo","comer sano")}
-Ejercicio: {p.get("ejercicio","")}
-Cocina: {p.get("cocina","")}
-Comidas al dia: {p.get("comidas_dia","3")}
-Intolerancias: {intolerancias}
-Presupuesto: {p.get("presupuesto",60)}eu/semana
-Supermercado: {p.get("supermercado","Mercadona")}
 
-Responde SOLO con JSON valido, sin markdown. Estructura:
-{{"dias":[{{"dia":"Lunes","comidas":[{{"tipo":"Desayuno","nombre":"Nombre plato","descripcion_breve":"Descripcion corta","ingredientes_texto":"Ingrediente 1 150g, Ingrediente 2 2ud","kcal":400,"proteinas_g":25,"carbos_g":40,"grasas_g":12}}]}}],"lista_compra":{{"categorias":{{"Frutas y Verduras":[{{"producto":"Tomates","cantidad":"500g","peso_o_unidad":"500g","precio_estimado_eur":1.50}}]}},"total_estimado_eur":55.00}}}}"""
+        if anonimo:
+            log.info("generar-plan: token anonimo — sin Supabase")
+            p = _perfil_desde_json_body(body)
+            try:
+                dias = int(body.get("dias") or 7)
+            except (TypeError, ValueError):
+                dias = 7
+            dias = max(1, min(dias, 7))
+        else:
+            u = supabase.auth.get_user(token).user
+            uid = u.id
+            try:
+                pf = (
+                    supabase.table("perfiles")
+                    .select("*")
+                    .eq("user_id", uid)
+                    .single()
+                    .execute()
+                    .data
+                    or {}
+                )
+            except Exception:
+                pf = {}
+            merged = {**body, **{k: v for k, v in pf.items() if v is not None}}
+            p = _perfil_desde_json_body(merged)
+            plan_usuario = pf.get("plan", "free")
+            dias = 7 if plan_usuario != "free" else 3
+
+        schema = (
+            '{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","descripcion_breve":"",'
+            '"ingredientes_texto":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}],'
+            '"lista_compra":{"categorias":{"Fruta y Verdura":[{"producto":"","cantidad":"","peso_o_unidad":"",'
+            '"precio_estimado_eur":0}]},"total_estimado_eur":0}}'
+        )
+        prompt = f"""Eres ZIA, nutricionista. Crea un plan de alimentacion de {dias} dias para:
+- Nombre: {p.get("nombre","")}, edad {p.get("edad","")}, sexo {p.get("sexo","")}, {p.get("peso","")} kg, {p.get("altura","")} cm
+- Objetivo: {p.get("objetivo","comer sano")}
+- Ejercicio: {p.get("ejercicio","")}
+- Cocina: {p.get("cocina","")}
+- Comidas al dia: {p.get("comidas_dia","3")}
+- Intolerancias: {p.get("intolerancias","ninguna")}
+- Presupuesto: {p.get("presupuesto",60)} eu/semana
+- Supermercado: {p.get("supermercado","Mercadona")}
+
+En cada comida incluye "ingredientes_texto" con cantidades en g, ml o ud.
+Responde SOLO JSON valido, sin markdown. Estructura obligatoria (mismas claves):
+{schema}
+Exactamente {dias} elementos en "dias". lista_compra con categorias y total_estimado_eur."""
 
         res = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role":"user","content":prompt}],
-            response_format={"type":"json_object"},
-            max_tokens=4000
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            max_tokens=4000,
         )
-        plan = json.loads(res.choices[0].message.content)
+        plan_raw = json.loads(res.choices[0].message.content or "{}")
+        plan_out = _plan_dias_lista(plan_raw)
 
-        if not anonimo:
+        if not anonimo and uid is not None:
             try:
-                supabase.table("planes").upsert({"user_id":uid,"plan_data":plan}).execute()
-            except:
-                pass
+                supabase.table("planes").upsert({"user_id": uid, "plan_data": plan_out}).execute()
+            except Exception as ex:
+                log.warning("generar-plan: no se guardo en Supabase: %s", ex)
 
-        return jsonify({"ok":True,"plan":plan})
+        return jsonify({"ok": True, "plan": plan_out})
     except Exception as e:
-        return jsonify({"ok":False,"error":str(e)}), 500
+        log.exception("generar-plan: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 @app.route("/web/mi-plan")
@@ -312,28 +246,6 @@ def webhook():
     except Exception as e: return jsonify({"error":str(e)}),400
 
 
-@app.route("/web/plan-simple", methods=["POST","OPTIONS"])
-def plan_simple_options():
-    if request.method == "OPTIONS":
-        return "", 204
-
-@app.route("/web/plan-simple-x", methods=["POST"])
-def plan_simple():
-    try:
-        p = request.json
-        intol = p.get("intolerancias","ninguna")
-        if isinstance(intol, list): intol = ", ".join(intol)
-        import openai
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        prompt = f"Genera plan 7 dias para objetivo:{p.get('objetivo','comer sano')}, ejercicio:{p.get('ejercicio','')}, cocina:{p.get('cocina','')}, comidas/dia:{p.get('comidas_dia','3')}, intolerancias:{intol}, presupuesto:{p.get('presupuesto',60)}eu, supermercado:{p.get('supermercado','Mercadona')}, nombre:{p.get('nombre','')}. Solo JSON: {{dias:[{{dia:string,comidas:[{{tipo,nombre,descripcion_breve,ingredientes_texto,kcal,proteinas_g,carbos_g,grasas_g}}]}}],lista_compra:{{categorias:{{categoria:[{{producto,cantidad,peso_o_unidad,precio_estimado_eur}}]}},total_estimado_eur}}}}"
-        res = client.chat.completions.create(model="gpt-4o-mini",messages=[{"role":"user","content":prompt}],response_format={"type":"json_object"},max_tokens=4000)
-        plan = json.loads(res.choices[0].message.content)
-        return jsonify({"ok":True,"plan":plan})
-    except Exception as e:
-        return jsonify({"ok":False,"error":str(e)}),500
-
-if __name__=="__main__": app.run(debug=True,port=5001)
-
 @app.after_request
 def add_cors(response):
     response.headers['Access-Control-Allow-Origin'] = '*'
@@ -341,6 +253,6 @@ def add_cors(response):
     response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
     return response
 
-@app.route("/web/plan-simple", methods=["OPTIONS"])
-def plan_simple_preflight():
-    return '', 204
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5001)
