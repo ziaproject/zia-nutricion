@@ -1460,14 +1460,6 @@ html, body {
 
 .faq-item.open .faq-respuesta { display: block; }
 </style>
-<style>
-.ob-paso { width:100% }
-.ob-btn { width:100%;padding:16px;background:white;border:2px solid #e0dcd4;border-radius:14px;font-size:15px;font-weight:500;cursor:pointer;text-align:left;transition:all 0.2s }
-.ob-btn:hover { border-color:var(--verde);background:#f0f7f0 }
-.ob-btn.activo { border-color:var(--verde)ckground:#e8f4e8;font-weight:600 }
-.hidden { display:none !important }
-@keyframes spin { to { transform: rotate(360deg) } }
-</style>
 </head>
 <body>
 
@@ -1485,7 +1477,7 @@ html, body {
   <nav class="landing-nav">
     <img src="./LOGO_ZIA_VERDE.png" alt="ZIA Nutrición" class="nav-logo-img">
     <div class="nav-links">
-      <button class="btn-login" onclick="abrirLogin()">Entrar</button>
+      <button class="btn-login" onclick="mostrarVista('vista-onboarding')">Entrar</button>
       <button class="btn-cta-nav" onclick="mostrarVista('vista-onboarding')">Empieza gratis</button>
     </div>
   </nav>
@@ -1904,144 +1896,282 @@ html, body {
      VISTA: ONBOARDING
 ═══════════════════════════ -->
 <div class="vista" id="vista-onboarding">
-<div style="min-height:100vh;background:var(--crema);display:flex;flex-direction:column;align-items:center;padding:20px">
-
-  <div style="width:100%;max-width:480px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-      <img src="./LOGO_ZIA_VERDE.png" alt="ZIA" style="height:28px">
-      <div style="font-size:13px;color:var(--texto-suave)" id="obNum">1 de 8</div>
+  <div class="onboarding-header">
+    <div class="onboarding-logo"><img src="./LOGO_ZIA_VERDE.png" alt="ZIA" style="height:24px;"></div>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progressBar" style="width:33%"></div>
     </div>
-    <div style="background:#e8e4dc;border-radius:99px;height:6px;margin-bottom:32px">
-      <div id="obBarra" style="background:var(--verde);height:6px;border-radius:99px;width:12%;transition:width 0.4s"></div>
-    </div>
+    <div class="onboarding-paso-num" id="pasoNum">1 de 3</div>
+  </div>
 
-    <!-- PASO 1: Datos personales -->
-    <div class="ob-paso" id="ob-1">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">¿Cómo te llamas? 👋</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">Necesito conocerte para personalizar tu plan</div>
-      <input id="ob-nombre" type="text" placeholder="Tu nombre" style="width:100%;padding:14px;border:2px solid #e0dcd4;border-radius:12px;font-size:16px;margin-bottom:12px;box-sizing:border-box">
-      <div style="display:flex;gap:10px;margin-bottom:12px">
-        <select id="ob-genero" style="flex:1;padding:14px;border:2px solid #e0dcd4;border-radius:12px;font-size:15px;background:white">
-          <option value="">Género</option>
-          <option value="mujer">Mujer</option>
-          <option value="hombre">Hombre</option>
-          <option value="otro">Otro</option>
-        </select>
-        <input id="ob-edad" type="number" placeholder="Edad" style="flex:1;padding:14px;border:2px solid #e0dcd4;border-radius:12px;font-size:15px">
-      </div>
-      <div style="display:flex;gap:10px;margin-bottom:24px">
-        <input id="ob-peso" type="number" placeholdeso (kg)" style="flex:1;padding:14px;border:2px solid #e0dcd4;border-radius:12px;font-size:15px">
-        <input id="ob-altura" type="number" placeholder="Altura (cm)" style="flex:1;padding:14px;border:2px solid #e0dcd4;border-radius:12px;font-size:15px">
-      </div>
-      <button onclick="obSig(1)" style="width:100%;padding:16px;background:var(--verde);color:white;border:none;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer">Continuar →</button>
-    </div>
+  <div class="onboarding-body">
 
-    <!-- PASO 2: Objetivo -->
-    <div class="ob-paso hidden" id="ob-2">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">¿Cuál es tu objetivo? 🎯</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">ZIA adaptará tu plan a lo que necesitas</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="ob-btn" onclick="obElige(this,'objetivo','Perder peso')">⚖️ Perder peso</button>
-        <button class="ob-btn" onclick="obElige(this,'objetivo','Ganar músculo')">culo</button>
-        <button class="ob-btn" onclick="obElige(this,'objetivo','Más energía y vitalidad')">⚡ Más energía y vitalidad</button>
-        <button class="ob-btn" onclick="obElige(this,'objetivo','Comer más sano y natural')">🥗 Comer más sano</button>
-        <button class="ob-btn" onclick="obElige(this,'objetivo','Mejorar la digestión')">🌿 Mejorar la digestión</button>
+    <!-- PASO 1: Objetivo -->
+    <div id="onboarding-paso-1">
+      <div class="paso-pregunta">¿Cuál es tu objetivo principal?</div>
+      <div class="paso-subpregunta">ZIA adaptará tu plan semanal a lo que necesitas.</div>
+      <div class="opciones-grid">
+        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'perder-peso')">
+          <span class="opcion-emoji">⚖️</span>
+          <div class="opcion-texto">Perder peso</div>
+        </div>
+        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'ganar-musculo')">
+          <span class="opcion-emoji">💪</span>
+          <div class="opcion-texto">Ganar músculo</div>
+        </div>
+        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'comer-sano')">
+          <span class="opcion-emoji">🥗</span>
+          <div class="opcion-texto">Comer más sano</div>
+        </div>
+        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'ahorrar')">
+          <span class="opcion-emoji">💰</span>
+          <div class="opcion-texto">Ahorrar en la compra</div>
+        </div>
       </div>
     </div>
 
-    <!-- PASO 3: Ejercicio -->
-    <div class="ob-paso hidden" id="ob-3">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">¿Cuánto ejercicio haces? 🏃</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">Para calcular tus necesidades calóricas</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="ob-btn" onclick="obElige(this,'ejercicio','Nada o casi nada')">😴 Nada o casi nada</button>
-        <button class="ob-btn" onclick="obElige(this,'ejercicio','1-2 días por semana')">🚶 1-2 días por semana</button>
-    " onclick="obElige(this,'ejercicio','3-4 días por semana')">🏋️ 3-4 días por semana</button>
-        <button class="ob-btn" onclick="obElige(this,'ejercicio','Todos los días')">🔥 Todos los días</button>
+    <!-- PASO 2: Intolerancias -->
+    <div id="onboarding-paso-2" class="hidden">
+      <div class="paso-pregunta">¿Tienes alguna intolerancia o preferencia?</div>
+      <div class="paso-subpregunta">Puedes seleccionar varias. ZIA las tendrá siempre en cuenta.</div>
+      <div class="opciones-lista" id="listIntolerancias">
+        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'ninguna')">
+          <span class="opcion-emoji">✅</span>
+          <div class="opcion-lista-texto">
+            <div class="opcion-lista-titulo">Ninguna</div>
+            <div class="opcion-lista-sub">Como de todo sin restricciones</div>
+          </div>
+        </div>
+        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'sin-gluten')">
+          <span class="opcion-emoji">🌾</span>
+          <div class="opcion-lista-texto">
+            <div class="opcion-lista-titulo">Sin gluten</div>
+            <div class="opcion-lista-sub">Celiaquía o sensibilidad al gluten</div>
+          </div>
+        </div>
+        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'sin-lactosa')">
+          <span class="opcion-emoji">🥛</span>
+          <div class="opcion-lista-texto">
+            <div class="opcion-lista-titulo">Sin lactosa</div>
+            <div class="opcion-lista-sub">Intolerancia a la lactosa</div>
+          </div>
+        </div>
+        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'vegetariano')">
+          <span class="opcion-emoji">🥦</span>
+          <div class="opcion-lista-texto">
+            <div class="opcion-lista-titulo">Vegetariano</div>
+            <div class="opcion-lista-sub">Sin carne ni pescado</div>
+          </div>
+        </div>
+        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'vegano')">
+          <span class="opcion-emoji">🌱</span>
+          <div class="opcion-lista-texto">
+            <div class="opcion-lista-titulo">Vegano</div>
+            <div class="opcion-lista-sub">Sin productos de origen animal</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- PASO 4: Cocina -->
-    <div class="ob-paso hidden" id="ob-4">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">¿Cómo cocinas? 🍳</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">Para adaptar las recetas a tu estilo</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="ob-btn" onclick="obElige(this,'cocina','Poco tiempo, recetas rápidas')">⚡ Poco tiempo, recetas rápidas</button>
-        <button class="ob-btn" onclick="obElige(this,'cocina','Cocina para vagos')">🛋️ Cocina para vagos</button>
-        <button class="ob-btn" onclick="obElige(this,'cocina','Me gusta cocinar')">👨‍🍳 Me gusta cocinar</button>
-        <button class="ob-btn" onclick="obElige(this,'cocina','Batcg</button>
+    <!-- PASO 3: Supermercado -->
+    <div id="onboarding-paso-3" class="hidden">
+      <div class="paso-pregunta">¿Dónde sueles hacer la compra?</div>
+      <div class="paso-subpregunta">ZIA optimizará tu lista con los precios de tu supermercado.</div>
+      <div class="opciones-lista">
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Mercadona')">
+          <span class="opcion-emoji">🛒</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Mercadona</div></div>
+        </div>
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Lidl')">
+          <span class="opcion-emoji">🛒</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Lidl</div></div>
+        </div>
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Aldi')">
+          <span class="opcion-emoji">🛒</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Aldi</div></div>
+        </div>
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Carrefour')">
+          <span class="opcion-emoji">🛒</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Carrefour</div></div>
+        </div>
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'El Corte Inglés')">
+          <span class="opcion-emoji">🛒</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">El Corte Inglés</div></div>
+        </div>
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Día')">
+          <span class="opcion-emoji">🛒</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Día</div></div>
+        </div>
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Ahorramas')">
+          <span class="opcion-emoji">🛒</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Ahorramas</div></div>
+        </div>
+        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Herbolario Navarro')">
+          <span class="opcion-emoji">🌿</span>
+          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Herbolario Navarro</div></div>
+        </div>
       </div>
     </div>
 
-    <!-- PASO 5: Comidas -->
-    <div class="ob-paso hidden" id="ob-5">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">¿Cuántas veces comes al día? 🍽️</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">Organizaremos tu plan según tus hábitos</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="ob-btn" onclick="obElige(this,'comidas_dia','2 veces al día')">☀️ 2 veces al día</button>
-        <button class="ob-btn" onclick="obElige(this,'comidas_dia','3 veces al día')">⛅ 3 veces al día</button>
-        <button class="ob-btn" onclick="obElige(this,'comidas_dia','4-5 veces con snacks')">☁️ 4-5 veces con snacks</button>
-        <button class="ob-btn" onclick="obElige(this,'comidas_dia','Ayuno intermitente')">🌙 Ayuno intermitente</button>
+  </div>
+
+  <div class="onboarding-footer">
+    <button class="btn-siguiente" id="btnSiguiente" onclick="siguientePaso()" disabled>Continuar →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════
+     VISTA: APP
+═══════════════════════════ -->
+<div class="vista-app" id="vista-app">
+
+  <header class="app-header">
+    <div class="app-logo">ZIA.</div>
+    <div class="header-right">
+      <span class="plan-badge" id="planBadge">Free</span>
+      <button class="avatar-btn" id="avatarBtn" onclick="switchTab('perfil', document.querySelectorAll('.tab')[3])">U</button>
+    </div>
+  </header>
+
+  <nav class="tab-bar">
+    <button class="tab active" onclick="switchTab('chat', this)">
+      <span class="tab-icon">💬</span>Chat
+    </button>
+    <button class="tab" onclick="switchTab('plan', this)">
+      <span class="tab-icon">📅</span>Mi plan
+    </button>
+    <button class="tab" onclick="switchTab('lista', this)">
+      <span class="tab-icon">🛒</span>Lista
+    </button>
+    <button class="tab" onclick="switchTab('perfil', this)">
+      <span class="tab-icon">👤</span>Perfil
+    </button>
+  </nav>
+
+  <div class="tab-content">
+
+    <!-- CHAT -->
+    <div class="tab-panel active" id="panel-chat">
+      <div class="chat-messages" id="chatMessages"></div>
+      <div class="quick-suggestions" id="suggestions">
+        <button class="suggestion-chip" onclick="enviarSugerencia('Ver mi plan de esta semana')">📋 Mi plan</button>
+        <button class="suggestion-chip" onclick="enviarSugerencia('Qué pongo hoy de cena')">🌙 Cena de hoy</button>
+        <button class="suggestion-chip" onclick="abrirFotoModal()">📸 Foto nevera</button>
+        <button class="suggestion-chip" onclick="enviarSugerencia('Cómo voy esta semana')">📊 Mi progreso</button>
+        <button class="suggestion-chip" onclick="enviarSugerencia('Dame una receta rápida')">⚡ Receta rápida</button>
+      </div>
+      <div class="chat-input-area">
+        <div class="chat-input-wrap">
+          <textarea class="chat-input" id="chatInput" placeholder="Escribe a ZIA..." rows="1"
+            onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          <button class="btn-foto" onclick="abrirFotoModal()">📷</button>
+        </div>
+        <button class="btn-send" onclick="enviarMensaje()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
       </div>
     </div>
 
-    <!-- PASO 6: Intolerancias -->
-    <div class="ob-paso hidden" id="ob-6">
-      <div style="font-size:22px;foom:8px">¿Alguna restricción alimentaria? 🚨</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">Puedes seleccionar varias</div>
-      <div style="display:flex;flex-direction:column;gap:10px" id="ob-intol-lista">
-        <button class="ob-btn" onclick="obMulti(this,'Ninguna')">✅ Ninguna</button>
-        <button class="ob-btn" onclick="obMulti(this,'Vegano/Vegetariano')">🌱 Vegano/Vegetariano</button>
-        <button class="ob-btn" onclick="obMulti(this,'Sin gluten')">🌾 Sin gluten</button>
-        <button class="ob-btn" onclick="obMulti(this,'Sin lactosa')">🥛 Sin lactosa</button>
-        <button class="ob-btn" onclick="obMulti(this,'Alergia al huevo')">🥚 Alergia al huevo</button>
-        <button class="ob-btn" onclick="obMulti(this,'Alergia a frutos secos')">🥜 Alergia a frutos secos</button>
-        <button class="ob-btn" onclick="obMulti(this,'Sin pescado')">🐟 Sin pescado</button>
-      </div>
-      <button onclick="obSig(6)" style="width:100%;padding:16px;background:vwhite;border:none;border-radius:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:20px">Continuar →</button>
-    </div>
-
-    <!-- PASO 7: Presupuesto -->
-    <div class="ob-paso hidden" id="ob-7">
-      <div style="font-size:22px;font-weight:700;margin-bottom:8px">¿Cuánto quieres gastar? 💰</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">En la compra semanal</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="ob-btn" onclick="obElige(this,'presupuesto','40')">💚 Menos de 40€/semana</button>
-        <button class="ob-btn" onclick="obElige(this,'presupuesto','60')">💛 40-60€/semana</button>
-        <button class="ob-btn" onclick="obElige(this,'presupuesto','80')">🧡 60-80€/semana</button>
-        <button class="ob-btn" onclick="obElige(this,'presupuesto','100')">❤️ Más de 80€/semana</button>
+    <!-- PLAN -->
+    <div class="tab-panel" id="panel-plan">
+      <div class="plan-panel" id="planPanel">
+        <div style="text-align:center;padding:40px 20px;color:var(--texto-suave)">
+          <div style="font-size:32px;margin-bottom:12px">📅</div>
+          <div>Cargando tu plan...</div>
+        </div>
       </div>
     </div>
 
-    <!-- PASO 8: Supermercado -->
-    <div class="ob-paso hidden" id="ob-8">
-      <div style="fo700;margin-bottom:8px">¿Dónde sueles comprar? 🛒</div>
-      <div style="color:var(--texto-suave);margin-bottom:24px">ZIA optimizará tu lista con sus precios</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <button class="ob-btn" onclick="obElige(this,'supermercado','Mercadona')">Mercadona</button>
-        <button class="ob-btn" onclick="obElige(this,'supermercado','Lidl')">Lidl</button>
-        <button class="ob-btn" onclick="obElige(this,'supermercado','Aldi')">Aldi</button>
-        <button class="ob-btn" onclick="obElige(this,'supermercado','Carrefour')">Carrefour</button>
-        <button class="ob-btn" onclick="obElige(this,'supermercado','Dia')">Dia</button>
-        <button class="ob-btn" onclick="obElige(this,'supermercado','Consum')">Consum</button>
-        <button class="ob-btn" onclick="obElige(this,'supermercado','Supercor')">Supercor</button>
-        <button class="ob-btn" onclick="obElige(this,'supermercado','El Corte Inglés')">El Corte Inglés</button></div>
+    <!-- LISTA -->
+    <div class="tab-panel" id="panel-lista">
+      <div class="lista-panel" id="listaPanel">
+        <div style="text-align:center;padding:40px 20px;color:var(--texto-suave)">
+          <div style="font-size:32px;margin-bottom:12px">🛒</div>
+          <div>Cargando lista...</div>
+        </div>
+      </div>
     </div>
 
-    <!-- CARGA -->
-    <div class="ob-paso hidden" id="ob-carga">
-      <div style="text-align:center;padding:40px 0">
-        <div style="font-size:48px;margin-bottom:16px">🌿</div>
-        <div style="font-size:20px;font-weight:700;margin-bottom:8px">ZIA está preparando tu plan...</div>
-        <div style="color:var(--texto-suave);margin-bottom:32px">Calculando tus macros y personalizando cada comida</div>
-        <div style="width:40px;height:40px;border:3px solid #e0dcd4;border-top-color:var(--verde);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div>
+    <!-- PERFIL -->
+    <div class="tab-panel" id="panel-perfil">
+      <div class="perfil-panel">
+        <div class="perfil-avatar-section">
+          <div class="perfil-avatar" id="perfilAvatar">U</div>
+          <div class="perfil-nombre" id="perfilNombre">Usuario</div>
+          <div class="perfil-email" id="perfilEmail"></div>
+          <span class="perfil-plan" id="perfilPlan">Plan gratuito</span>
+        </div>
+        <div class="opciones-card">
+          <div class="opcion-row" onclick="switchTab('plan', document.querySelectorAll('.tab')[1])">
+            <span class="opcion-icon">📅</span><span class="opcion-texto">Mi plan semanal</span><span class="opcion-chevron">›</span>
+          </div>
+          <div class="opcion-row" onclick="switchTab('lista', document.querySelectorAll('.tab')[2])">
+            <span class="opcion-icon">🛒</span><span class="opcion-texto">Lista de la compra</span><span class="opcion-chevron">›</span>
+          </div>
+          <div class="opcion-row">
+            <span class="opcion-icon">🎯</span><span class="opcion-texto">Mis objetivos</span><span class="opcion-chevron">›</span>
+          </div>
+        </div>
+        <div class="opciones-card">
+          <div class="opcion-row" onclick="mostrarPreciosDesdeApp()">
+            <span class="opcion-icon">⭐</span><span class="opcion-texto">Mejorar plan</span><span class="opcion-chevron">›</span>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
       </div>
     </div>
 
   </div>
 </div>
+
+<!-- MODAL FOTO -->
+<div class="foto-modal-overlay" id="fotoModal" onclick="cerrarFotoModal(event)">
+  <div class="foto-modal-sheet" onclick="event.stopPropagation()">
+    <div class="foto-modal-title">📸 Analizar nevera</div>
+    <div class="foto-modal-sub">ZIA analizará lo que tienes y te sugerirá recetas</div>
+    <div class="foto-options">
+      <label class="foto-option">
+        <span style="font-size:20px">📷</span> Hacer foto ahora
+        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="procesarFoto(this)">
+      </label>
+      <label class="foto-option">
+        <span style="font-size:20px">🖼️</span> Elegir de galería
+        <input type="file" accept="image/*" style="display:none" onchange="procesarFoto(this)">
+      </label>
+    </div>
+    <button class="foto-cancel" onclick="cerrarFotoModal()">Cancelar</button>
+  </div>
 </div>
 
+<script>
+const API = 'https://zealous-forgiveness-production-a5a7.up.railway.app';
+let token = localStorage.getItem('zia_token');
+let userPlan = 'individual'; // DEV BYPASS
+let userName = '';
+let userEmail = '';
+let planData = null;
+let conversationHistory = [];
+let onboardingData = { objetivo: '', intolerancias: [], supermercado: '' };
+let pasoActual = 1;
+const totalPasos = 3;
+
+// ── INIT ──
+window.addEventListener('load', () => {
+  if (token) {
+    mostrarLoading();
+    cargarApp();
+  }
+});
+
+function mostrarLoading() {
+  document.getElementById('loadingScreen').classList.remove('hidden');
+}
+
+function ocultarLoading() {
+  document.getElementById('loadingScreen').classList.add('hidden');
+}
+
+function mostrarVista(id) {
   document.querySelectorAll('.vista, .vista-app').forEach(v => {
     v.classList.remove('activa');
   });
@@ -2506,7 +2636,8 @@ function ocultarTyping() {
 }
 
 async function enviarMensaje() {
-        const token = localStorage.getItem('zia_token') || 'anonimo';
+        const token = localStorage.getItem('zia_token');
+        if (!token) { mostrarVista('vista-login'); return; }
   const input = document.getElementById('chatInput');
   const texto = input.value.trim();
   if (!texto) return;
@@ -2840,96 +2971,6 @@ async function iniciarCheckout(plan) {
 function mostrarPaywall() { // SUSPENDIDO TEMPORALMENTE
   document.getElementById('paywallModal').style.display = 'flex';
 }
-
-// ========== ONBOARDING NUEVO ==========
-let obDatos = { nombre:'', genero:'', edad:'', peso:'', altura:'', objetivo:'', ejercicio:'', cocina:'', comidas_dia:'', intolerancias:[], presupuesto:'60', supermercado:'' };
-let obPasoActual = 1;
-const obTotalPasos = 8;
-
-function obSiguiente(paso) {
-    if (paso === 1) {
-        obDatos.nombre = document.geementById('ob-nombre')?.value || '';
-        obDatos.genero = document.getElementById('ob-genero')?.value || '';
-        obDatos.edad = document.getElementById('ob-edad')?.value || '';
-        obDatos.peso = document.getElementById('ob-peso')?.value || '';
-        obDatos.altura = document.getElementById('ob-altura')?.value || '';
-        if (!obDatos.nombre) { alert('Escribe tu nombre'); return; }
-    }
-    if (paso === 6) {
-        if (obDatos.intolerancias.length === 0) obDatos.intolerancias = ['Ninguna'];
-    }
-    obPasoActual = paso + 1;
-    if (obPasoActual > obTotalPasos) {
-        obFinalizarYGenerar();
-        return;
-    }
-    document.querySelectorAll('.onboarding-paso').forEach(p => p.classList.add('hidden'));
-    const siguiente = document.getElementById('ob-paso-' + obPasoActual);
-    if (siguiente) siguiente.classList.remove('hidden');
-    const pct = Math.round((obPasoActual / obTotalPasos) * 100);
-    const barra = document.getElementById('onboardingBarra');
-    if (barra) barra.style.width = pct + '%';
-    const num = document.getElementById('onboardingPasoNum');
-    if (num) num.textContent = obPasoActual + ' de ' + obTotalPasos;
-}
-
-function obSeleccionar(btn, campo, valor) {
-    btn.closest('.ob-opciones').querySelectorAll('.ob-opcion').forEach(b => b.classList.remove('seleccionado'));
-    btn.classList.add('seleccionado');
-    obDatos[campo] = valor;
-    setTimeout(() => obSiguiente(obPasoActual), 400);
-}
-
-function obMulti(btn, valor) {
-    if (valor === 'Ninguna') {
-        document.querySelectorAll('#ob-intol-lista .ob-btn').forEach(function(b){ b.classList.remove('activo'); });
-        btn.classList.add('activo');
-        obD.intolerancias = ['Ninguna'];
-    } else {
-        document.querySelector('#ob-intol-lista .ob-btn').classList.remove('activo');
-        btn.classList.toggle('activo');
-        obD.intolerancias = obD.intolerancias.filter(function(i){ return i !== 'Ninguna'; });
-        if (btn.classList.contains('activo')) {
-            if (obD.intolerancias.indexOf(valor) === -1) obD.intolerancias.push(valor);
-        } else {
-            obD.intolerancias = obD.intolerancias.filter(function(i){ return i !== valor; });
-        }
-    }
-}
-
-async function obFinalizar() {
-    document.querySelectorAll('.ob-paso').forEach(function(p){ p.classList.add('hidden'); });
-    document.getElementById('ob-carga').classList.remove('hidden');
-    var perfil = {
-        nombre: obD.nombre, genero: obD.genero, edad: obD.edad,
-        peso: obD.peso, altura: obD.altura, objetivo: obD.objetivo,
-        ejercicio: obD.ejercicio, cocina: obD.cocina, comidas_dia: obD.comidas_dia,
-        intolerancias: obD.intolerancias.join(', '), presupuesto: obD.presupuesto,
-        supermercado: obD.supermercado
-    };
-    localStorage.setItem('zia_perfil', JSON.stringify(perfil));
-    localStorage.setItem('zia_nombre', obD.nombre);
-    try {
-        var res = await fetch('https://zealous-forgiveness-production-a5a7.up.railway.app/web/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer anonimo' },
-            body: JSON.stringify({
-                mensaje: 'Hola, me llamo ' + obD.nombre + '. Genera mi dieta semanal completa (7 días) con desayuno, almuerzo y cena, indicando cantidades en gramos, calorías, proteínas, carbohidratos y grasas de cada comida. Al final pregúntame si quiero cambiar algo.',
-                historial: [], perfil: perfil
-            })
-        });
-        var data = await res.json();
-        if (data.respuesta) localStorage.setItem('zia_primer_mensaje', data.respuesta);
-    } catch(e) {
-        localStorage.setItem('zia_primer_mensaje', '¡Hola ' + obD.nombre + '! Tu plan está listo. ¿En qué puedo ayudarte?');
-    }
-    mostrarVista('vista-app');
-    setTimeout(function(){
-        var msg = localStorage.getItem('zia_primer_mensaje');
-        if (msg) { agregarMensaje('zia', msg); localStorage.removeIterimer_mensaje'); }
-    }, 300);
-}
 </script>
-
 </body>
 </html>
