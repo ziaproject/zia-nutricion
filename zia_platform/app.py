@@ -415,6 +415,42 @@ def _normalizar_lista_compra(lc) -> dict:
     return out
 
 
+def _parse_json_desde_texto_llm(text: str) -> dict:
+    """Extrae un objeto JSON de la salida del LLM (texto puro, fence ```json o primer {…})."""
+    import json
+    import re
+
+    if not text or not str(text).strip():
+        return {}
+    t = str(text).strip()
+    try:
+        return json.loads(t)
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r"```(?:json)?\s*([\s\S]*?)```", t)
+    if m:
+        try:
+            return json.loads(m.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    i, j = t.find("{"), t.rfind("}")
+    if i >= 0 and j > i:
+        try:
+            return json.loads(t[i : j + 1])
+        except json.JSONDecodeError:
+            pass
+    return {}
+
+
+def _anthropic_message_text(message) -> str:
+    """Concatena bloques de texto de una respuesta del SDK Anthropic."""
+    parts = []
+    for block in message.content:
+        if getattr(block, "type", None) == "text":
+            parts.append(getattr(block, "text", "") or "")
+    return "".join(parts).strip()
+
+
 @app.route('/web/health', methods=['GET'])
 def web_health():
     from flask import jsonify
@@ -495,9 +531,13 @@ def web_perfil():
 def web_plan_simple():
     """Plan semanal vía JSON; sin Supabase (ideal para onboarding con Bearer anonimo)."""
     from flask import jsonify, request
-    import json, openai
+    import anthropic
 
     try:
+        api_key = (os.getenv("ANTHROPIC_API_KEY") or "").strip()
+        if not api_key:
+            return jsonify({"ok": False, "error": "ANTHROPIC_API_KEY no configurada"}), 500
+
         body = request.json or {}
         p = _perfil_desde_json_body(body)
         try:
@@ -506,7 +546,7 @@ def web_plan_simple():
             dias = 7
         dias = max(1, min(dias, 7))
         nm = p.get("nombre") or ""
-        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
         schema = (
             '{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","descripcion_breve":"",'
             '"ingredientes_texto":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}],'
@@ -526,16 +566,18 @@ def web_plan_simple():
 En cada comida, "ingredientes_texto" debe listar cantidades en g, ml o ud (ej. Pechuga 150g, Huevos 2 ud).
 Respeta el ritmo comidas_dia.
 
-Devuelve SOLO un objeto JSON válido (sin markdown) con esta forma lógica:
+Devuelve SOLO un objeto JSON válido (sin markdown, sin texto antes ni después) con esta forma lógica:
 {schema}
 Genera exactamente {dias} elementos en "dias". lista_compra siempre con "categorias" (mapa) y "total_estimado_eur" número."""
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
+
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=8192,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            max_tokens=4000,
         )
-        raw = json.loads(response.choices[0].message.content or "{}")
+        texto = _anthropic_message_text(message)
+        raw = _parse_json_desde_texto_llm(texto)
         raw = _desanidar_plan_bruto(raw)
         dias_arr = raw.get("dias")
         if not isinstance(dias_arr, list):
