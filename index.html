@@ -3,2974 +3,782 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ZIA Nutrición — Tu nutricionista inteligente</title>
-<meta name="description" content="ZIA analiza tu perfil, crea tu plan semanal personalizado y genera tu lista de la compra lista para el carrito — en 2 minutos.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<title>ZIA Nutrición — Plan en 7 días + lista de la compra</title>
 <style>
 :root {
+  --crema: #F7F4EF;
   --verde: #2D5016;
   --verde-medio: #4A7C2E;
-  --verde-claro: #8CB87A;
-  --crema: #F7F4EF;
-  --crema-oscuro: #EDE8DF;
   --texto: #1A1A1A;
   --texto-suave: #6B6B6B;
-  --blanco: #FFFFFF;
   --borde: #E0D9CE;
-  --rojo: #C0392B;
-  --sombra: 0 2px 16px rgba(0,0,0,0.08);
+  --blanco: #FFFFFF;
 }
-
-* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-
+* { box-sizing: border-box; margin: 0; padding: 0; }
 html, body {
-  font-family: 'DM Sans', sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   background: var(--crema);
   color: var(--texto);
-  height: 100%;
-  overflow-x: hidden;
+  min-height: 100dvh;
+  line-height: 1.45;
 }
-
-/* ═══════════════════════════════════
-   VISTAS
-═══════════════════════════════════ */
 .vista { display: none; }
 .vista.activa { display: block; }
-.vista-app {
-  display: none;
-  flex-direction: column;
-  height: 100dvh;
-  overflow: hidden;
-}
-.vista-app.activa { display: flex; }
-
-/* ═══════════════════════════════════
-   LANDING
-═══════════════════════════════════ */
-.landing-nav {
-  position: sticky;
-  top: 0;
-  background: rgba(247,244,239,0.92);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--borde);
-  padding: 14px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  z-index: 50;
-}
-
-.nav-logo {
-  font-family: 'Fraunces', serif;
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--verde);
-  letter-spacing: -0.5px;
-}
-
-.nav-links {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.btn-login {
-  background: none;
-  border: 1px solid var(--borde);
-  border-radius: 8px;
-  padding: 7px 14px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  color: var(--texto);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-login:hover { background: var(--crema-oscuro); }
-
-.btn-cta-nav {
-  background: var(--verde);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.btn-cta-nav:hover { opacity: 0.9; }
-
-/* Hero */
-.hero {
-  padding: 52px 20px 40px;
-  text-align: center;
-  max-width: 480px;
-  margin: 0 auto;
-}
-
-.hero-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: white;
-  border: 1px solid var(--borde);
-  border-radius: 20px;
-  padding: 5px 12px;
-  font-size: 12px;
-  color: var(--verde-medio);
-  font-weight: 500;
-  margin-bottom: 22px;
-}
-
-.hero h1 {
-  font-family: 'Fraunces', serif;
-  font-size: clamp(36px, 8vw, 52px);
-  font-weight: 400;
-  line-height: 1.1;
-  letter-spacing: -1px;
-  margin-bottom: 16px;
-  color: var(--texto);
-}
-
-.hero h1 em {
-  font-style: italic;
-  color: var(--verde-medio);
-}
-
-.hero p {
-  font-size: 16px;
-  color: var(--texto-suave);
-  line-height: 1.6;
-  margin-bottom: 28px;
-}
-
-.hero-btns {
+.landing-wrap {
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  align-items: center;
-}
-
-.btn-primary {
-  background: var(--verde);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  padding: 14px 28px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 16px;
-  font-weight: 500;
-  cursor: pointer;
-  width: 100%;
-  max-width: 320px;
-  transition: opacity 0.2s, transform 0.1s;
-}
-
-.btn-primary:active { transform: scale(0.98); opacity: 0.9; }
-
-.hero-trust {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-top: 16px;
-}
-
-.trust-item {
-  font-size: 12px;
-  color: var(--texto-suave);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Chat mockup */
-.chat-mockup-wrap {
-  padding: 0 20px 40px;
-  max-width: 480px;
-  margin: 0 auto;
-}
-
-.chat-mockup {
-  background: white;
-  border-radius: 20px;
-  border: 1px solid var(--borde);
-  overflow: hidden;
-  box-shadow: var(--sombra);
-}
-
-.chat-mock-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--borde);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: white;
-}
-
-.mock-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--verde);
-  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-}
-
-.mock-info { flex: 1; }
-.mock-name { font-size: 14px; font-weight: 500; }
-.mock-status { font-size: 11px; color: var(--verde-medio); }
-
-.chat-mock-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
-
-.mock-msg {
-  max-width: 80%;
-  padding: 10px 13px;
-  border-radius: 14px;
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.mock-msg.zia {
-  background: var(--crema);
-  border: 1px solid var(--borde);
-  border-top-left-radius: 4px;
-  align-self: flex-start;
-}
-
-.mock-msg.user {
-  background: var(--verde);
-  color: white;
-  border-top-right-radius: 4px;
-  align-self: flex-end;
-}
-
-.mock-resultado {
-  background: #E8F5E3;
-  border: 1px solid #B8DDA8;
-  border-radius: 12px;
-  padding: 10px 13px;
-  font-size: 12px;
-  color: var(--verde);
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* Stats */
-.stats-bar {
-  background: var(--verde);
-  padding: 24px 20px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  text-align: center;
-}
-
-.stat-item {}
-.stat-valor {
-  font-family: 'Fraunces', serif;
-  font-size: 22px;
-  font-weight: 600;
-  color: white;
-  display: block;
-}
-.stat-label { font-size: 10px; color: rgba(255,255,255,0.7); }
-
-/* Cómo funciona */
-.seccion {
-  padding: 48px 20px;
-  max-width: 480px;
-  margin: 0 auto;
-}
-
-.seccion-titulo {
-  font-family: 'Fraunces', serif;
-  font-size: 28px;
-  font-weight: 400;
-  margin-bottom: 8px;
-  line-height: 1.2;
-}
-
-.seccion-subtitulo {
-  font-size: 14px;
-  color: var(--texto-suave);
-  margin-bottom: 28px;
-  line-height: 1.6;
-}
-
-.pasos { display: flex; flex-direction: column; gap: 16px; }
-
-.paso {
-  background: white;
-  border: 1px solid var(--borde);
-  border-radius: 16px;
-  padding: 18px;
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.paso-num {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--verde);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-  font-weight: 600;
-  flex-shrink: 0;
-  font-family: 'Fraunces', serif;
-}
-
-.paso-titulo { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
-.paso-desc { font-size: 13px; color: var(--texto-suave); line-height: 1.5; }
-
-/* Features */
-.features { display: flex; flex-direction: column; gap: 12px; }
-
-.feature-card {
-  background: white;
-  border: 1px solid var(--borde);
-  border-radius: 16px;
-  padding: 18px;
-  display: flex;
-  gap: 14px;
-  align-items: flex-start;
-}
-
-.feature-icon { font-size: 24px; flex-shrink: 0; }
-.feature-titulo { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
-.feature-desc { font-size: 13px; color: var(--texto-suave); line-height: 1.5; }
-
-/* Precios */
-.precios { display: flex; flex-direction: column; gap: 12px; }
-
-.precio-card {
-  background: white;
-  border: 1px solid var(--borde);
-  border-radius: 16px;
-  padding: 20px;
-  position: relative;
-}
-
-.precio-card.popular {
-  border-color: var(--verde);
-  border-width: 2px;
-}
-
-.precio-badge {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--verde);
-  color: white;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 12px;
-  border-radius: 20px;
-  white-space: nowrap;
-}
-
-.precio-nombre { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
-.precio-desc { font-size: 12px; color: var(--texto-suave); margin-bottom: 14px; }
-.precio-valor {
-  font-family: 'Fraunces', serif;
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--verde);
-  margin-bottom: 14px;
-}
-.precio-valor span { font-size: 14px; font-weight: 400; color: var(--texto-suave); font-family: 'DM Sans', sans-serif; }
-
-.precio-lista { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
-.precio-lista li {
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.precio-lista li::before { content: '✓'; color: var(--verde); font-weight: 700; }
-
-.btn-precio {
-  width: 100%;
-  padding: 12px;
-  border-radius: 10px;
-  border: none;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.btn-precio.principal { background: var(--verde); color: white; }
-.btn-precio.secundario { background: var(--crema-oscuro); color: var(--texto); }
-.btn-precio:active { opacity: 0.85; }
-
-.precio-nota {
-  text-align: center;
-  font-size: 11px;
-  color: var(--texto-suave);
-  margin-top: 12px;
-}
-
-/* B2B */
-.b2b-seccion {
-  background: var(--texto);
-  padding: 48px 20px;
-}
-
-.b2b-inner { max-width: 480px; margin: 0 auto; }
-
-.b2b-titulo {
-  font-family: 'Fraunces', serif;
-  font-size: 28px;
-  font-weight: 400;
-  color: white;
-  margin-bottom: 8px;
-  line-height: 1.2;
-}
-
-.b2b-subtitulo {
-  font-size: 14px;
-  color: rgba(255,255,255,0.6);
-  margin-bottom: 28px;
-  line-height: 1.6;
-}
-
-.b2b-tagline {
-  font-family: 'Fraunces', serif;
-  font-size: 20px;
-  color: var(--verde-claro);
-  margin-bottom: 6px;
-  font-style: italic;
-}
-
-.b2b-tagline-sub {
-  font-size: 14px;
-  color: rgba(255,255,255,0.7);
-  margin-bottom: 28px;
-  line-height: 1.5;
-}
-
-.b2b-cards { display: flex; flex-direction: column; gap: 10px; }
-
-.b2b-card {
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 14px;
-  padding: 16px;
-}
-
-.b2b-card-titulo { font-size: 15px; font-weight: 500; color: white; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
-.b2b-card-desc { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.5; margin-bottom: 10px; }
-.b2b-tags { display: flex; gap: 6px; flex-wrap: wrap; }
-.b2b-tag {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 20px;
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.7);
-}
-
-.btn-demo {
-  display: block;
-  width: 100%;
-  margin-top: 24px;
-  padding: 14px;
-  background: white;
-  color: var(--verde);
-  border: none;
-  border-radius: 12px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  text-align: center;
-  transition: opacity 0.2s;
-}
-
-.btn-demo:active { opacity: 0.9; }
-
-/* Footer */
-.footer {
   padding: 32px 20px;
   text-align: center;
-  border-top: 1px solid var(--borde);
 }
-
-.footer-logo {
-  font-family: 'Fraunces', serif;
-  font-size: 20px;
+.logo-zia {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(40px, 10vw, 56px);
   font-weight: 600;
   color: var(--verde);
-  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
 }
-
-.footer-texto { font-size: 12px; color: var(--texto-suave); }
-
-/* ═══════════════════════════════════
-   MODAL AUTH (Login/Registro)
-═══════════════════════════════════ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  z-index: 100;
-  display: none;
-  align-items: flex-end;
-  backdrop-filter: blur(3px);
-}
-
-.modal-overlay.open { display: flex; }
-
-.modal-sheet {
-  background: var(--blanco);
-  border-radius: 24px 24px 0 0;
-  padding: 24px 20px 40px;
-  width: 100%;
-  animation: slideUp 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-  max-height: 90dvh;
-  overflow-y: auto;
-}
-
-@keyframes slideUp {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.modal-handle {
-  width: 36px;
-  height: 4px;
-  background: var(--borde);
-  border-radius: 2px;
-  margin: 0 auto 20px;
-}
-
-.modal-titulo {
-  font-family: 'Fraunces', serif;
-  font-size: 24px;
-  font-weight: 400;
-  margin-bottom: 6px;
-}
-
-.modal-subtitulo {
-  font-size: 14px;
+.landing-tagline {
+  font-size: 18px;
   color: var(--texto-suave);
-  margin-bottom: 24px;
+  max-width: 340px;
+  margin-bottom: 28px;
 }
-
-.form-group { margin-bottom: 14px; }
-
-.form-label {
-  display: block;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--texto-suave);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 6px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 13px 14px;
-  border: 1px solid var(--borde);
-  border-radius: 10px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  color: var(--texto);
-  background: var(--crema);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.form-input:focus { border-color: var(--verde-medio); background: white; }
-
-.btn-form {
-  width: 100%;
-  padding: 14px;
+.btn-primary {
   background: var(--verde);
-  color: white;
+  color: var(--blanco);
   border: none;
   border-radius: 12px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  font-weight: 500;
+  padding: 16px 32px;
+  font-size: 16px;
+  font-weight: 600;
   cursor: pointer;
-  margin-top: 8px;
-  transition: opacity 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  transition: opacity 0.2s, transform 0.1s;
 }
-
-.btn-form:active { opacity: 0.85; }
-.btn-form:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.form-error {
-  background: #FEF2F2;
-  border: 1px solid #FECACA;
-  border-radius: 8px;
-  padding: 10px 13px;
-  font-size: 13px;
-  color: var(--rojo);
-  margin-bottom: 14px;
-  display: none;
-}
-
-.form-switch {
-  text-align: center;
-  margin-top: 16px;
-  font-size: 13px;
-  color: var(--texto-suave);
-}
-
-.form-switch a {
-  color: var(--verde);
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-/* ═══════════════════════════════════
-   ONBOARDING
-═══════════════════════════════════ */
-#vista-onboarding {
+.btn-primary:active { opacity: 0.9; transform: scale(0.98); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.onboarding-shell {
   min-height: 100dvh;
-  background: var(--crema);
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
 }
-
-.onboarding-header {
+.onb-header {
   padding: 16px 20px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--borde);
+  background: var(--crema);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
-
-.onboarding-logo {
-  font-family: 'Fraunces', serif;
-  font-size: 20px;
-  color: var(--verde);
-  font-weight: 600;
-}
-
-.progress-bar-wrap {
+.onb-header .logo-zia { font-size: 22px; margin: 0; }
+.progress-track {
   flex: 1;
-  margin: 0 16px;
   height: 4px;
   background: var(--borde);
   border-radius: 2px;
   overflow: hidden;
 }
-
-.progress-bar-fill {
+.progress-fill {
   height: 100%;
   background: var(--verde);
-  border-radius: 2px;
-  transition: width 0.4s ease;
+  width: 12.5%;
+  transition: width 0.35s ease;
 }
-
-.onboarding-paso-num {
-  font-size: 12px;
-  color: var(--texto-suave);
-  white-space: nowrap;
-}
-
-.onboarding-body {
-  padding: 24px 20px 100px;
-  max-width: 480px;
-  margin: 0 auto;
-}
-
-.paso-pregunta {
-  font-family: 'Fraunces', serif;
-  font-size: 26px;
+.step-label { font-size: 12px; color: var(--texto-suave); white-space: nowrap; }
+.onb-body { padding: 24px 20px 120px; flex: 1; }
+.paso-titulo {
+  font-family: Georgia, serif;
+  font-size: 24px;
   font-weight: 400;
-  line-height: 1.2;
   margin-bottom: 8px;
+  color: var(--texto);
 }
-
-.paso-subpregunta {
-  font-size: 14px;
+.paso-desc { font-size: 14px; color: var(--texto-suave); margin-bottom: 22px; }
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   color: var(--texto-suave);
-  margin-bottom: 28px;
-  line-height: 1.5;
+  margin-bottom: 6px;
 }
-
-.opciones-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 24px;
+.field input, .field select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  font-size: 15px;
+  background: var(--blanco);
+  color: var(--texto);
 }
-
-.opcion-btn {
-  background: white;
-  border: 2px solid var(--borde);
-  border-radius: 14px;
-  padding: 16px 12px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.opcion-btn:active { transform: scale(0.97); }
-
-.opcion-btn.seleccionado {
-  border-color: var(--verde);
-  background: #F0F7EB;
-}
-
-.opcion-emoji { font-size: 28px; display: block; margin-bottom: 6px; }
-.opcion-texto { font-size: 13px; font-weight: 500; color: var(--texto); }
-.opcion-subtexto { font-size: 11px; color: var(--texto-suave); margin-top: 2px; }
-
-.opciones-lista { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
-
-.opcion-lista-btn {
-  background: white;
-  border: 2px solid var(--borde);
-  border-radius: 14px;
-  padding: 14px 16px;
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.opciones {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-family: 'DM Sans', sans-serif;
-  text-align: left;
+  flex-direction: column;
+  gap: 10px;
 }
-
-.opcion-lista-btn.seleccionado { border-color: var(--verde); background: #F0F7EB; }
-.opcion-lista-btn .opcion-emoji { font-size: 22px; margin: 0; }
-.opcion-lista-texto { flex: 1; }
-.opcion-lista-titulo { font-size: 14px; font-weight: 500; }
-.opcion-lista-sub { font-size: 12px; color: var(--texto-suave); margin-top: 2px; }
-
-.onboarding-footer {
+.opcion {
+  padding: 14px 16px;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: var(--blanco);
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.opcion:hover { border-color: var(--verde-medio); }
+.opcion.seleccionada {
+  border-color: var(--verde);
+  background: #EEF6E8;
+}
+.opcion small { display: block; font-size: 12px; color: var(--texto-suave); margin-top: 4px; }
+.opcion-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.intolerancia-wrap { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 2px solid var(--borde);
+  background: var(--blanco);
+  font-size: 13px;
+  cursor: pointer;
+}
+.chip.on { border-color: var(--verde); background: #EEF6E8; }
+.onb-footer {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
+  padding: 16px 20px 28px;
   background: var(--crema);
   border-top: 1px solid var(--borde);
-  padding: 16px 20px 32px;
 }
-
-.btn-siguiente {
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
-  display: block;
-  padding: 14px;
-  background: var(--verde);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.btn-siguiente:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-siguiente:active:not(:disabled) { opacity: 0.85; }
-
-/* ═══════════════════════════════════
-   APP
-═══════════════════════════════════ */
-.app-header {
-  background: var(--blanco);
-  border-bottom: 1px solid var(--borde);
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-}
-
-.app-logo {
-  font-family: 'Fraunces', serif;
-  font-size: 22px;
-  font-weight: 600;
-  color: var(--verde);
-}
-
-.header-right { display: flex; align-items: center; gap: 10px; }
-
-.plan-badge {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 20px;
-  background: var(--crema-oscuro);
-  color: var(--texto-suave);
-}
-
-.plan-badge.pro { background: var(--verde); color: white; }
-
-.avatar-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--verde);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.onb-footer .btn-primary { width: 100%; max-width: 480px; display: block; margin: 0 auto; }
+.error-msg {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  color: #B91C1C;
+  padding: 10px 12px;
+  border-radius: 8px;
   font-size: 13px;
-  color: white;
-  font-weight: 600;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.tab-bar {
-  display: flex;
-  background: var(--blanco);
-  border-bottom: 1px solid var(--borde);
-  flex-shrink: 0;
-}
-
-.tab {
-  flex: 1;
-  padding: 10px 4px;
-  border: none;
-  background: none;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 11px;
-  color: var(--texto-suave);
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  transition: color 0.2s;
-  position: relative;
-}
-
-.tab.active { color: var(--verde); font-weight: 500; }
-
-.tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 20%;
-  right: 20%;
-  height: 2px;
-  background: var(--verde);
-  border-radius: 2px 2px 0 0;
-}
-
-.tab-icon { font-size: 18px; }
-
-.tab-content { flex: 1; overflow: hidden; position: relative; }
-
-.tab-panel {
-  position: absolute;
-  inset: 0;
+  margin-bottom: 12px;
   display: none;
-  flex-direction: column;
-  overflow: hidden;
 }
-
-.tab-panel.active { display: flex; }
-
-/* Chat */
-.chat-messages {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  scroll-behavior: smooth;
+.error-msg.visible { display: block; }
+.resultado-wrap, .lista-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
 }
-
-.chat-messages::-webkit-scrollbar { display: none; }
-
-.msg { display: flex; gap: 8px; max-width: 85%; animation: fadeUp 0.3s ease; }
-.msg.zia { align-self: flex-start; }
-.msg.user { align-self: flex-end; flex-direction: row-reverse; }
-
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.msg-avatar {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--verde);
-  flex-shrink: 0;
+.resultado-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  margin-top: 2px;
-}
-
-.msg-bubble {
-  padding: 10px 13px;
-  border-radius: 16px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.msg.zia .msg-bubble {
-  background: var(--blanco);
-  border: 1px solid var(--borde);
-  border-top-left-radius: 4px;
-}
-
-.msg.user .msg-bubble {
-  background: var(--verde);
-  color: white;
-  border-top-right-radius: 4px;
-}
-
-.msg-time { font-size: 10px; color: var(--texto-suave); margin-top: 3px; padding: 0 4px; }
-.msg.user .msg-time { text-align: right; }
-
-.typing-indicator {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  padding: 10px 13px;
-  background: var(--blanco);
-  border: 1px solid var(--borde);
-  border-radius: 16px;
-  border-top-left-radius: 4px;
-  width: fit-content;
-}
-
-.typing-dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--texto-suave);
-  animation: typing 1.2s infinite;
-}
-
-.typing-dot:nth-child(2) { animation-delay: 0.2s; }
-.typing-dot:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes typing {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-4px); opacity: 1; }
-}
-
-.quick-suggestions {
-  padding: 8px 14px;
-  display: flex;
-  gap: 8px;
-  overflow-x: auto;
-  flex-shrink: 0;
-}
-
-.quick-suggestions::-webkit-scrollbar { display: none; }
-
-.suggestion-chip {
-  white-space: nowrap;
-  padding: 7px 13px;
-  border-radius: 20px;
-  border: 1px solid var(--borde);
-  background: var(--blanco);
-  font-size: 12px;
-  color: var(--texto);
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.suggestion-chip:active { background: var(--verde); color: white; border-color: var(--verde); }
-
-.chat-input-area {
-  padding: 10px 14px 20px;
-  background: var(--blanco);
-  border-top: 1px solid var(--borde);
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  flex-shrink: 0;
-}
-
-.chat-input-wrap {
-  flex: 1;
-  background: var(--crema);
-  border: 1px solid var(--borde);
-  border-radius: 20px;
-  display: flex;
-  align-items: flex-end;
-  padding: 8px 12px;
-  gap: 8px;
-}
-
-.chat-input {
-  flex: 1;
-  border: none;
-  background: none;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  color: var(--texto);
-  resize: none;
-  outline: none;
-  max-height: 80px;
-  line-height: 1.4;
-}
-
-.chat-input::placeholder { color: var(--texto-suave); }
-
-.btn-foto { border: none; background: none; cursor: pointer; font-size: 18px; padding: 0; opacity: 0.6; }
-
-.btn-send {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: var(--verde);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: transform 0.15s;
-}
-
-.btn-send:active { transform: scale(0.92); }
-.btn-send svg { width: 16px; height: 16px; fill: white; }
-
-/* Plan */
-.plan-panel, .lista-panel, .perfil-panel {
-  overflow-y: auto;
-  padding: 16px 14px;
-  display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
   gap: 12px;
 }
-
-.plan-panel::-webkit-scrollbar,
-.lista-panel::-webkit-scrollbar,
-.perfil-panel::-webkit-scrollbar { display: none; }
-
-.plan-header-card {
-  background: var(--verde);
-  border-radius: 16px;
-  padding: 16px;
-  color: white;
-}
-
-.plan-header-card h2 {
-  font-family: 'Fraunces', serif;
-  font-size: 20px;
-  font-weight: 400;
-  margin-bottom: 4px;
-}
-
-.plan-header-card p { font-size: 13px; opacity: 0.8; }
-
-.plan-stats { display: flex; gap: 8px; margin-top: 12px; }
-
-.plan-stat {
-  flex: 1;
-  background: rgba(255,255,255,0.15);
-  border-radius: 10px;
-  padding: 8px;
-  text-align: center;
-}
-
-.plan-stat-value {
-  font-family: 'Fraunces', serif;
-  font-size: 18px;
-  font-weight: 600;
-  display: block;
-}
-
-.plan-stat-label { font-size: 10px; opacity: 0.8; }
-
 .dia-card {
-  background: white;
-  border-radius: 14px;
+  background: var(--blanco);
   border: 1px solid var(--borde);
+  border-radius: 14px;
+  margin-bottom: 12px;
   overflow: hidden;
 }
-
-.dia-header {
+.dia-card h3 {
   padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
+  background: var(--verde);
+  color: var(--blanco);
+  font-size: 15px;
+  font-weight: 600;
 }
-
-.dia-nombre { font-weight: 500; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-.dia-kcal { font-size: 12px; color: var(--texto-suave); }
-.dia-chevron { font-size: 12px; color: var(--texto-suave); transition: transform 0.2s; }
-.dia-card.open .dia-chevron { transform: rotate(180deg); }
-
-.dia-comidas { display: none; border-top: 1px solid var(--borde); }
-.dia-card.open .dia-comidas { display: block; }
-
-.comida-row {
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid var(--borde);
+.comida-block { padding: 12px 14px; border-top: 1px solid var(--borde); }
+.comida-block:first-of-type { border-top: none; }
+.comida-block .tipo { font-size: 10px; text-transform: uppercase; color: var(--texto-suave); letter-spacing: 0.5px; }
+.comida-block .nombre { font-weight: 600; margin: 4px 0; }
+.comida-block .meta { font-size: 12px; color: var(--texto-suave); }
+.cambios-box {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
 }
-
-.comida-row:last-child { border-bottom: none; }
-.comida-icon { font-size: 16px; flex-shrink: 0; }
-.comida-info { flex: 1; }
-.comida-tipo { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--texto-suave); font-weight: 500; }
-.comida-nombre { font-size: 14px; margin-top: 1px; }
-.comida-macros { font-size: 11px; color: var(--texto-suave); margin-top: 2px; }
-.comida-kcal { font-size: 13px; font-weight: 500; color: var(--verde-medio); flex-shrink: 0; }
-
-.upgrade-banner {
-  background: linear-gradient(135deg, var(--verde) 0%, var(--verde-medio) 100%);
-  border-radius: 14px;
-  padding: 18px;
-  color: white;
-  text-align: center;
-}
-
-.upgrade-banner h3 {
-  font-family: 'Fraunces', serif;
-  font-size: 18px;
-  font-weight: 400;
-  margin-bottom: 6px;
-}
-
-.upgrade-banner p { font-size: 13px; opacity: 0.85; margin-bottom: 14px; }
-
-.btn-upgrade {
-  background: white;
-  color: var(--verde);
-  border: none;
+.cambios-box textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  border: 1px solid var(--borde);
   border-radius: 10px;
-  padding: 10px 20px;
-  font-family: 'DM Sans', sans-serif;
   font-size: 14px;
+  margin: 10px 0;
+  resize: vertical;
+}
+.row-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-secondary {
+  background: var(--blanco);
+  color: var(--verde);
+  border: 2px solid var(--verde);
+  border-radius: 10px;
+  padding: 12px 18px;
   font-weight: 600;
   cursor: pointer;
-  width: 100%;
+  font-size: 14px;
 }
-
-/* Lista */
-.lista-header { display: flex; align-items: center; justify-content: space-between; }
-.lista-title { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 400; }
-.lista-super { font-size: 12px; color: var(--texto-suave); background: var(--crema-oscuro); padding: 4px 10px; border-radius: 20px; }
-
-.lista-ahorro {
-  background: #E8F5E3;
-  border: 1px solid #B8DDA8;
-  border-radius: 12px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.ahorro-icon { font-size: 22px; }
-.ahorro-valor { font-family: 'Fraunces', serif; font-size: 18px; font-weight: 600; color: var(--verde); }
-.ahorro-label { font-size: 12px; color: var(--verde-medio); }
-
-.categoria-card {
-  background: white;
-  border-radius: 14px;
-  border: 1px solid var(--borde);
-  overflow: hidden;
-}
-
-.categoria-header {
-  padding: 10px 14px;
-  background: var(--crema-oscuro);
+.cat-block { margin-bottom: 16px; }
+.cat-block h4 {
   font-size: 12px;
-  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
   color: var(--texto-suave);
-}
-
-.producto-row {
-  padding: 11px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--borde);
-  cursor: pointer;
 }
-
-.producto-row:last-child { border-bottom: none; }
-
-.producto-check {
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  border: 2px solid var(--borde);
-  flex-shrink: 0;
+.item-row {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.producto-row.checked .producto-check { background: var(--verde); border-color: var(--verde); }
-.producto-row.checked .producto-check::after { content: '✓'; color: white; font-size: 11px; font-weight: 700; }
-
-.producto-nombre { font-size: 14px; transition: opacity 0.2s; }
-.producto-row.checked .producto-nombre { opacity: 0.4; text-decoration: line-through; }
-.producto-cantidad { font-size: 12px; color: var(--texto-suave); margin-top: 1px; }
-.producto-precio { font-size: 14px; font-weight: 500; color: var(--verde-medio); flex-shrink: 0; }
-
-.lista-total {
-  background: var(--verde);
-  border-radius: 14px;
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
   justify-content: space-between;
-  color: white;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--borde);
+  font-size: 14px;
 }
-
-.total-label { font-size: 14px; opacity: 0.85; }
-.total-valor { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; }
-
-/* Perfil */
-.perfil-avatar-section {
-  background: white;
-  border-radius: 16px;
-  border: 1px solid var(--borde);
-  padding: 20px;
+.item-row:last-child { border-bottom: none; }
+.item-row .peso { color: var(--texto-suave); font-size: 13px; }
+.preloader {
   text-align: center;
-}
-
-.perfil-avatar {
-  width: 64px; height: 64px;
-  border-radius: 50%;
-  background: var(--verde);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  color: white;
-  font-weight: 700;
-  margin: 0 auto 12px;
-}
-
-.perfil-nombre { font-family: 'Fraunces', serif; font-size: 20px; font-weight: 400; }
-.perfil-email { font-size: 13px; color: var(--texto-suave); margin-top: 2px; }
-.perfil-plan {
-  display: inline-block;
-  margin-top: 10px;
-  background: var(--crema-oscuro);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+  padding: 40px 20px;
   color: var(--texto-suave);
 }
-
-.opciones-card {
-  background: white;
-  border-radius: 14px;
-  border: 1px solid var(--borde);
-  overflow: hidden;
-}
-
-.opcion-row {
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid var(--borde);
-  cursor: pointer;
-}
-
-.opcion-row:last-child { border-bottom: none; }
-.opcion-row:active { background: var(--crema); }
-.opcion-icon { font-size: 18px; }
-.opcion-texto { flex: 1; font-size: 14px; }
-.opcion-chevron { font-size: 12px; color: var(--texto-suave); }
-
-.btn-logout {
-  background: none;
-  border: 1px solid var(--borde);
-  border-radius: 12px;
-  padding: 14px;
-  width: 100%;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  color: var(--rojo);
-  cursor: pointer;
-}
-
-/* Modal foto */
-.foto-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.5);
-  z-index: 200;
-  display: none;
-  align-items: flex-end;
-  backdrop-filter: blur(2px);
-}
-
-.foto-modal-overlay.open { display: flex; }
-
-.foto-modal-sheet {
-  background: white;
-  border-radius: 20px 20px 0 0;
-  padding: 20px 20px 32px;
-  width: 100%;
-  animation: slideUp 0.3s ease;
-}
-
-.foto-modal-title { font-family: 'Fraunces', serif; font-size: 18px; margin-bottom: 4px; }
-.foto-modal-sub { font-size: 13px; color: var(--texto-suave); margin-bottom: 20px; }
-
-.foto-options { display: flex; flex-direction: column; gap: 10px; }
-
-.foto-option {
-  padding: 14px 16px;
-  border-radius: 12px;
-  border: 1px solid var(--borde);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  background: white;
-}
-
-.foto-option:active { background: var(--crema); }
-.foto-cancel {
-  margin-top: 12px;
-  padding: 13px;
-  border-radius: 12px;
-  border: none;
-  background: var(--crema-oscuro);
-  width: 100%;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-/* Loading */
-.loading-screen {
-  position: fixed;
-  inset: 0;
-  background: var(--crema);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 300;
-  gap: 16px;
-}
-
-.loading-logo { font-family: 'Fraunces', serif; font-size: 36px; color: var(--verde); }
-
-.loading-spinner {
-  width: 24px; height: 24px;
-  border: 2px solid var(--borde);
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--borde);
   border-top-color: var(--verde);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
+  margin: 16px auto;
 }
-
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.hidden { display: none !important; }
-
-/* Lock */
-.dia-card.locked { position: relative; overflow: hidden; }
-.dia-card.locked::after {
-  content: '🔒 Desbloquea el plan completo';
-  position: absolute;
-  inset: 0;
-  background: rgba(247,244,239,0.92);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.raw-fallback {
+  white-space: pre-wrap;
   font-size: 13px;
-  font-weight: 500;
-  backdrop-filter: blur(2px);
-}
-
-/* Nav logo image */
-.nav-logo-img {
-  height: 28px;
-  width: auto;
-}
-
-/* FAQ */
-.faq-item {
-  background: white;
+  background: var(--blanco);
   border: 1px solid var(--borde);
-  border-radius: 14px;
-  overflow: hidden;
-  cursor: pointer;
+  border-radius: 10px;
+  padding: 14px;
+  max-height: 320px;
+  overflow: auto;
 }
-
-.faq-pregunta {
-  padding: 14px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.faq-chevron {
-  font-size: 12px;
-  color: var(--texto-suave);
-  transition: transform 0.2s;
-  flex-shrink: 0;
-}
-
-.faq-item.open .faq-chevron { transform: rotate(180deg); }
-
-.faq-respuesta {
-  display: none;
-  padding: 0 16px 14px;
-  font-size: 13px;
-  color: var(--texto-suave);
-  line-height: 1.6;
-  border-top: 1px solid var(--borde);
-  padding-top: 12px;
-}
-
-.faq-item.open .faq-respuesta { display: block; }
 </style>
 </head>
 <body>
 
-<!-- LOADING -->
-<div class="loading-screen hidden" id="loadingScreen">
-  <img src="./LOGO_ZIA_VERDE.png" alt="ZIA" style="height:48px;margin-bottom:8px;">
-  <div class="loading-spinner"></div>
+<div id="vista-landing" class="vista activa">
+  <div class="landing-wrap">
+    <div class="logo-zia">ZIA</div>
+    <p class="landing-tagline">Tu nutricionista inteligente — plan de 7 días y lista de la compra con precios.</p>
+    <button type="button" class="btn-primary" onclick="mostrarVista('vista-onboarding')">Empieza gratis</button>
+  </div>
 </div>
 
-<!-- ═══════════════════════════
-     VISTA: LANDING
-═══════════════════════════ -->
-<div class="vista activa" id="vista-landing">
+<div id="vista-onboarding" class="vista">
+  <div class="onboarding-shell">
+    <header class="onb-header">
+      <span class="logo-zia">ZIA</span>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <span class="step-label" id="stepLabel">1 / 8</span>
+    </header>
+    <div class="onb-body">
+      <div class="error-msg" id="onbError"></div>
 
-  <nav class="landing-nav">
-    <img src="./LOGO_ZIA_VERDE.png" alt="ZIA Nutrición" class="nav-logo-img">
-    <div class="nav-links">
-      <button class="btn-login" onclick="mostrarVista('vista-onboarding')">Entrar</button>
-      <button class="btn-cta-nav" onclick="mostrarVista('vista-onboarding')">Empieza gratis</button>
-    </div>
-  </nav>
-
-  <section class="hero">
-    <div class="hero-badge">🌿 Tu nutricionista inteligente</div>
-    <h1>Come mejor, <em>gasta menos</em>, sin complicaciones.</h1>
-    <p>ZIA analiza tu perfil, crea tu plan semanal personalizado y genera tu lista de la compra lista para el carrito — en 2 minutos.</p>
-    <div class="hero-btns">
-      <button class="btn-primary" onclick="mostrarVista('vista-onboarding')">Empieza gratis →</button>
-    </div>
-    <div class="hero-trust">
-      <span class="trust-item">🔒 Sin tarjeta</span>
-      <span class="trust-item">⚡ Lista en 2 min</span>
-      <span class="trust-item">🎯 100% personalizado</span>
-    </div>
-  </section>
-
-  <div class="chat-mockup-wrap">
-    <div class="chat-mockup">
-      <div class="chat-mock-header">
-        <div class="mock-avatar">🌿</div>
-        <div class="mock-info">
-          <div class="mock-name">ZIA Nutrición</div>
-          <div class="mock-status">● En línea</div>
+      <section class="paso" data-paso="1">
+        <h2 class="paso-titulo">Tus datos</h2>
+        <p class="paso-desc">Necesitamos un perfil básico para personalizar tu dieta.</p>
+        <div class="field"><label for="nombre">Nombre</label><input id="nombre" type="text" placeholder="Tu nombre" autocomplete="name"></div>
+        <div class="field"><label for="edad">Edad</label><input id="edad" type="number" min="16" max="99" placeholder="Años"></div>
+        <div class="field"><label for="sexo">Sexo biológico</label>
+          <select id="sexo"><option value="">Elige</option><option value="mujer">Mujer</option><option value="hombre">Hombre</option><option value="otro">Otro / prefiero no decir</option></select>
         </div>
-      </div>
-      <div class="chat-mock-body">
-        <div class="mock-msg zia">¡Hola! Soy ZIA 🥑 En 2 minutos te preparo tu plan semanal personalizado + lista de la compra lista para el carrito 🛒</div>
-        <div class="mock-msg user">Quiero perder peso, sin gluten ✓✓</div>
-        <div class="mock-msg zia">Perfecto. ¿En qué supermercado sueles comprar?</div>
-        <div class="mock-msg user">Mercadona</div>
-        <div class="mock-resultado">💰 Ahorro esta semana: -18€ vs semana anterior</div>
-      </div>
+        <div class="grid-2">
+          <div class="field"><label for="peso">Peso (kg)</label><input id="peso" type="number" min="30" max="300" step="0.1" placeholder="70"></div>
+          <div class="field"><label for="altura">Altura (cm)</label><input id="altura" type="number" min="120" max="230" placeholder="170"></div>
+        </div>
+        <div class="field"><label for="email">Email (opcional)</label><input id="email" type="email" placeholder="tu@email.com" autocomplete="email"></div>
+      </section>
+
+      <section class="paso hidden" data-paso="2">
+        <h2 class="paso-titulo">Objetivo principal</h2>
+        <p class="paso-desc">¿Qué quieres conseguir con tu alimentación?</p>
+        <div class="opciones" data-grupo="objetivo">
+          <button type="button" class="opcion" data-val="perder-peso">Perder peso <small> déficit controlado, saciedad</small></button>
+          <button type="button" class="opcion" data-val="ganar-musculo">Ganar músculo <small> más proteína, superávit moderado</small></button>
+          <button type="button" class="opcion" data-val="comer-sano">Comer más sano <small> equilibrio y hábitos</small></button>
+          <button type="button" class="opcion" data-val="mantenimiento">Mantenimiento <small> peso estable</small></button>
+        </div>
+      </section>
+
+      <section class="paso hidden" data-paso="3">
+        <h2 class="paso-titulo">Ejercicio</h2>
+        <p class="paso-desc">¿Cuánto te mueves en una semana típica?</p>
+        <div class="opciones" data-grupo="ejercicio">
+          <button type="button" class="opcion" data-val="sedentario">Sedentario <small> poco o ningún ejercicio</small></button>
+          <button type="button" class="opcion" data-val="ligero">Ligero <small> 1–2 días suave</small></button>
+          <button type="button" class="opcion" data-val="moderado">Moderado <small> 3–4 días</small></button>
+          <button type="button" class="opcion" data-val="intenso">Intenso <small> 5+ o trabajo físico</small></button>
+        </div>
+      </section>
+
+      <section class="paso hidden" data-paso="4">
+        <h2 class="paso-titulo">Cocina en el día a día</h2>
+        <p class="paso-desc">¿Cuánto tiempo y ganas tienes para cocinar?</p>
+        <div class="opciones" data-grupo="cocina">
+          <button type="button" class="opcion" data-val="minimo">Mínimo <small> rápido, poco fuego</small></button>
+          <button type="button" class="opcion" data-val="medio">Medio <small> algo de batch cooking</small></button>
+          <button type="button" class="opcion" data-val="avanzado">Me gusta cocinar <small> recetas elaboradas OK</small></button>
+        </div>
+      </section>
+
+      <section class="paso hidden" data-paso="5">
+        <h2 class="paso-titulo">Comidas al día</h2>
+        <p class="paso-desc">Incluyendo snacks si los quieres planificados.</p>
+        <div class="opcion-grid" data-grupo="comidas_dia">
+          <button type="button" class="opcion" data-val="3">3 comidas</button>
+          <button type="button" class="opcion" data-val="4">4 comidas</button>
+          <button type="button" class="opcion" data-val="5">5 comidas</button>
+        </div>
+      </section>
+
+      <section class="paso hidden" data-paso="6">
+        <h2 class="paso-titulo">Intolerancias y preferencias</h2>
+        <p class="paso-desc">Toca todas las que apliquen (puedes varias).</p>
+        <div class="intolerancia-wrap" id="intoleranciasChips"></div>
+      </section>
+
+      <section class="paso hidden" data-paso="7">
+        <h2 class="paso-titulo">Presupuesto semanal</h2>
+        <p class="paso-desc">Aproximado para la compra de esta semana (€).</p>
+        <div class="field"><label for="presupuesto">Euros / semana</label><input id="presupuesto" type="number" min="20" max="500" step="5" placeholder="60"></div>
+      </section>
+
+      <section class="paso hidden" data-paso="8">
+        <h2 class="paso-titulo">Supermercado</h2>
+        <p class="paso-desc">Afinamos la lista con precios típicos de tu cadena.</p>
+        <div class="opciones" data-grupo="supermercado">
+          <button type="button" class="opcion" data-val="Mercadona">Mercadona</button>
+          <button type="button" class="opcion" data-val="Lidl">Lidl</button>
+          <button type="button" class="opcion" data-val="Aldi">Aldi</button>
+          <button type="button" class="opcion" data-val="Carrefour">Carrefour</button>
+          <button type="button" class="opcion" data-val="El Corte Inglés">El Corte Inglés</button>
+          <button type="button" class="opcion" data-val="Otro">Otro / varios</button>
+        </div>
+      </section>
     </div>
+    <footer class="onb-footer">
+      <button type="button" class="btn-primary" id="btnOnbNext">Continuar</button>
+    </footer>
   </div>
-
-  <div class="stats-bar">
-    <div class="stat-item"><span class="stat-valor">2min</span><span class="stat-label">Plan listo</span></div>
-    <div class="stat-item"><span class="stat-valor">8+</span><span class="stat-label">Supermercados</span></div>
-    <div class="stat-item"><span class="stat-valor">-30%</span><span class="stat-label">Ahorro medio</span></div>
-    <div class="stat-item"><span class="stat-valor">7días</span><span class="stat-label">Plan completo</span></div>
-  </div>
-
-  <div class="seccion">
-    <div class="seccion-titulo">Cómo funciona</div>
-    <div class="seccion-subtitulo">Tres pasos y tienes tu semana resuelta.</div>
-    <div class="pasos">
-      <div class="paso">
-        <div class="paso-num">1</div>
-        <div>
-          <div class="paso-titulo">Cuéntale tu objetivo a ZIA</div>
-          <div class="paso-desc">Perder peso, ganar músculo, comer más sano o ahorrar. ZIA adapta todo a ti.</div>
-        </div>
-      </div>
-      <div class="paso">
-        <div class="paso-num">2</div>
-        <div>
-          <div class="paso-titulo">ZIA crea tu plan personalizado</div>
-          <div class="paso-desc">Menú semanal con desayuno, comida y cena. Con macros, calorías y variedad real.</div>
-        </div>
-      </div>
-      <div class="paso">
-        <div class="paso-num">3</div>
-        <div>
-          <div class="paso-titulo">Lista de la compra con precios</div>
-          <div class="paso-desc">Todos los ingredientes organizados por categoría con precios de tu supermercado.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="seccion" style="padding-top:0">
-    <div class="seccion-titulo">Lo que ZIA hace por ti</div>
-    <div class="seccion-subtitulo">Más que un menú. Un asistente nutricional completo.</div>
-    <div class="features">
-      <div class="feature-card">
-        <div class="feature-icon">📸</div>
-        <div>
-          <div class="feature-titulo">Foto de nevera → recetas</div>
-          <div class="feature-desc">Hazle una foto a tu nevera y ZIA te dice qué puedes cocinar con lo que tienes.</div>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">💰</div>
-        <div>
-          <div class="feature-titulo">Precios reales de supermercado</div>
-          <div class="feature-desc">Mercadona, Lidl, Aldi, Carrefour y más. ZIA sabe lo que cuesta cada producto hoy.</div>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🧠</div>
-        <div>
-          <div class="feature-titulo">Te recuerda tus preferencias</div>
-          <div class="feature-desc">Si el brócoli no te gusta, ZIA lo sabe. Tu perfil se adapta con cada semana.</div>
-        </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">👨‍👩‍👧</div>
-        <div>
-          <div class="feature-titulo">Plan familiar coordinado</div>
-          <div class="feature-desc">Una lista de la compra para toda la familia, aunque cada uno tenga objetivos distintos.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="seccion" style="padding-top:0">
-    <div class="seccion-titulo">Planes</div>
-    <div class="seccion-subtitulo">Empieza gratis. Mejora cuando quieras.</div>
-    <div class="precios">
-      <div class="precio-card">
-        <div class="precio-nombre">Gratis</div>
-        <div class="precio-desc">Para empezar a probar ZIA</div>
-        <div class="precio-valor">0€ <span>/siempre</span></div>
-        <ul class="precio-lista">
-          <li>Plan del lunes completo</li>
-          <li>Chat con ZIA</li>
-          <li>Sin tarjeta de crédito</li>
-        </ul>
-        <button class="btn-precio secundario" onclick="mostrarVista('vista-onboarding')">Empezar gratis</button>
-      </div>
-      <div class="precio-card popular">
-        <div class="precio-badge">MÁS POPULAR</div>
-        <div class="precio-nombre">Individual</div>
-        <div class="precio-desc">Plan semanal renovado cada lunes + todas las funciones</div>
-        <div class="precio-valor">9,99€ <span>/mes</span></div>
-        <ul class="precio-lista">
-          <li>Plan semanal completo (7 días)</li>
-          <li>Lista de la compra con precios</li>
-          <li>Modo ahorro semanal</li>
-          <li>Foto nevera → recetas</li>
-          <li>Replanificación cuando quieras</li>
-          <li>Suplementación personalizada</li>
-        </ul>
-        <button class="btn-precio principal" onclick="iniciarCheckout('individual')">Empezar por 9,99€/mes →</button>
-      </div>
-      <div class="precio-card">
-        <div class="precio-nombre">2 personas</div>
-        <div class="precio-desc">Todo Individual para 2 personas con lista unificada</div>
-        <div class="precio-valor">14,99€ <span>/mes</span></div>
-        <ul class="precio-lista">
-          <li>Todo lo de Individual para 2 perfiles</li>
-          <li>Lista de la compra unificada</li>
-          <li>Planes coordinados por ZIA</li>
-        </ul>
-        <button class="btn-precio secundario" onclick="iniciarCheckout('dos_personas')">Empezar por 14,99€/mes →</button>
-      </div>
-      <div class="precio-card">
-        <div class="precio-nombre">Familiar</div>
-        <div class="precio-desc">Todo Individual para hasta 5 personas</div>
-        <div class="precio-valor">29,99€ <span>/mes</span></div>
-        <ul class="precio-lista">
-          <li>Todo lo de Individual para 5 perfiles</li>
-          <li>Plan familiar coordinado</li>
-          <li>Lista unificada optimizada</li>
-          <li>Cada perfil con su objetivo</li>
-        </ul>
-        <button class="btn-precio secundario" onclick="iniciarCheckout('familiar')">Empezar por 29,99€/mes →</button>
-      </div>
-    </div>
-    <div class="precio-nota">🔒 Pago seguro · Sin permanencia · Cancela cuando quieras · Precios con IVA incluido</div>
-  </div>
-
-  <div class="b2b-seccion">
-    <div class="b2b-inner">
-      <div class="b2b-titulo">Para empresas</div>
-      <div class="b2b-subtitulo">El activo más potente para tu negocio — disponible 24/7, para cada cliente, sin coste de personal.</div>
-      <div class="b2b-tagline">El mejor empleado que jamás has tenido</div>
-      <div class="b2b-tagline-sub">Disponible 24/7. Sin bajas, sin formación, sin límites. Conoce cada producto de tu catálogo y sabe exactamente qué recomendar a cada cliente en cada momento.</div>
-      <div class="b2b-cards">
-        <div class="b2b-card">
-          <div class="b2b-card-titulo">🛒 Supermercados</div>
-          <div class="b2b-card-desc">El mejor vendedor de tu tienda, disponible 24/7. Conoce cada producto de tu catálogo, ayuda al cliente a elegir, aumenta el ticket medio y genera listas de la compra para pedir online o recoger en tienda.</div>
-          <div class="b2b-tags"><span class="b2b-tag">↑ Ticket medio</span><span class="b2b-tag">↑ Fidelización</span></div>
-        </div>
-        <div class="b2b-card">
-          <div class="b2b-card-titulo">🏋️ Gimnasios y centros deportivos</div>
-          <div class="b2b-card-desc">Nutrición personalizada incluida en la cuota. Aumenta la retención y diferencia tu gimnasio.</div>
-          <div class="b2b-tags"><span class="b2b-tag">↑ Retención</span><span class="b2b-tag">↑ Diferenciación</span></div>
-        </div>
-        <div class="b2b-card">
-          <div class="b2b-card-titulo">🌿 Herbolarios y tiendas naturales</div>
-          <div class="b2b-card-desc">ZIA asesora a tus clientes sobre suplementación. Recomienda productos de tu catálogo y convierte visitas en ventas.</div>
-          <div class="b2b-tags"><span class="b2b-tag">↑ Ventas</span><span class="b2b-tag">↑ Recurrencia</span></div>
-        </div>
-        <div class="b2b-card">
-          <div class="b2b-card-titulo">🩺 Nutricionistas y clínicas</div>
-          <div class="b2b-card-desc">La extensión digital de tu consulta. ZIA hace el seguimiento entre visitas y responde dudas del día a día.</div>
-          <div class="b2b-tags"><span class="b2b-tag">↑ Pacientes</span><span class="b2b-tag">↓ Carga administrativa</span></div>
-        </div>
-      </div>
-      <button class="btn-demo" onclick="window.location.href='mailto:hola@zianutricion.com?subject=Demo ZIA para empresas'">📅 Solicitar demo personalizada</button>
-    </div>
-  </div>
-
-  <!-- AVALES NUTRICIONISTAS -->
-  <div class="seccion" style="background:var(--blanco);padding:40px 20px;">
-    <div style="max-width:480px;margin:0 auto;">
-      <div style="text-align:center;margin-bottom:24px;">
-        <div style="font-size:32px;margin-bottom:8px;">🏥</div>
-        <div class="seccion-titulo" style="text-align:center;">Avalado por nutricionistas colegiados</div>
-        <div class="seccion-subtitulo" style="text-align:center;">Nuestros planes están diseñados y supervisados por un equipo de nutricionistas clínicos con más de 10 años de experiencia.</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div style="background:var(--crema);border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;">
-          <div style="width:48px;height:48px;border-radius:50%;background:var(--verde-claro);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👩‍⚕️</div>
-          <div>
-            <div style="font-size:15px;font-weight:500;">Dra. María Fernández</div>
-            <div style="font-size:12px;color:var(--texto-suave);">Nutricionista clínica · Col. nº 2847</div>
-            <div style="font-size:12px;color:var(--verde-medio);margin-top:2px;">"ZIA sigue los principios de la nutrición basada en evidencia"</div>
-          </div>
-        </div>
-        <div style="background:var(--crema);border-radius:14px;padding:16px;display:flex;align-items:center;gap:14px;">
-          <div style="width:48px;height:48px;border-radius:50%;background:var(--verde-claro);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">👨‍⚕️</div>
-          <div>
-            <div style="font-size:15px;font-weight:500;">Dr. Carlos Montoya</div>
-            <div style="font-size:12px;color:var(--texto-suave);">Especialista en nutrición deportiva · Col. nº 1923</div>
-            <div style="font-size:12px;color:var(--verde-medio);margin-top:2px;">"Ideal para deportistas que quieren optimizar su rendimiento"</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TESTIMONIOS -->
-  <div class="seccion">
-    <div class="seccion-titulo">Lo que dicen nuestros usuarios</div>
-    <div class="seccion-subtitulo">Personas reales con resultados reales.</div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="background:white;border:1px solid var(--borde);border-radius:16px;padding:18px;">
-        <div style="display:flex;gap:4px;margin-bottom:8px;">⭐⭐⭐⭐⭐</div>
-        <div style="font-size:14px;line-height:1.6;margin-bottom:12px;color:var(--texto);">"Llevo 3 semanas usando ZIA y he ahorrado más de 60€ en la compra. El plan es súper fácil de seguir y las recetas son deliciosas. Lo recomiendo 100%."</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:var(--verde-claro);display:flex;align-items:flex-end;justify-content:center;font-size:16px;">👩</div>
-          <div>
-            <div style="font-size:13px;font-weight:500;">Laura M.</div>
-            <div style="font-size:11px;color:var(--texto-suave);">Madrid · Objetivo: perder peso</div>
-          </div>
-        </div>
-      </div>
-      <div style="background:white;border:1px solid var(--borde);border-radius:16px;padding:18px;">
-        <div style="display:flex;gap:4px;margin-bottom:8px;">⭐⭐⭐⭐⭐</div>
-        <div style="font-size:14px;line-height:1.6;margin-bottom:12px;color:var(--texto);">"Soy celíaco y siempre me costaba encontrar menús variados. ZIA me genera cada semana un plan sin gluten con productos de Mercadona. Es una pasada."</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:var(--verde-claro);display:flex;align-items:flex-end;justify-content:center;font-size:16px;">👨</div>
-          <div>
-            <div style="font-size:13px;font-weight:500;">Javier R.</div>
-            <div style="font-size:11px;color:var(--texto-suave);">Barcelona · Celiaquía</div>
-          </div>
-        </div>
-      </div>
-      <div style="background:white;border:1px solid var(--borde);border-radius:16px;padding:18px;">
-        <div style="display:flex;gap:4px;margin-bottom:8px;">⭐⭐⭐⭐⭐</div>
-        <div style="font-size:14px;line-height:1.6;margin-bottom:12px;color:var(--texto);">"Entreno 5 días a la semana y necesitaba un plan de ganar músculo bien hecho. ZIA me calcula los macros perfectos y la lista de la compra me sale por 80€ a la semana."</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:36px;height:36px;border-radius:50%;background:var(--verde-claro);display:flex;align-items:flex-end;justify-content:center;font-size:16px;">👩</div>
-          <div>
-            <div style="font-size:13px;font-weight:500;">Ana G.</div>
-            <div style="font-size:11px;color:var(--texto-suave);">Valencia · Objetivo: ganar músculo</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- COMPARATIVA -->
-  <div class="seccion" style="padding-top:0">
-    <div class="seccion-titulo">ZIA vs alternativas</div>
-    <div class="seccion-subtitulo">¿Por qué ZIA y no ChatGPT o un dietista?</div>
-    <div style="background:white;border:1px solid var(--borde);border-radius:16px;overflow:hidden;">
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;background:var(--crema-oscuro);padding:10px 12px;">
-        <div style="font-size:11px;font-weight:600;color:var(--texto-suave);text-transform:uppercase;letter-spacing:0.5px;"></div>
-        <div style="font-size:11px;font-weight:700;color:var(--verde);text-align:center;">ZIA</div>
-        <div style="font-size:11px;font-weight:500;color:var(--texto-suave);text-align:center;">ChatGPT</div>
-        <div style="font-size:11px;font-weight:500;color:var(--texto-suave);text-align:center;">Dietista</div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 12px;border-bottom:1px solid var(--borde);">
-        <div style="font-size:12px;">Plan personalizado</div>
-        <div style="text-align:center;">✅</div><div style="text-align:center;">⚠️</div><div style="text-align:center;">✅</div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 12px;border-bottom:1px solid var(--borde);background:var(--crema);">
-        <div style="font-size:12px;">Precios reales super.</div>
-        <div style="text-align:center;">✅</div><div style="text-align:center;">❌</div><div style="text-align:center;">❌</div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 12px;border-bottom:1px solid var(--borde);">
-        <div style="font-size:12px;">Lista de la compra</div>
-        <div style="text-align:center;">✅</div><div style="text-align:center;">⚠️</div><div style="text-align:center;">❌</div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 12px;border-bottom:1px solid var(--borde);background:var(--crema);">
-        <div style="font-size:12px;">Disponible 24/7</div>
-        <div style="text-align:center;">✅</div><div style="text-align:center;">✅</div><div style="text-align:center;">❌</div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 12px;border-bottom:1px solid var(--borde);">
-        <div style="font-size:12px;">Foto nevera → recetas</div>
-        <div style="text-align:center;">✅</div><div style="text-align:center;">⚠️</div><div style="text-align:center;">❌</div>
-      </div>
-      <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr;padding:10px 12px;background:var(--crema);">
-        <div style="font-size:12px;font-weight:600;">Precio mensual</div>
-        <div style="text-align:center;font-weight:700;color:var(--verde);font-size:12px;">9,99€</div>
-        <div style="text-align:center;font-size:12px;color:var(--texto-suave);">20€+</div>
-        <div style="text-align:center;font-size:12px;color:var(--texto-suave);">50-100€</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- FAQ -->
-  <div class="seccion" style="padding-top:0">
-    <div class="seccion-titulo">Preguntas frecuentes</div>
-    <div style="display:flex;flex-direction:column;gap:8px;" id="faqContainer">
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-pregunta">¿Es seguro para mi salud? <span class="faq-chevron">▾</span></div>
-        <div class="faq-respuesta">Sí. ZIA está diseñada siguiendo los principios de la nutrición basada en evidencia científica y supervisada por nutricionistas colegiados. No es una dieta extrema, sino una guía de alimentación equilibrada adaptada a ti.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-pregunta">¿Puedo cancelar cuando quiera? <span class="faq-chevron">▾</span></div>
-        <div class="faq-respuesta">Sí, sin permanencia ni penalizaciones. Puedes cancelar tu suscripción en cualquier momento desde tu perfil y no se te cobrará nada más.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-pregunta">¿Funciona si tengo intolerancias? <span class="faq-chevron">▾</span></div>
-        <div class="faq-respuesta">Por supuesto. ZIA gestiona sin gluten, sin lactosa, vegetariano, vegano, alergia al huevo, a los frutos secos, al marisco y más. Todas las recetas y la lista de la compra se adaptan a tus restricciones.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-pregunta">¿En qué supermercados funciona? <span class="faq-chevron">▾</span></div>
-        <div class="faq-respuesta">Mercadona, Lidl, Aldi, Carrefour, El Corte Inglés, Día, Ahorramas y Herbolario Navarro. Estamos añadiendo más supermercados continuamente.</div>
-      </div>
-      <div class="faq-item" onclick="toggleFaq(this)">
-        <div class="faq-pregunta">¿Qué pasa con mis datos? <span class="faq-chevron">▾</span></div>
-        <div class="faq-respuesta">Tus datos están seguros y encriptados. Nunca los vendemos ni compartimos con terceros. Solo los usamos para personalizar tu plan nutricional. Cumplimos con el RGPD.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- CTA FINAL -->
-  <div style="padding:40px 20px;text-align:center;background:var(--verde);">
-    <div style="max-width:480px;margin:0 auto;">
-      <img src="./LOGO_ZIA_VERDE.png" alt="ZIA" style="height:40px;filter:brightness(0) invert(1);margin-bottom:16px;opacity:0.9;">
-      <div style="font-family:'Fraunces',serif;font-size:26px;color:white;margin-bottom:8px;font-weight:400;line-height:1.2;">Empieza hoy.<br><em>Tu semana resuelta en 2 minutos.</em></div>
-      <div style="font-size:14px;color:rgba(255,255,255,0.75);margin-bottom:24px;">Sin tarjeta de crédito. Sin permanencia. Sin complicaciones.</div>
-      <button class="btn-primary" style="background:white;color:var(--verde);font-weight:700;max-width:300px;" onclick="mostrarVista('vista-onboarding')">Empezar gratis →</button>
-    </div>
-  </div>
-
-  <footer class="footer">
-    <div style="max-width:480px;margin:0 auto;">
-      <img src="./LOGO_ZIA_VERDE.png" alt="ZIA Nutrición" style="height:32px;margin-bottom:12px;opacity:0.7;">
-      <div style="display:flex;justify-content:center;gap:20px;margin-bottom:16px;flex-wrap:wrap;">
-        <a href="mailto:hola@zianutricion.com" style="font-size:12px;color:var(--texto-suave);text-decoration:none;">📧 hola@zianutricion.com</a>
-        <a href="#" style="font-size:12px;color:var(--texto-suave);text-decoration:none;">📸 @zianutricion</a>
-        <a href="#" style="font-size:12px;color:var(--texto-suave);text-decoration:none;">🎵 @zianutricion</a>
-      </div>
-      <div style="display:flex;justify-content:center;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
-        <a href="#" style="font-size:11px;color:var(--texto-suave);text-decoration:none;">Política de privacidad</a>
-        <a href="#" style="font-size:11px;color:var(--texto-suave);text-decoration:none;">Términos y condiciones</a>
-        <a href="#" style="font-size:11px;color:var(--texto-suave);text-decoration:none;">Cookies</a>
-        <a href="mailto:hola@zianutricion.com" style="font-size:11px;color:var(--texto-suave);text-decoration:none;">Contacto</a>
-      </div>
-      <div class="footer-texto">© 2025 ZIA Nutrición · Tu nutricionista inteligente · Hecho con 🌿 en España</div>
-    </div>
-  </footer>
-
 </div>
 
-<!-- ═══════════════════════════
-     MODAL AUTH
-═══════════════════════════ -->
-<div class="modal-overlay" id="modalAuth" onclick="cerrarModalAuth(event)">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-handle"></div>
+<div id="vista-generando" class="vista">
+  <div class="preloader">
+    <div class="logo-zia" style="font-size:36px">ZIA</div>
+    <div class="spinner"></div>
+    <p id="generandoTexto">Generando tu plan de 7 días…</p>
+  </div>
+</div>
 
-    <!-- REGISTRO -->
-    <div id="formRegistro">
-      <div class="modal-titulo">Empieza gratis 🌿</div>
-      <div class="modal-subtitulo">Tu plan personalizado en 2 minutos. Sin tarjeta.</div>
-      <div class="form-error" id="errorRegistro"></div>
-      <div class="form-group">
-        <label class="form-label">Nombre</label>
-        <input type="text" class="form-input" id="inputNombre" placeholder="Tu nombre">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" class="form-input" id="inputEmailReg" placeholder="tu@email.com" autocomplete="email">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Contraseña</label>
-        <input type="password" class="form-input" id="inputPassReg" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
-      </div>
-      <button class="btn-form" id="btnRegistro" onclick="registrar()">
-        Crear cuenta gratis →
-      </button>
-      <div class="form-switch">¿Ya tienes cuenta? <a onclick="mostrarLogin()">Inicia sesión</a></div>
+<div id="vista-resultado" class="vista">
+  <div class="resultado-wrap">
+    <div class="resultado-header">
+      <h2 class="paso-titulo" style="margin:0">Tu plan de 7 días</h2>
+      <button type="button" class="btn-secondary" onclick="window.location.reload()">Empezar de nuevo</button>
     </div>
-
-    <!-- LOGIN -->
-    <div id="formLogin" class="hidden">
-      <div class="modal-titulo">Bienvenido de nuevo</div>
-      <div class="modal-subtitulo">Accede a tu plan semanal personalizado.</div>
-      <div class="form-error" id="errorLogin"></div>
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" class="form-input" id="inputEmailLogin" placeholder="tu@email.com" autocomplete="email">
+    <div id="planContainer"></div>
+    <div class="cambios-box" id="cambiosBox">
+      <p><strong>¿Quieres cambiar algo?</strong> Cuéntanos qué ajustar (por ejemplo: más proteína el miércoles, sin legumbres el jueves…).</p>
+      <textarea id="inputCambios" placeholder="Ej.: Menos pasta y más pescado a mitad de semana…"></textarea>
+      <div class="row-btns">
+        <button type="button" class="btn-primary" id="btnAplicarCambios">Aplicar cambios</button>
+        <button type="button" class="btn-secondary" id="btnListaOK">Está bien, generar lista de la compra</button>
       </div>
-      <div class="form-group">
-        <label class="form-label">Contraseña</label>
-        <input type="password" class="form-input" id="inputPassLogin" placeholder="Tu contraseña" autocomplete="current-password">
-      </div>
-      <button class="btn-form" id="btnLogin" onclick="iniciarSesion()">
-        Entrar →
-      </button>
-      <div class="form-switch">¿No tienes cuenta? <a onclick="mostrarRegistro()">Regístrate gratis</a></div>
+      <div class="error-msg" id="cambiosError"></div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════════════
-     VISTA: ONBOARDING
-═══════════════════════════ -->
-<div class="vista" id="vista-onboarding">
-  <div class="onboarding-header">
-    <div class="onboarding-logo"><img src="./LOGO_ZIA_VERDE.png" alt="ZIA" style="height:24px;"></div>
-    <div class="progress-bar-wrap">
-      <div class="progress-bar-fill" id="progressBar" style="width:33%"></div>
+<div id="vista-lista" class="vista">
+  <div class="lista-wrap">
+    <div class="resultado-header">
+      <h2 class="paso-titulo" style="margin:0">Lista de la compra</h2>
+      <button type="button" class="btn-secondary" onclick="mostrarVista('vista-resultado')">Volver al plan</button>
     </div>
-    <div class="onboarding-paso-num" id="pasoNum">1 de 3</div>
-  </div>
-
-  <div class="onboarding-body">
-
-    <!-- PASO 1: Objetivo -->
-    <div id="onboarding-paso-1">
-      <div class="paso-pregunta">¿Cuál es tu objetivo principal?</div>
-      <div class="paso-subpregunta">ZIA adaptará tu plan semanal a lo que necesitas.</div>
-      <div class="opciones-grid">
-        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'perder-peso')">
-          <span class="opcion-emoji">⚖️</span>
-          <div class="opcion-texto">Perder peso</div>
-        </div>
-        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'ganar-musculo')">
-          <span class="opcion-emoji">💪</span>
-          <div class="opcion-texto">Ganar músculo</div>
-        </div>
-        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'comer-sano')">
-          <span class="opcion-emoji">🥗</span>
-          <div class="opcion-texto">Comer más sano</div>
-        </div>
-        <div class="opcion-btn" onclick="seleccionarOpcion(this, 'objetivo', 'ahorrar')">
-          <span class="opcion-emoji">💰</span>
-          <div class="opcion-texto">Ahorrar en la compra</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PASO 2: Intolerancias -->
-    <div id="onboarding-paso-2" class="hidden">
-      <div class="paso-pregunta">¿Tienes alguna intolerancia o preferencia?</div>
-      <div class="paso-subpregunta">Puedes seleccionar varias. ZIA las tendrá siempre en cuenta.</div>
-      <div class="opciones-lista" id="listIntolerancias">
-        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'ninguna')">
-          <span class="opcion-emoji">✅</span>
-          <div class="opcion-lista-texto">
-            <div class="opcion-lista-titulo">Ninguna</div>
-            <div class="opcion-lista-sub">Como de todo sin restricciones</div>
-          </div>
-        </div>
-        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'sin-gluten')">
-          <span class="opcion-emoji">🌾</span>
-          <div class="opcion-lista-texto">
-            <div class="opcion-lista-titulo">Sin gluten</div>
-            <div class="opcion-lista-sub">Celiaquía o sensibilidad al gluten</div>
-          </div>
-        </div>
-        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'sin-lactosa')">
-          <span class="opcion-emoji">🥛</span>
-          <div class="opcion-lista-texto">
-            <div class="opcion-lista-titulo">Sin lactosa</div>
-            <div class="opcion-lista-sub">Intolerancia a la lactosa</div>
-          </div>
-        </div>
-        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'vegetariano')">
-          <span class="opcion-emoji">🥦</span>
-          <div class="opcion-lista-texto">
-            <div class="opcion-lista-titulo">Vegetariano</div>
-            <div class="opcion-lista-sub">Sin carne ni pescado</div>
-          </div>
-        </div>
-        <div class="opcion-lista-btn" onclick="toggleMultiple(this, 'intolerancia', 'vegano')">
-          <span class="opcion-emoji">🌱</span>
-          <div class="opcion-lista-texto">
-            <div class="opcion-lista-titulo">Vegano</div>
-            <div class="opcion-lista-sub">Sin productos de origen animal</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PASO 3: Supermercado -->
-    <div id="onboarding-paso-3" class="hidden">
-      <div class="paso-pregunta">¿Dónde sueles hacer la compra?</div>
-      <div class="paso-subpregunta">ZIA optimizará tu lista con los precios de tu supermercado.</div>
-      <div class="opciones-lista">
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Mercadona')">
-          <span class="opcion-emoji">🛒</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Mercadona</div></div>
-        </div>
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Lidl')">
-          <span class="opcion-emoji">🛒</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Lidl</div></div>
-        </div>
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Aldi')">
-          <span class="opcion-emoji">🛒</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Aldi</div></div>
-        </div>
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Carrefour')">
-          <span class="opcion-emoji">🛒</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Carrefour</div></div>
-        </div>
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'El Corte Inglés')">
-          <span class="opcion-emoji">🛒</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">El Corte Inglés</div></div>
-        </div>
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Día')">
-          <span class="opcion-emoji">🛒</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Día</div></div>
-        </div>
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Ahorramas')">
-          <span class="opcion-emoji">🛒</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Ahorramas</div></div>
-        </div>
-        <div class="opcion-lista-btn" onclick="seleccionarOpcion(this, 'supermercado', 'Herbolario Navarro')">
-          <span class="opcion-emoji">🌿</span>
-          <div class="opcion-lista-texto"><div class="opcion-lista-titulo">Herbolario Navarro</div></div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-  <div class="onboarding-footer">
-    <button class="btn-siguiente" id="btnSiguiente" onclick="siguientePaso()" disabled>Continuar →</button>
+    <p id="listaSuper" style="color:var(--texto-suave);margin-bottom:16px"></p>
+    <div id="listaContainer"></div>
+    <div class="preloader hidden" id="listaLoading"><div class="spinner"></div><p>Generando categorías, pesos y precios…</p></div>
   </div>
 </div>
 
-<!-- ═══════════════════════════
-     VISTA: APP
-═══════════════════════════ -->
-<div class="vista-app" id="vista-app">
-
-  <header class="app-header">
-    <div class="app-logo">ZIA.</div>
-    <div class="header-right">
-      <span class="plan-badge" id="planBadge">Free</span>
-      <button class="avatar-btn" id="avatarBtn" onclick="switchTab('perfil', document.querySelectorAll('.tab')[3])">U</button>
-    </div>
-  </header>
-
-  <nav class="tab-bar">
-    <button class="tab active" onclick="switchTab('chat', this)">
-      <span class="tab-icon">💬</span>Chat
-    </button>
-    <button class="tab" onclick="switchTab('plan', this)">
-      <span class="tab-icon">📅</span>Mi plan
-    </button>
-    <button class="tab" onclick="switchTab('lista', this)">
-      <span class="tab-icon">🛒</span>Lista
-    </button>
-    <button class="tab" onclick="switchTab('perfil', this)">
-      <span class="tab-icon">👤</span>Perfil
-    </button>
-  </nav>
-
-  <div class="tab-content">
-
-    <!-- CHAT -->
-    <div class="tab-panel active" id="panel-chat">
-      <div class="chat-messages" id="chatMessages"></div>
-      <div class="quick-suggestions" id="suggestions">
-        <button class="suggestion-chip" onclick="enviarSugerencia('Ver mi plan de esta semana')">📋 Mi plan</button>
-        <button class="suggestion-chip" onclick="enviarSugerencia('Qué pongo hoy de cena')">🌙 Cena de hoy</button>
-        <button class="suggestion-chip" onclick="abrirFotoModal()">📸 Foto nevera</button>
-        <button class="suggestion-chip" onclick="enviarSugerencia('Cómo voy esta semana')">📊 Mi progreso</button>
-        <button class="suggestion-chip" onclick="enviarSugerencia('Dame una receta rápida')">⚡ Receta rápida</button>
-      </div>
-      <div class="chat-input-area">
-        <div class="chat-input-wrap">
-          <textarea class="chat-input" id="chatInput" placeholder="Escribe a ZIA..." rows="1"
-            onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-          <button class="btn-foto" onclick="abrirFotoModal()">📷</button>
-        </div>
-        <button class="btn-send" onclick="enviarMensaje()">
-          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <!-- PLAN -->
-    <div class="tab-panel" id="panel-plan">
-      <div class="plan-panel" id="planPanel">
-        <div style="text-align:center;padding:40px 20px;color:var(--texto-suave)">
-          <div style="font-size:32px;margin-bottom:12px">📅</div>
-          <div>Cargando tu plan...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- LISTA -->
-    <div class="tab-panel" id="panel-lista">
-      <div class="lista-panel" id="listaPanel">
-        <div style="text-align:center;padding:40px 20px;color:var(--texto-suave)">
-          <div style="font-size:32px;margin-bottom:12px">🛒</div>
-          <div>Cargando lista...</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- PERFIL -->
-    <div class="tab-panel" id="panel-perfil">
-      <div class="perfil-panel">
-        <div class="perfil-avatar-section">
-          <div class="perfil-avatar" id="perfilAvatar">U</div>
-          <div class="perfil-nombre" id="perfilNombre">Usuario</div>
-          <div class="perfil-email" id="perfilEmail"></div>
-          <span class="perfil-plan" id="perfilPlan">Plan gratuito</span>
-        </div>
-        <div class="opciones-card">
-          <div class="opcion-row" onclick="switchTab('plan', document.querySelectorAll('.tab')[1])">
-            <span class="opcion-icon">📅</span><span class="opcion-texto">Mi plan semanal</span><span class="opcion-chevron">›</span>
-          </div>
-          <div class="opcion-row" onclick="switchTab('lista', document.querySelectorAll('.tab')[2])">
-            <span class="opcion-icon">🛒</span><span class="opcion-texto">Lista de la compra</span><span class="opcion-chevron">›</span>
-          </div>
-          <div class="opcion-row">
-            <span class="opcion-icon">🎯</span><span class="opcion-texto">Mis objetivos</span><span class="opcion-chevron">›</span>
-          </div>
-        </div>
-        <div class="opciones-card">
-          <div class="opcion-row" onclick="mostrarPreciosDesdeApp()">
-            <span class="opcion-icon">⭐</span><span class="opcion-texto">Mejorar plan</span><span class="opcion-chevron">›</span>
-          </div>
-        </div>
-        <button class="btn-logout" onclick="logout()">Cerrar sesión</button>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<!-- MODAL FOTO -->
-<div class="foto-modal-overlay" id="fotoModal" onclick="cerrarFotoModal(event)">
-  <div class="foto-modal-sheet" onclick="event.stopPropagation()">
-    <div class="foto-modal-title">📸 Analizar nevera</div>
-    <div class="foto-modal-sub">ZIA analizará lo que tienes y te sugerirá recetas</div>
-    <div class="foto-options">
-      <label class="foto-option">
-        <span style="font-size:20px">📷</span> Hacer foto ahora
-        <input type="file" accept="image/*" capture="environment" style="display:none" onchange="procesarFoto(this)">
-      </label>
-      <label class="foto-option">
-        <span style="font-size:20px">🖼️</span> Elegir de galería
-        <input type="file" accept="image/*" style="display:none" onchange="procesarFoto(this)">
-      </label>
-    </div>
-    <button class="foto-cancel" onclick="cerrarFotoModal()">Cancelar</button>
-  </div>
-</div>
-
+<style>.hidden { display: none !important; }</style>
 <script>
 const API = 'https://zealous-forgiveness-production-a5a7.up.railway.app';
-let token = localStorage.getItem('zia_token');
-let userPlan = 'individual'; // DEV BYPASS
-let userName = '';
-let userEmail = '';
-let planData = null;
-let conversationHistory = [];
-let onboardingData = { objetivo: '', intolerancias: [], supermercado: '' };
 let pasoActual = 1;
-const totalPasos = 3;
+const TOTAL_PASOS = 8;
+const datos = {
+  nombre: '', edad: '', sexo: '', peso: '', altura: '', email: '',
+  objetivo: '', ejercicio: '', cocina: '', comidas_dia: '',
+  intolerancias: [], presupuesto: '', supermercado: ''
+};
+let historialChat = [];
+let planActual = null;
+let textoPlanRaw = '';
 
-// ── INIT ──
-window.addEventListener('load', () => {
-  if (token) {
-    mostrarLoading();
-    cargarApp();
-  }
-});
-
-function mostrarLoading() {
-  document.getElementById('loadingScreen').classList.remove('hidden');
-}
-
-function ocultarLoading() {
-  document.getElementById('loadingScreen').classList.add('hidden');
-}
+const INTOLERANCIAS_OPTS = [
+  { id: 'ninguna', label: 'Ninguna' },
+  { id: 'sin-gluten', label: 'Sin gluten' },
+  { id: 'sin-lactosa', label: 'Sin lactosa' },
+  { id: 'vegetariano', label: 'Vegetariano' },
+  { id: 'vegano', label: 'Vegano' },
+  { id: 'sin-frutos-secos', label: 'Sin frutos secos' },
+  { id: 'sin-marisco', label: 'Sin marisco' },
+];
 
 function mostrarVista(id) {
-  document.querySelectorAll('.vista, .vista-app').forEach(v => {
-    v.classList.remove('activa');
-  });
+  document.querySelectorAll('.vista').forEach(v => v.classList.remove('activa'));
   const el = document.getElementById(id);
-  el.classList.add('activa');
+  if (el) el.classList.add('activa');
+  if (id === 'vista-onboarding') {
+    pasoActual = 1;
+    showPaso(1);
+    const btn = document.getElementById('btnOnbNext');
+    if (btn) { btn.textContent = 'Continuar'; btn.disabled = false; }
+    showOnbError('');
+    document.querySelectorAll('.opciones .opcion.seleccionada').forEach(x => x.classList.remove('seleccionada'));
+  }
   window.scrollTo(0, 0);
 }
 
-async function cargarApp() {
-  try {
-    const res = await fetch(`${API}/web/mi-plan`, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    const data = await res.json();
-
-    if (data.ok) {
-      userPlan = data.plan_usuario || 'free';
-      userName = data.nombre || 'Usuario';
-      planData = data.plan;
-      ocultarLoading();
-      iniciarApp();
-    } else {
-      throw new Error('No plan');
-    }
-  } catch(e) {
-    ocultarLoading();
-    // Sin plan → onboarding
-    mostrarVista('vista-app');
-  }
+function setProgress(n) {
+  document.getElementById('progressFill').style.width = (n / TOTAL_PASOS * 100) + '%';
+  document.getElementById('stepLabel').textContent = n + ' / ' + TOTAL_PASOS;
 }
 
-// ── AUTH ──
-function abrirRegistro() {
-  mostrarRegistro();
-  document.getElementById('modalAuth').classList.add('open');
+function showPaso(n) {
+  document.querySelectorAll('.paso').forEach(s => s.classList.add('hidden'));
+  const sec = document.querySelector('.paso[data-paso="' + n + '"]');
+  if (sec) sec.classList.remove('hidden');
+  setProgress(n);
+  pasoActual = n;
 }
 
-function abrirLogin() {
-  mostrarLogin();
-  document.getElementById('modalAuth').classList.add('open');
-}
-
-function cerrarModalAuth(e) {
-  if (e.target === document.getElementById('modalAuth')) {
-    document.getElementById('modalAuth').classList.remove('open');
-  }
-}
-
-function mostrarLogin() {
-  document.getElementById('formRegistro').classList.add('hidden');
-  document.getElementById('formLogin').classList.remove('hidden');
-}
-
-function mostrarRegistro() {
-  document.getElementById('formLogin').classList.add('hidden');
-  document.getElementById('formRegistro').classList.remove('hidden');
-}
-
-async function registrar() {
-  const nombre = document.getElementById('inputNombre').value.trim();
-  const email = document.getElementById('inputEmailReg').value.trim();
-  const pass = document.getElementById('inputPassReg').value;
-  const errEl = document.getElementById('errorRegistro');
-  const btn = document.getElementById('btnRegistro');
-
-  errEl.style.display = 'none';
-
-  if (!nombre || !email || !pass) {
-    errEl.textContent = 'Completa todos los campos.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  if (pass.length < 6) {
-    errEl.textContent = 'La contraseña debe tener al menos 6 caracteres.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Creando cuenta...';
-
-  try {
-    const res = await fetch(`${API}/web/registro`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass, nombre })
-    });
-
-    const data = await res.json();
-
-    if (data.ok) {
-      // Auto-login
-      const loginRes = await fetch(`${API}/web/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password: pass })
-      });
-      const loginData = await loginRes.json();
-
-      if (loginData.ok) {
-        token = loginData.token;
-        localStorage.setItem('zia_token', token);
-        userName = nombre;
-        document.getElementById('modalAuth').classList.remove('open');
-        mostrarVista('vista-onboarding');
+function initIntolerancias() {
+  const wrap = document.getElementById('intoleranciasChips');
+  wrap.innerHTML = '';
+  INTOLERANCIAS_OPTS.forEach(o => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip';
+    b.textContent = o.label;
+    b.dataset.id = o.id;
+    b.onclick = () => {
+      if (o.id === 'ninguna') {
+        datos.intolerancias = ['ninguna'];
+        wrap.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.id === 'ninguna'));
+        return;
       }
-    } else {
-      errEl.textContent = data.error || 'Error al crear la cuenta.';
-      errEl.style.display = 'block';
-    }
-  } catch(e) {
-    errEl.textContent = 'Error de conexión. Inténtalo de nuevo.';
-    errEl.style.display = 'block';
-  }
-
-  btn.disabled = false;
-  btn.textContent = 'Crear cuenta gratis →';
-}
-
-async function iniciarSesion() {
-  const email = document.getElementById('inputEmailLogin').value.trim();
-  const pass = document.getElementById('inputPassLogin').value;
-  const errEl = document.getElementById('errorLogin');
-  const btn = document.getElementById('btnLogin');
-
-  errEl.style.display = 'none';
-
-  if (!email || !pass) {
-    errEl.textContent = 'Completa todos los campos.';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = 'Entrando...';
-
-  try {
-    const res = await fetch(`${API}/web/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass })
-    });
-
-    const data = await res.json();
-
-    if (data.ok) {
-      token = data.token;
-      localStorage.setItem('zia_token', token);
-      document.getElementById('modalAuth').classList.remove('open');
-      mostrarLoading();
-      cargarApp();
-    } else {
-      errEl.textContent = 'Email o contraseña incorrectos.';
-      errEl.style.display = 'block';
-    }
-  } catch(e) {
-    errEl.textContent = 'Error de conexión.';
-    errEl.style.display = 'block';
-  }
-
-  btn.disabled = false;
-  btn.textContent = 'Entrar →';
-}
-
-// ── ONBOARDING ──
-function seleccionarOpcion(el, campo, valor) {
-  // Deseleccionar otros en el mismo grupo
-  el.closest('.opciones-grid, .opciones-lista').querySelectorAll('.opcion-btn, .opcion-lista-btn').forEach(b => {
-    b.classList.remove('seleccionado');
-  });
-  el.classList.add('seleccionado');
-  onboardingData[campo] = valor;
-  document.getElementById('btnSiguiente').disabled = false;
-}
-
-function toggleMultiple(el, campo, valor) {
-  if (valor === 'ninguna') {
-    // Si seleccionas ninguna, deselecciona todo lo demás
-    document.querySelectorAll('#listIntolerancias .opcion-lista-btn').forEach(b => b.classList.remove('seleccionado'));
-    el.classList.add('seleccionado');
-    onboardingData.intolerancias = ['ninguna'];
-  } else {
-    // Deselecciona "ninguna"
-    document.querySelector('[onclick*="ninguna"]').classList.remove('seleccionado');
-    el.classList.toggle('seleccionado');
-    if (el.classList.contains('seleccionado')) {
-      onboardingData.intolerancias = onboardingData.intolerancias.filter(i => i !== 'ninguna');
-      onboardingData.intolerancias.push(valor);
-    } else {
-      onboardingData.intolerancias = onboardingData.intolerancias.filter(i => i !== valor);
-    }
-  }
-  document.getElementById('btnSiguiente').disabled = onboardingData.intolerancias.length === 0;
-}
-
-function siguientePaso() {
-  if (pasoActual < totalPasos) {
-    document.getElementById(`onboarding-paso-${pasoActual}`).classList.add('hidden');
-    pasoActual++;
-    document.getElementById(`onboarding-paso-${pasoActual}`).classList.remove('hidden');
-    document.getElementById('progressBar').style.width = `${(pasoActual / totalPasos) * 100}%`;
-    document.getElementById('pasoNum').textContent = `${pasoActual} de ${totalPasos}`;
-    document.getElementById('btnSiguiente').disabled = true;
-
-    // Para el paso de intolerancias, permitir continuar si ya hay algo
-    if (pasoActual === 2 && onboardingData.intolerancias.length > 0) {
-      document.getElementById('btnSiguiente').disabled = false;
-    }
-  } else {
-    // Último paso → guardar perfil y generar plan
-    finalizarOnboarding();
-  }
-}
-
-async function finalizarOnboarding() {
-  const btn = document.getElementById('btnSiguiente');
-  btn.textContent = 'Generando tu plan...';
-  btn.disabled = true;
-
-  try {
-    // Guardar perfil
-    await fetch(`${API}/web/perfil`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        objetivo: onboardingData.objetivo,
-        intolerancias: onboardingData.intolerancias.join(', '),
-        supermercado: onboardingData.supermercado,
-        peso: 70, altura: 170, presupuesto: 60
-      })
-    });
-
-    // Generar plan
-    const planRes = await fetch(`${API}/web/generar-plan`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(onboardingData)
-    });
-
-    const planData2 = await planRes.json();
-    if (planData2.ok) {
-      planData = planData2.plan;
-      userPlan = planData2.plan?.plan_usuario || 'free';
-    }
-  } catch(e) {
-    console.log('Error generando plan:', e);
-  }
-
-  iniciarApp();
-}
-
-// ── APP ──
-function iniciarApp() {
-  mostrarVista('vista-app');
-  actualizarUI();
-  renderPlan();
-  renderLista();
-  mensajeBienvenida();
-}
-
-function actualizarUI() {
-  const inicial = (userName || 'U').charAt(0).toUpperCase();
-  document.getElementById('avatarBtn').textContent = inicial;
-  document.getElementById('perfilAvatar').textContent = inicial;
-  document.getElementById('perfilNombre').textContent = userName || 'Usuario';
-  document.getElementById('perfilEmail').textContent = userEmail;
-
-  const badge = document.getElementById('planBadge');
-  const perfilPlan = document.getElementById('perfilPlan');
-  if (userPlan && userPlan !== 'free') {
-    badge.textContent = userPlan.charAt(0).toUpperCase() + userPlan.slice(1);
-    badge.classList.add('pro');
-    perfilPlan.textContent = 'Plan ' + userPlan;
-  } else {
-    badge.textContent = 'Free';
-    perfilPlan.textContent = 'Plan gratuito';
-  }
-}
-
-function limpiarMarkdown(texto) {
-  return texto
-    .replace(/#{1,6}\s/g, '')
-    .replace(/\*\*(.*?)\*\*/g, '$1')
-    .replace(/\*(.*?)\*/g, '$1')
-    .replace(/^[-•]\s/gm, '')
-    .replace(/^\d+\.\s/gm, '')
-    .trim();
-}
-
-// ── ONBOARDING PRO CONVERSACIONAL ──
-let onboardingProActivo = false;
-let onboardingProHistorial = [];
-let onboardingProDatos = {};
-
-async function iniciarOnboardingPro() {
-  onboardingProActivo = true;
-  onboardingProHistorial = [];
-  onboardingProDatos = {};
-  mostrarTyping();
-  try {
-    const res = await fetch(`${API}/web/onboarding-pro`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ mensaje: '', historial: [], datos_recogidos: {} })
-    });
-    const data = await res.json();
-    ocultarTyping();
-    if (data.ok) {
-      const texto = limpiarMarkdown(data.respuesta);
-      agregarMensaje('zia', texto);
-      onboardingProHistorial.push({ role: 'assistant', content: texto });
-    }
-  } catch(e) {
-    ocultarTyping();
-    agregarMensaje('zia', '¡Hola! Soy ZIA, tu nutricionista personal 🌿 Vamos a preparar tu plan completo. ¿Cómo te llamas?');
-  }
-}
-
-async function enviarOnboardingPro(texto) {
-  onboardingProHistorial.push({ role: 'user', content: texto });
-  mostrarTyping();
-  try {
-    const res = await fetch(`${API}/web/onboarding-pro`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({
-        mensaje: texto,
-        historial: onboardingProHistorial.slice(-20),
-        datos_recogidos: onboardingProDatos
-      })
-    });
-    const data = await res.json();
-    ocultarTyping();
-    if (data.ok) {
-      const respuesta = limpiarMarkdown(data.respuesta);
-      if (data.completado) {
-        const match = data.respuesta.match(/DATOS:\s*(\{[\s\S]*?\})/);
-        if (match) {
-          try { onboardingProDatos = JSON.parse(match[1]); } catch(e) {}
-        }
-        onboardingProActivo = false;
-        agregarMensaje('zia', '¡Perfecto! Ya tengo todo lo que necesito. Estoy preparando tu plan personalizado... 🌿');
-        await finalizarOnboardingPro();
+      wrap.querySelector('[data-id="ninguna"]').classList.remove('on');
+      datos.intolerancias = datos.intolerancias.filter(i => i !== 'ninguna');
+      b.classList.toggle('on');
+      const id = o.id;
+      if (b.classList.contains('on')) {
+        if (!datos.intolerancias.includes(id)) datos.intolerancias.push(id);
       } else {
-        agregarMensaje('zia', respuesta);
-        onboardingProHistorial.push({ role: 'assistant', content: respuesta });
+        datos.intolerancias = datos.intolerancias.filter(i => i !== id);
       }
-    }
-  } catch(e) {
-    ocultarTyping();
-    agregarMensaje('zia', 'Perdona, hubo un problema. ¿Puedes repetir tu respuesta?');
-  }
-}
-
-async function finalizarOnboardingPro() {
-  try {
-    await fetch(`${API}/web/perfil`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({
-        objetivo: onboardingProDatos.objetivo || onboardingData.objetivo,
-        intolerancias: onboardingProDatos.intolerancias || onboardingData.intolerancias.join(', '),
-        supermercado: onboardingProDatos.supermercado || onboardingData.supermercado,
-        peso: onboardingProDatos.peso || 70,
-        altura: onboardingProDatos.altura || 170,
-        presupuesto: onboardingProDatos.presupuesto || 60
-      })
-    });
-    const planRes = await fetch(`${API}/web/generar-plan`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(onboardingProDatos)
-    });
-    const planData2 = await planRes.json();
-    if (planData2.ok) {
-      planData = planData2.plan;
-      renderPlan();
-      renderLista();
-    }
-    agregarMensaje('zia', '¡Tu plan ya está listo! 🎉 Puedes verlo en la pestaña Mi plan de arriba. Esta semana vamos a por ello 💪');
-  } catch(e) {
-    agregarMensaje('zia', 'Tu perfil está guardado. En breve tendrás tu plan listo en la pestaña de arriba.');
-  }
-}
-
-function mensajeBienvenida() {
-  const hora = new Date().getHours();
-  let saludo = hora < 12 ? 'Buenos días' : hora < 20 ? 'Buenas tardes' : 'Buenas noches';
-  const nombre = userName ? `, ${userName.split(' ')[0]}` : '';
-
-  if (userPlan && userPlan !== 'free' && !planData) {
-    agregarMensaje('zia', `${saludo}${nombre} 🌿\n\nBienvenido a tu plan Pro. Voy a hacerte unas preguntas para conocerte bien y prepararte el mejor plan personalizado.`);
-    setTimeout(() => iniciarOnboardingPro(), 1000);
-  } else if (planData) {
-    agregarMensaje('zia', `${saludo}${nombre} 🌿\n\nTu plan de esta semana ya está listo. ¿En qué puedo ayudarte hoy?`);
-  } else {
-    agregarMensaje('zia', `${saludo}${nombre} 🌿\n\n¡Bienvenido a ZIA! Tu plan del lunes está listo para verlo arriba. ¿Tienes alguna duda o quieres que te ayude con algo?`);
-  }
-}
-
-// ── TABS ──
-function switchTab(name, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  document.getElementById('panel-' + name).classList.add('active');
-}
-
-// ── CHAT ──
-function agregarMensaje(rol, texto) {
-  const container = document.getElementById('chatMessages');
-  const now = new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-  const div = document.createElement('div');
-  div.className = `msg ${rol}`;
-
-  if (rol === 'zia') {
-    div.innerHTML = `
-      <div class="msg-avatar">🌿</div>
-      <div>
-        <div class="msg-bubble">${texto.replace(/\n/g, '<br>')}</div>
-        <div class="msg-time">${now}</div>
-      </div>`;
-  } else {
-    div.innerHTML = `
-      <div>
-        <div class="msg-bubble">${texto.replace(/\n/g, '<br>')}</div>
-        <div class="msg-time">${now}</div>
-      </div>`;
-  }
-
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-  conversationHistory.push({ role: rol === 'zia' ? 'assistant' : 'user', content: texto });
-}
-
-function mostrarTyping() {
-  const container = document.getElementById('chatMessages');
-  const div = document.createElement('div');
-  div.className = 'msg zia';
-  div.id = 'typingIndicator';
-  div.innerHTML = `
-    <div class="msg-avatar">🌿</div>
-    <div class="typing-indicator">
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-      <div class="typing-dot"></div>
-    </div>`;
-  container.appendChild(div);
-  container.scrollTop = container.scrollHeight;
-}
-
-function ocultarTyping() {
-  const el = document.getElementById('typingIndicator');
-  if (el) el.remove();
-}
-
-async function enviarMensaje() {
-        const token = localStorage.getItem('zia_token');
-        if (!token) { mostrarVista('vista-login'); return; }
-  const input = document.getElementById('chatInput');
-  const texto = input.value.trim();
-  if (!texto) return;
-
-  input.value = '';
-  autoResize(input);
-  agregarMensaje('user', texto);
-  document.getElementById('suggestions').style.display = 'none';
-
-  // Si onboarding pro activo, redirigir
-  if (onboardingProActivo) {
-    await enviarOnboardingPro(texto);
-    return;
-  }
-
-  mostrarTyping();
-
-  try {
-    const response = await fetch(`${API}/web/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        mensaje: texto,
-        historial: conversationHistory.slice(-10),
-        perfil: {
-          objetivo: onboardingData.objetivo || onboardingProDatos.objetivo || '',
-          intolerancias: onboardingData.intolerancias.join(', ') || onboardingProDatos.intolerancias || 'ninguna',
-          supermercado: onboardingData.supermercado || onboardingProDatos.supermercado || 'Mercadona',
-          plan: userPlan || 'free',
-          nombre: userName || '',
-          presupuesto: onboardingProDatos.presupuesto || '60',
-          ejercicio: onboardingProDatos.ejercicio || '',
-          comidas_dia: onboardingProDatos.comidas_dia || '3'
-        }
-      })
-    });
-
-    const data = await response.json();
-    ocultarTyping();
-
-    if (data.ok && data.respuesta) {
-      agregarMensaje('zia', limpiarMarkdown(data.respuesta));
-    } else {
-      throw new Error('Sin respuesta');
-    }
-  } catch(e) {
-    ocultarTyping();
-    const fallbacks = [
-      'Entendido. Déjame pensar en la mejor opción para ti. ¿Tienes alguna restricción adicional que deba tener en cuenta?',
-      'Buena pregunta. Para tu objetivo lo más importante es la consistencia con cambios sostenibles. ¿Quieres que ajuste algo en tu plan?',
-      'Claro, puedo ayudarte con eso. ¿Prefieres algo rápido de preparar o tienes tiempo para cocinar?'
-    ];
-    agregarMensaje('zia', fallbacks[Math.floor(Math.random() * fallbacks.length)]);
-  }
-}
-
-function enviarSugerencia(texto) {
-  document.getElementById('chatInput').value = texto;
-  enviarMensaje();
-}
-
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    enviarMensaje();
-  }
-}
-
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 80) + 'px';
-}
-
-// ── FOTO ──
-function abrirFotoModal() {
-  document.getElementById('fotoModal').classList.add('open');
-}
-
-function cerrarFotoModal(e) {
-  if (!e || e.target === document.getElementById('fotoModal')) {
-    document.getElementById('fotoModal').classList.remove('open');
-  }
-}
-
-function procesarFoto(input) {
-  cerrarFotoModal();
-  if (!input.files[0]) return;
-  agregarMensaje('user', '📸 [Foto de nevera enviada]');
-  mostrarTyping();
-  setTimeout(() => {
-    ocultarTyping();
-    agregarMensaje('zia', '¡Foto recibida! He analizado tu nevera 🔍\n\nVeo: huevos, pechuga de pollo, brócoli, tomates cherry y yogur griego.\n\n🍳 Con esto puedes hacer hoy:\n• Tortilla de brócoli con tomate — 15 min\n• Ensalada de pollo con cherry — 10 min\n• Bowl proteico con yogur — 5 min\n\n¿Quieres la receta de alguno?');
-  }, 2000);
-}
-
-// ── PLAN ──
-function renderPlan() {
-  const container = document.getElementById('planPanel');
-  if (!planData || !planData.dias) {
-    container.innerHTML = `
-      <div class="upgrade-banner">
-        <h3>Tu plan está siendo preparado</h3>
-        <p>ZIA está creando tu menú semanal personalizado</p>
-        <button class="btn-upgrade" onclick="switchTab('chat', document.querySelectorAll('.tab')[0])">Hablar con ZIA →</button>
-      </div>`;
-    return;
-  }
-
-  const dias = planData.dias;
-  const isFree = false; // BYPASS // BYPASS - chat libre
-  const totalKcal = dias[0] ? (dias[0].desayuno?.calorias||0) + (dias[0].comida?.calorias||0) + (dias[0].cena?.calorias||0) : 0;
-
-  let html = `
-    <div class="plan-header-card">
-      <h2>Tu plan semanal</h2>
-      <p>${dias.length} días · ${onboardingData.supermercado || 'Personalizado'}</p>
-      <div class="plan-stats">
-        <div class="plan-stat"><span class="plan-stat-value">${dias.length}</span><span class="plan-stat-label">Días</span></div>
-        <div class="plan-stat"><span class="plan-stat-value">~${totalKcal || 1800}</span><span class="plan-stat-label">kcal/día</span></div>
-        <div class="plan-stat"><span class="plan-stat-value">-18€</span><span class="plan-stat-label">Ahorro est.</span></div>
-      </div>
-    </div>`;
-
-  dias.forEach((dia, i) => {
-    const isLocked = isFree && i > 0;
-    const kcal = (dia.desayuno?.calorias||0) + (dia.comida?.calorias||0) + (dia.cena?.calorias||0);
-
-    if (isLocked) {
-      html += `
-        <div class="dia-card locked">
-          <div class="dia-header">
-            <div class="dia-nombre">📅 ${dia.dia}</div>
-            <div class="dia-kcal">${kcal} kcal</div>
-          </div>
-        </div>`;
-    } else {
-      html += `
-        <div class="dia-card${i === 0 ? ' open' : ''}" onclick="toggleDia(this)">
-          <div class="dia-header">
-            <div class="dia-nombre">${i === 0 ? '⭐' : '📅'} ${dia.dia} ${i === 0 ? '<span style="font-size:11px;color:var(--verde-medio)">Hoy</span>' : ''}</div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <div class="dia-kcal">${kcal} kcal</div>
-              <div class="dia-chevron">▾</div>
-            </div>
-          </div>
-          <div class="dia-comidas">
-            ${dia.desayuno ? renderComida('☀️','Desayuno',dia.desayuno) : ''}
-            ${dia.comida ? renderComida('🍽️','Comida',dia.comida) : ''}
-            ${dia.cena ? renderComida('🌙','Cena',dia.cena) : ''}
-          </div>
-        </div>`;
-    }
+    };
+    wrap.appendChild(b);
   });
-
-  if (isFree) {
-    html += `
-      <div class="upgrade-banner">
-        <h3>Desbloquea toda la semana</h3>
-        <p>Accede a los 7 días completos + lista de la compra con precios reales de ${onboardingData.supermercado || 'tu supermercado'}</p>
-        <button class="btn-upgrade" onclick="mostrarPreciosDesdeApp()">Ver planes desde 9,99€/mes →</button>
-      </div>`;
-  }
-
-  container.innerHTML = html;
 }
 
-function renderComida(icon, tipo, comida) {
-  return `
-    <div class="comida-row">
-      <div class="comida-icon">${icon}</div>
-      <div class="comida-info">
-        <div class="comida-tipo">${tipo}</div>
-        <div class="comida-nombre">${comida.nombre || '—'}</div>
-        <div class="comida-macros">${comida.proteinas||0}g prot · ${comida.carbos||0}g carbos · ${comida.grasas||0}g grasas</div>
-      </div>
-      <div class="comida-kcal">${comida.calorias||0} kcal</div>
-    </div>`;
-}
-
-function toggleDia(card) { card.classList.toggle('open'); }
-
-// ── LISTA ──
-function renderLista() {
-  const container = document.getElementById('listaPanel');
-  const isFree = false; // BYPASS // BYPASS - chat libre
-  const super_ = onboardingData.supermercado || 'Mercadona';
-
-  if (isFree) {
-    container.innerHTML = `
-      <div class="lista-header">
-        <div class="lista-title">Lista de la compra</div>
-        <div class="lista-super">${super_}</div>
-      </div>
-      <div class="upgrade-banner">
-        <h3>Lista completa con precios</h3>
-        <p>Obtén tu lista semanal optimizada con los mejores precios de ${super_}</p>
-        <button class="btn-upgrade" onclick="mostrarPreciosDesdeApp()">Desbloquear por 9,99€/mes →</button>
-      </div>
-      <div class="categoria-card" style="opacity:0.35;pointer-events:none">
-        <div class="categoria-header">🥩 Proteínas</div>
-        <div class="producto-row"><div class="producto-check"></div><div class="producto-info"><div class="producto-nombre">Pechuga de pollo</div><div class="producto-cantidad">500g</div></div><div class="producto-precio">3,49€</div></div>
-        <div class="producto-row"><div class="producto-check"></div><div class="producto-info"><div class="producto-nombre">Huevos camperos</div><div class="producto-cantidad">12 ud</div></div><div class="producto-precio">2,89€</div></div>
-        <div class="producto-row"><div class="producto-check"></div><div class="producto-info"><div class="producto-nombre">Salmón fresco</div><div class="producto-cantidad">300g</div></div><div class="producto-precio">4,99€</div></div>
-      </div>`;
-    return;
-  }
-
-  // Usuario de pago
-  const lista = planData?.lista_compra;
-  if (!lista) {
-    container.innerHTML = `
-      <div class="lista-header"><div class="lista-title">Lista de la compra</div></div>
-      <div style="text-align:center;padding:40px 20px;color:var(--texto-suave)">
-        <div style="font-size:32px;margin-bottom:12px">🛒</div>
-        <div>Tu lista se generará con tu plan</div>
-      </div>`;
-    return;
-  }
-
-  let html = `
-    <div class="lista-header">
-      <div class="lista-title">Lista de la compra</div>
-      <div class="lista-super">${super_}</div>
-    </div>
-    <div class="lista-ahorro">
-      <div class="ahorro-icon">💰</div>
-      <div>
-        <div class="ahorro-valor">-18€</div>
-        <div class="ahorro-label">vs compra sin planificar esta semana</div>
-      </div>
-    </div>`;
-
-  let total = 0;
-  if (lista.categorias) {
-    Object.entries(lista.categorias).forEach(([cat, items]) => {
-      html += `<div class="categoria-card"><div class="categoria-header">${cat}</div>`;
-      items.forEach(item => {
-        const precio = item.precio || 0;
-        total += precio;
-        html += `
-          <div class="producto-row" onclick="this.classList.toggle('checked')">
-            <div class="producto-check"></div>
-            <div class="producto-info">
-              <div class="producto-nombre">${item.nombre}</div>
-              <div class="producto-cantidad">${item.cantidad || ''}</div>
-            </div>
-            <div class="producto-precio">${precio.toFixed(2)}€</div>
-          </div>`;
-      });
-      html += '</div>';
+document.querySelectorAll('.opciones').forEach(box => {
+  box.querySelectorAll('.opcion').forEach(btn => {
+    btn.addEventListener('click', () => {
+      box.querySelectorAll('.opcion').forEach(b => b.classList.remove('seleccionada'));
+      btn.classList.add('seleccionada');
     });
+  });
+});
+
+function leerPaso1() {
+  datos.nombre = document.getElementById('nombre').value.trim();
+  datos.edad = document.getElementById('edad').value.trim();
+  datos.sexo = document.getElementById('sexo').value;
+  datos.peso = document.getElementById('peso').value.trim();
+  datos.altura = document.getElementById('altura').value.trim();
+  datos.email = document.getElementById('email').value.trim();
+  if (!datos.nombre) return 'Indica tu nombre.';
+  if (!datos.edad || !datos.sexo || !datos.peso || !datos.altura) return 'Completa edad, sexo, peso y altura.';
+  return '';
+}
+
+function valorSeleccionado(grupo) {
+  const sel = document.querySelector('[data-grupo="' + grupo + '"] .opcion.seleccionada');
+  return sel ? sel.dataset.val : '';
+}
+
+function leerPasos2a8() {
+  if (pasoActual === 2) datos.objetivo = valorSeleccionado('objetivo');
+  if (pasoActual === 3) datos.ejercicio = valorSeleccionado('ejercicio');
+  if (pasoActual === 4) datos.cocina = valorSeleccionado('cocina');
+  if (pasoActual === 5) datos.comidas_dia = valorSeleccionado('comidas_dia');
+  if (pasoActual === 7) datos.presupuesto = document.getElementById('presupuesto').value.trim();
+  if (pasoActual === 8) datos.supermercado = valorSeleccionado('supermercado');
+
+  if (pasoActual === 2 && !datos.objetivo) return 'Elige un objetivo.';
+  if (pasoActual === 3 && !datos.ejercicio) return 'Elige tu nivel de ejercicio.';
+  if (pasoActual === 4 && !datos.cocina) return 'Elige una opción de cocina.';
+  if (pasoActual === 5 && !datos.comidas_dia) return 'Elige comidas al día.';
+  if (pasoActual === 6) {
+    if (!datos.intolerancias.length) return 'Selecciona al menos una opción de intolerancias (puede ser «Ninguna»).';
+  }
+  if (pasoActual === 7) {
+    if (!datos.presupuesto || Number(datos.presupuesto) < 20) return 'Indica un presupuesto semanal razonable (mín. 20 €).';
+  }
+  if (pasoActual === 8 && !datos.supermercado) return 'Elige un supermercado.';
+  return '';
+}
+
+function showOnbError(msg) {
+  const e = document.getElementById('onbError');
+  if (msg) { e.textContent = msg; e.classList.add('visible'); }
+  else { e.textContent = ''; e.classList.remove('visible'); }
+}
+
+document.getElementById('btnOnbNext').addEventListener('click', async () => {
+  showOnbError('');
+  let err = '';
+  if (pasoActual === 1) err = leerPaso1();
+  else err = leerPasos2a8();
+
+  if (pasoActual === 6) {
+    err = leerPasos2a8();
+    if (!datos.intolerancias.length) err = 'Selecciona al menos una opción.';
   }
 
-  html += `
-    <div class="lista-total">
-      <div class="total-label">Total estimado</div>
-      <div class="total-valor">${total.toFixed(2)}€</div>
-    </div>`;
+  if (err) { showOnbError(err); return; }
 
-  container.innerHTML = html;
-}
+  if (pasoActual < TOTAL_PASOS) {
+    if (pasoActual === 1) initIntolerancias();
+    showPaso(pasoActual + 1);
+    if (pasoActual === TOTAL_PASOS) {
+      document.getElementById('btnOnbNext').textContent = 'Generar mi plan';
+    }
+    return;
+  }
 
-// ── PRECIOS desde app ──
-function mostrarPreciosDesdeApp() {
-  mostrarVista('vista-landing');
-  setTimeout(() => {
-    document.querySelector('.precios').scrollIntoView({ behavior: 'smooth' });
-  }, 300);
-}
+  await generarPlanInicial();
+});
 
-// ── LOGOUT ──
-function logout() {
-  localStorage.removeItem('zia_token');
-  token = null;
-  userPlan = 'individual'; // DEV BYPASS
-  userName = '';
-  planData = null;
-  conversationHistory = [];
-  document.getElementById('chatMessages').innerHTML = '';
-  mostrarVista('vista-landing');
-}
-
-function toggleFaq(item) {
-  item.classList.toggle('open');
-}
-</script>
-
-<script>
-async function iniciarCheckout(plan) {
-  const token = localStorage.getItem('zia_token');
-  if (!token) { abrirRegistro(); return; }
+document.getElementById('btnAplicarCambios').addEventListener('click', async () => {
+  const texto = document.getElementById('inputCambios').value.trim();
+  const errEl = document.getElementById('cambiosError');
+  errEl.classList.remove('visible');
+  if (!texto) {
+    errEl.textContent = 'Describe qué quieres cambiar.';
+    errEl.classList.add('visible');
+    return;
+  }
+  mostrarVista('vista-generando');
+  document.getElementById('generandoTexto').textContent = 'Aplicando tus cambios al plan…';
   try {
-    const res = await fetch('https://zealous-forgiveness-production-a5a7.up.railway.app/web/checkout', {
-      method: 'POST',
-   'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ plan: plan })
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else alert('Error al iniciar el pago. Inténtalo de nuevo.');
-  } catch(e) { alert('Error de conexión. Inténtalo de nuevo.'); }
-}
-</script>
+    const mensaje = `El usuario ya tiene este plan de 7 días (JSON o texto previo):\n${JSON.stringify(planActual || textoPlanRaw).slice(0, 12000)}\n\nSOLICITUD DE CAMBIO:\n${texto}\n\nDevuelve el plan COMPLETO actualizado en JSON con la misma estructura: { "dias": [ { "dia": "Lunes", "comidas": [ { "tipo": "Desayuno", "nombre": "", "ingredientes": "", "kcal": 0, "proteinas_g": 0 } ] } ], "notas": "" }. Incluye 7 días. Solo JSON, sin markdown.`;
+    const data = await llamarChat(mensaje);
+    planActual = extraerPlanJson(data);
+    textoPlanRaw = typeof data.respuesta === 'string' ? data.respuesta : '';
+    renderPlan(planActual, textoPlanRaw);
+    document.getElementById('inputCambios').value = '';
+    mostrarVista('vista-resultado');
+  } catch (e) {
+    errEl.textContent = 'No se pudo aplicar el cambio. Inténtalo de nuevo.';
+    errEl.classList.add('visible');
+    mostrarVista('vista-resultado');
+  }
+});
 
-<div id="paywallModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:9999;justify-content:center;align-items:center;">
-  <div style="background:#fff;border-radius:24px 24px 0 0;padding:32px 24px;width:100%;max-width:480px;margin:0 auto;">
-    <div style="text-align:center;margin-bottom:24px;">
-      <div style="font-size:32px">🌿</div>
-      <h2 style="font-size:20px;font-weight:700;margin:8px 0 4px">Desbloquea ZIA completo</h2>
-      <p style="color:#666;font-size:14px">El chat está disponible a partir del plan Individual</p>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
-                <button onclick="iniciarCheckout('individual')" style="background:#2d6a4f;color:white;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%">
-        <span>⭐ Individual</span><span>9,99€/mes</span>
-      </button>
-                <button onclick="iniciarCheckout('dos_personas')" style="background:#f8f8f6;color:#2d6a4f;border:2px solid #2d6a4f;border-radius:14px;padding:16px;font-size:16px;font-weight:600;cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%">
-        <span>👫 2 Personas</span><span>14,99€/mes</span>
-      </button>
-                <button onclick="iniciarCheckout('familiar')" style="background:#f8f8f6;color:#2d6a4f;border:2px solid #2d6a4f;border-radius:14px;padding:16px;font-size:16px;font-weight:600cursor:pointer;display:flex;justify-content:space-between;align-items:center;width:100%">
-        <span>👨‍👩‍👧 Familiar</span><span>29,99€/mes</span>
-      </button>
-    </div>
-    <p style="text-align:center;color:#999;font-size:12px">Sin permanencia · Cancela cuando quieras · IVA incluido</p>
-    <button onclick="documenallModal').style.display='none'" style="width:100%;background:none;border:none;color:#999;font-size:14px;padding:8px;cursor:pointer;">Ahora no</button>
-  </div>
-</div>
-<script>
-function mostrarPaywall() { // SUSPENDIDO TEMPORALMENTE
-  document.getElementById('paywallModal').style.display = 'flex';
+document.getElementById('btnListaOK').addEventListener('click', async () => {
+  mostrarVista('vista-lista');
+  document.getElementById('listaLoading').classList.remove('hidden');
+  document.getElementById('listaContainer').innerHTML = '';
+  document.getElementById('listaSuper').textContent = 'Supermercado: ' + (datos.supermercado || '—');
+
+  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${datos.intolerancias.join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS (Fruta y verdura, Lácteos, Proteínas, Cereales, Despensa, etc.). Para cada ítem incluye: nombre, peso o cantidad con unidad (g, kg, ml, ud), y precio estimado en EUR para ${datos.supermercado}.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
+  try {
+    const data = await llamarChat(mensaje);
+    const lista = extraerListaJson(data);
+    renderLista(lista, data.respuesta);
+  } catch (e) {
+    document.getElementById('listaContainer').innerHTML = '<p class="raw-fallback">No se pudo generar la lista automáticamente. Revisa la conexión o inténtalo más tarde.</p>';
+  }
+  document.getElementById('listaLoading').classList.add('hidden');
+});
+
+function perfilPayload() {
+  return {
+    objetivo: datos.objetivo,
+    intolerancias: datos.intolerancias.join(', '),
+    supermercado: datos.supermercado,
+    plan: 'free',
+    nombre: datos.nombre,
+    presupuesto: String(datos.presupuesto || ''),
+    ejercicio: datos.ejercicio,
+    comidas_dia: datos.comidas_dia,
+    cocina: datos.cocina,
+    edad: datos.edad,
+    sexo: datos.sexo,
+    peso: datos.peso,
+    altura: datos.altura,
+  };
 }
+
+async function llamarChat(mensaje) {
+  const body = {
+    mensaje,
+    historial: historialChat.slice(-12),
+    perfil: perfilPayload(),
+  };
+  const res = await fetch(API + '/web/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.error || 'error');
+  if (data.respuesta) {
+    historialChat.push({ role: 'user', content: mensaje.slice(0, 500) });
+    historialChat.push({ role: 'assistant', content: String(data.respuesta).slice(0, 8000) });
+  }
+  return data;
+}
+
+function extraerJsonDeTexto(text) {
+  if (!text) return null;
+  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) { try { return JSON.parse(fence[1].trim()); } catch (e) {} }
+  const i = text.indexOf('{');
+  const j = text.lastIndexOf('}');
+  if (i >= 0 && j > i) {
+    try { return JSON.parse(text.slice(i, j + 1)); } catch (e) {}
+  }
+  return null;
+}
+
+function extraerPlanJson(data) {
+  const t = data.respuesta || '';
+  const j = extraerJsonDeTexto(t);
+  if (j && Array.isArray(j.dias)) return j;
+  if (j && j.plan && Array.isArray(j.plan.dias)) return j.plan;
+  return null;
+}
+
+function extraerListaJson(data) {
+  const t = data.respuesta || '';
+  const j = extraerJsonDeTexto(t);
+  if (j && j.categorias) return j;
+  return null;
+}
+
+async function generarPlanInicial() {
+  mostrarVista('vista-generando');
+  document.getElementById('generandoTexto').textContent = 'Generando tu plan de 7 días con ZIA…';
+  historialChat = [];
+
+  const mensaje = `Eres ZIA, nutricionista. Crea un plan de ALIMENTACIÓN para 7 DÍAS (Lunes a Domingo) personalizado con estos datos:\n` +
+    `- Nombre: ${datos.nombre}, ${datos.edad} años, ${datos.sexo}, ${datos.peso} kg, ${datos.altura} cm\n` +
+    `- Objetivo: ${datos.objetivo}\n` +
+    `- Ejercicio: ${datos.ejercicio}\n` +
+    `- Cocina: ${datos.cocina}\n` +
+    `- Comidas al día: ${datos.comidas_dia}\n` +
+    `- Intolerancias/preferencias: ${datos.intolerancias.join(', ')}\n` +
+    `- Presupuesto compra semanal: ~${datos.presupuesto} €\n` +
+    `- Suele comprar en: ${datos.supermercado}\n\n` +
+    `Responde SOLO con un JSON válido (sin markdown, sin texto extra) con esta estructura:\n` +
+    `{"dias":[{"dia":"Lunes","comidas":[{"tipo":"Desayuno","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Comida","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0},{"tipo":"Cena","nombre":"","descripcion_breve":"","kcal":0,"proteinas_g":0,"carbos_g":0,"grasas_g":0}]}]}\n` +
+    `Incluye exactamente 7 elementos en "dias" (Lunes a Domingo). Si comidas_dia es 4 o 5, añade comidas extra con tipo "Snack" o "Merienda" cada día.`;
+
+  try {
+    const data = await llamarChat(mensaje);
+    planActual = extraerPlanJson(data);
+    textoPlanRaw = typeof data.respuesta === 'string' ? data.respuesta : '';
+    renderPlan(planActual, textoPlanRaw);
+    mostrarVista('vista-resultado');
+  } catch (e) {
+    document.getElementById('planContainer').innerHTML =
+      '<p class="raw-fallback">No se pudo generar el plan. ' + escapeHtml(String(e.message || e)) + '</p>';
+    mostrarVista('vista-resultado');
+  }
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function renderPlan(plan, raw) {
+  const el = document.getElementById('planContainer');
+  if (!plan || !Array.isArray(plan.dias)) {
+    el.innerHTML = '<div class="raw-fallback">' + escapeHtml(raw || 'Sin datos.') + '</div>';
+    return;
+  }
+  let html = '';
+  plan.dias.forEach(d => {
+    html += '<div class="dia-card"><h3>' + escapeHtml(d.dia || 'Día') + '</h3>';
+    (d.comidas || []).forEach(c => {
+      html += '<div class="comida-block">' +
+        '<div class="tipo">' + escapeHtml(c.tipo || '') + '</div>' +
+        '<div class="nombre">' + escapeHtml(c.nombre || '') + '</div>' +
+        (c.descripcion_breve ? '<div class="meta">' + escapeHtml(c.descripcion_breve) + '</div>' : '') +
+        '<div class="meta">~' + (c.kcal || 0) + ' kcal · P ' + (c.proteinas_g || 0) + ' g · C ' + (c.carbos_g || 0) + ' g · G ' + (c.grasas_g || 0) + ' g</div>' +
+        '</div>';
+    });
+    html += '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function renderLista(lista, raw) {
+  const el = document.getElementById('listaContainer');
+  if (!lista || !lista.categorias) {
+    el.innerHTML = '<div class="raw-fallback">' + escapeHtml(raw || 'Sin lista parseada.') + '</div>';
+    return;
+  }
+  let html = '';
+  const total = lista.total_estimado_eur;
+  Object.keys(lista.categorias).forEach(cat => {
+    html += '<div class="cat-block"><h4>' + escapeHtml(cat) + '</h4>';
+    (lista.categorias[cat] || []).forEach(item => {
+      const prod = item.producto || item.nombre || '';
+      const cant = item.cantidad || item.peso_o_unidad || '';
+      const precio = item.precio_estimado_eur != null ? Number(item.precio_estimado_eur).toFixed(2) + ' €' : '';
+      html += '<div class="item-row"><span>' + escapeHtml(prod) + '</span><span class="peso">' + escapeHtml(cant) + (precio ? ' · ' + precio : '') + '</span></div>';
+    });
+    html += '</div>';
+  });
+  if (total != null) {
+    html += '<div class="dia-card" style="margin-top:16px;padding:14px"><strong>Total estimado:</strong> ' + Number(total).toFixed(2) + ' €</div>';
+  }
+  el.innerHTML = html;
+}
+
+showPaso(1);
 </script>
 </body>
 </html>
