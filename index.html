@@ -252,7 +252,11 @@ html, body {
   font-size: 14px;
 }
 .item-row:last-child { border-bottom: none; }
-.item-row .peso { color: var(--texto-suave); font-size: 13px; }
+.item-row .nom-cant { flex: 1; padding-right: 12px; font-size: 14px; }
+.item-row .precio-solo { font-weight: 600; color: var(--verde); flex-shrink: 0; font-size: 14px; }
+.cat-block h4 { font-size: 15px; font-weight: 600; color: var(--texto); margin-bottom: 8px; }
+.lista-acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; max-width: 480px; }
+.lista-acciones .btn-primary, .lista-acciones .btn-secondary { width: 100%; }
 .preloader {
   text-align: center;
   padding: 40px 20px;
@@ -303,13 +307,13 @@ html, body {
         <h2 class="paso-titulo">Tus datos</h2>
         <p class="paso-desc">Necesitamos un perfil básico para personalizar tu dieta.</p>
         <div class="field"><label for="nombre">Nombre</label><input id="nombre" type="text" placeholder="Tu nombre" autocomplete="name"></div>
-        <div class="field"><label for="edad">Edad</label><input id="edad" type="number" min="16" max="99" placeholder="Años"></div>
+        <div class="field"><label for="edad">Edad</label><input id="edad" type="number" min="10" max="100" placeholder="Años"></div>
         <div class="field"><label for="sexo">Sexo biológico</label>
           <select id="sexo"><option value="">Elige</option><option value="mujer">Mujer</option><option value="hombre">Hombre</option><option value="otro">Otro / prefiero no decir</option></select>
         </div>
         <div class="grid-2">
-          <div class="field"><label for="peso">Peso (kg)</label><input id="peso" type="number" min="30" max="300" step="0.1" placeholder="70"></div>
-          <div class="field"><label for="altura">Altura (cm)</label><input id="altura" type="number" min="120" max="230" placeholder="170"></div>
+          <div class="field"><label for="peso">Peso (kg)</label><input id="peso" type="number" min="30" max="200" step="0.1" placeholder="70"></div>
+          <div class="field"><label for="altura">Altura (cm)</label><input id="altura" type="number" min="100" max="220" placeholder="170"></div>
         </div>
         <div class="field"><label for="email">Email (opcional)</label><input id="email" type="email" placeholder="tu@email.com" autocomplete="email"></div>
       </section>
@@ -392,7 +396,7 @@ html, body {
   <div class="preloader">
     <div class="logo-zia" style="font-size:36px">ZIA</div>
     <div class="spinner"></div>
-    <p id="generandoTexto">Generando tu plan de 7 días…</p>
+    <p id="generandoTexto">ZIA está creando tu plan, dame unos segundos…</p>
   </div>
 </div>
 
@@ -423,6 +427,10 @@ html, body {
     </div>
     <p id="listaSuper" style="color:var(--texto-suave);margin-bottom:16px"></p>
     <div id="listaContainer"></div>
+    <div id="listaAcciones" class="lista-acciones hidden">
+      <button type="button" class="btn-primary" onclick="irChatDesdeLista('foto')">📸 Foto de nevera → recetas</button>
+      <button type="button" class="btn-secondary" onclick="irChatDesdeLista('chat')">💬 Hablar con ZIA</button>
+    </div>
     <div class="preloader hidden" id="listaLoading"><div class="spinner"></div><p>Generando categorías, pesos y precios…</p></div>
   </div>
 </div>
@@ -531,6 +539,12 @@ function leerPaso1() {
   datos.email = document.getElementById('email').value.trim();
   if (!datos.nombre) return 'Indica tu nombre.';
   if (!datos.edad || !datos.sexo || !datos.peso || !datos.altura) return 'Completa edad, sexo, peso y altura.';
+  const edad = Number(datos.edad);
+  const peso = Number(datos.peso);
+  const altura = Number(datos.altura);
+  if (!Number.isFinite(edad) || edad < 10 || edad > 100) return 'La edad debe estar entre 10 y 100 años.';
+  if (!Number.isFinite(peso) || peso < 30 || peso > 200) return 'El peso debe estar entre 30 y 200 kg.';
+  if (!Number.isFinite(altura) || altura < 100 || altura > 220) return 'La altura debe estar entre 100 y 220 cm.';
   return '';
 }
 
@@ -622,15 +636,17 @@ document.getElementById('btnListaOK').addEventListener('click', async () => {
   mostrarVista('vista-lista');
   document.getElementById('listaLoading').classList.remove('hidden');
   document.getElementById('listaContainer').innerHTML = '';
+  document.getElementById('listaAcciones').classList.add('hidden');
   document.getElementById('listaSuper').textContent = 'Supermercado: ' + (datos.supermercado || '—');
 
-  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${datos.intolerancias.join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS (Fruta y verdura, Lácteos, Proteínas, Cereales, Despensa, etc.). Para cada ítem incluye: nombre, peso o cantidad con unidad (g, kg, ml, ud), y precio estimado en EUR para ${datos.supermercado}.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
+  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${datos.intolerancias.join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS. Para los precios, usa como referencia PRECIO REAL ACTUAL en España en 2025 típico de Mercadona (venta al público en tienda u online); si el supermercado del usuario no es Mercadona, indica precios equivalentes realistas para esa cadena tomando como ancla los niveles de Mercadona España 2025.\n\nPara cada ítem: nombre del producto en una sola línea JUNTO con cantidad y unidad (ej. "Espinacas 300 g", "Leche semidesnatada 1 L"); el precio_estimado_eur es solo el importe en EUR de esa línea.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
   try {
     const data = await llamarChat(mensaje);
     const lista = extraerListaJson(data);
     renderLista(lista, data.respuesta);
   } catch (e) {
     document.getElementById('listaContainer').innerHTML = '<p class="raw-fallback">No se pudo generar la lista automáticamente. Revisa la conexión o inténtalo más tarde.</p>';
+    document.getElementById('listaAcciones').classList.add('hidden');
   }
   document.getElementById('listaLoading').classList.add('hidden');
 });
@@ -703,7 +719,7 @@ function extraerListaJson(data) {
 
 async function generarPlanInicial() {
   mostrarVista('vista-generando');
-  document.getElementById('generandoTexto').textContent = 'Generando tu plan de 7 días con ZIA…';
+  document.getElementById('generandoTexto').textContent = 'ZIA está creando tu plan, dame unos segundos…';
   historialChat = [];
 
   const mensaje = `Eres ZIA, nutricionista. Crea un plan de ALIMENTACIÓN para 7 DÍAS (Lunes a Domingo) personalizado con estos datos:\n` +
@@ -760,21 +776,60 @@ function renderPlan(plan, raw) {
   el.innerHTML = html;
 }
 
+function tituloCategoriaConIcono(cat) {
+  const raw = (cat || '').trim();
+  const n = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const rules = [
+    [/fruta|verdur|hortaliz/, '🥦 Fruta y Verdura'],
+    [/prote[ií]n|proteinas|carne|pescado|pollo|cerdo|ternera|huevo/, '🥩 Proteínas'],
+    [/lacteo|queso|yogur|yogurt|leche/, '🥛 Lácteos'],
+    [/cereal|legumb|pasta|pan|harina|arroz|avena/, '🌾 Cereales'],
+    [/snack|fruto sec|frutos sec|aperitivo/, '🍎 Snacks'],
+    [/despensa|aceite|vinagre|especi|conserva|salsa/, '🫙 Despensa'],
+  ];
+  for (let i = 0; i < rules.length; i++) {
+    if (rules[i][0].test(n)) return rules[i][1];
+  }
+  return '🛒 ' + (raw || 'Categoría');
+}
+
+function irChatDesdeLista(modo) {
+  mostrarVista('vista-resultado');
+  const ta = document.getElementById('inputCambios');
+  if (modo === 'foto') {
+    ta.value = 'Quiero ideas de recetas con lo que tengo en la nevera (te describo el contenido o más adelante te envío foto en la app). ¿Qué me recomiendas?';
+  } else {
+    ta.value = 'Hola ZIA, ya tengo la lista de la compra y quiero hablar contigo sobre mi plan o la dieta.';
+  }
+  ta.focus();
+  setTimeout(function () { ta.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
+}
+
 function renderLista(lista, raw) {
   const el = document.getElementById('listaContainer');
+  const acc = document.getElementById('listaAcciones');
   if (!lista || !lista.categorias) {
     el.innerHTML = '<div class="raw-fallback">' + escapeHtml(raw || 'Sin lista parseada.') + '</div>';
+    acc.classList.add('hidden');
     return;
   }
   let html = '';
   const total = lista.total_estimado_eur;
   Object.keys(lista.categorias).forEach(cat => {
-    html += '<div class="cat-block"><h4>' + escapeHtml(cat) + '</h4>';
+    html += '<div class="cat-block"><h4>' + escapeHtml(tituloCategoriaConIcono(cat)) + '</h4>';
     (lista.categorias[cat] || []).forEach(item => {
-      const prod = item.producto || item.nombre || '';
-      const cant = item.cantidad || item.peso_o_unidad || '';
+      const prod = (item.producto || item.nombre || '').trim();
+      const cant = (item.cantidad || '').trim();
+      const pu = (item.peso_o_unidad || '').trim();
+      const parteCant = [cant, pu].filter(Boolean).join(' ').trim();
+      let nombreLinea = prod;
+      if (parteCant) {
+        const pl = prod.toLowerCase();
+        const cl = parteCant.toLowerCase();
+        if (!pl.includes(cl)) nombreLinea = (prod + ' ' + parteCant).trim();
+      }
       const precio = item.precio_estimado_eur != null ? Number(item.precio_estimado_eur).toFixed(2) + ' €' : '';
-      html += '<div class="item-row"><span>' + escapeHtml(prod) + '</span><span class="peso">' + escapeHtml(cant) + (precio ? ' · ' + precio : '') + '</span></div>';
+      html += '<div class="item-row"><span class="nom-cant">' + escapeHtml(nombreLinea || '—') + '</span><span class="precio-solo">' + (precio ? escapeHtml(precio) : '—') + '</span></div>';
     });
     html += '</div>';
   });
@@ -782,6 +837,7 @@ function renderLista(lista, raw) {
     html += '<div class="dia-card" style="margin-top:16px;padding:14px"><strong>Total estimado:</strong> ' + Number(total).toFixed(2) + ' €</div>';
   }
   el.innerHTML = html;
+  acc.classList.remove('hidden');
 }
 
 showPaso(1);
