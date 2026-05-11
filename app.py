@@ -38,7 +38,7 @@ def login():
 def perfil():
     try:
         token=request.headers.get("Authorization","").replace("Bearer ","")
-        uid=supabase.auth.get_user(token).user.id
+        uid = "anonimo" if token in ("onimo", "", None) else supabase.auth.get_user(token).user.id
         data=request.json
         supabase.table("perfiles").upsert({"user_id":uid,"objetivo":data.get("objetivo"),"intolerancias":data.get("intolerancias","ninguna"),"supermercado":data.get("supermercado"),"presupuesto":data.get("presupuesto",60),"peso":data.get("peso",70),"altura":data.get("altura",170)}).execute()
         return jsonify({"ok":True})
@@ -46,9 +46,12 @@ def perfil():
 
 @app.route("/web/generar-plan", methods=["POST"])
 def generar_plan():
-    try:
+        try:
         token=request.headers.get("Authorization","").replace("Bearer ","")
-        uid=supabase.auth.get_user(token).user.id
+        if token in ("anonimo", "", None):
+            uid = "anonimo"
+        else:
+            uid=supabase.auth.get_user(token).user.id
         p=supabase.table("perfiles").select("*").eq("user_id",uid).single().execute().data or {}
         plan_usuario=p.get("plan","free")
         dias=7 if plan_usuario!="free" else 1
@@ -81,7 +84,7 @@ def mi_plan():
 def chat():
     try:
         token=request.headers.get("Authorization","").replace("Bearer ","")
-        uid=supabase.auth.get_user(token).user.id
+        uid = "anonimo" if token in ("onimo", "", None) else supabase.auth.get_user(token).user.id
         data=request.json
         pf=supabase.table("perfiles").select("*").eq("user_id",uid).single().execute().data or {}
         plan=pf.get("plan","free")
@@ -102,7 +105,7 @@ def chat():
 def checkout():
     try:
         token=request.headers.get("Authorization","").replace("Bearer ","")
-        uid=supabase.auth.get_user(token).user.id
+        uid = "anonimo" if token in ("onimo", "", None) else supabase.auth.get_user(token).user.id
         plan=request.json.get("plan","individual")
         precios={"individual":os.getenv("STRIPE_PRICE_INDIVID"),"dos_personas":os.getenv("STRIPE_PRICE_DOS_PERSONAS"),"familiar":os.getenv("STRIPE_PRICE_FAMILIAR")}
         s=stripe.checkout.Session.create(payment_method_types=["card"],mode="subscription",line_items=[{"price":precios.get(plan),"quantity":1}],success_url="https://zianutricion.com/?pago=ok",cancel_url="https://zianutricion.com/?pago=cancelado",metadata={"user_id":uid,"plan":plan})
