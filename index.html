@@ -235,14 +235,6 @@ html, body {
   font-size: 14px;
 }
 .cat-block { margin-bottom: 16px; }
-.cat-block h4 {
-  font-size: 12px;
-  text-transform: uppercase;
-  color: var(--texto-suave);
-  margin-bottom: 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--borde);
-}
 .item-row {
   display: flex;
   justify-content: space-between;
@@ -255,8 +247,56 @@ html, body {
 .item-row .nom-cant { flex: 1; padding-right: 12px; font-size: 14px; }
 .item-row .precio-solo { font-weight: 600; color: var(--verde); flex-shrink: 0; font-size: 14px; }
 .cat-block h4 { font-size: 15px; font-weight: 600; color: var(--texto); margin-bottom: 8px; }
-.lista-acciones { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; max-width: 480px; }
-.lista-acciones .btn-primary, .lista-acciones .btn-secondary { width: 100%; }
+.chat-post-lista {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 2px solid var(--borde);
+}
+.chat-saludo { font-size: 17px; font-weight: 600; color: var(--texto); margin-bottom: 14px; }
+.chat-mensajes {
+  max-height: 280px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 4px 0;
+}
+.msg-user-bubble {
+  align-self: flex-end;
+  background: var(--verde);
+  color: var(--blanco);
+  padding: 10px 14px;
+  border-radius: 14px 14px 4px 14px;
+  font-size: 14px;
+  max-width: 92%;
+}
+.msg-zia-bubble {
+  align-self: flex-start;
+  background: var(--blanco);
+  border: 1px solid var(--borde);
+  padding: 10px 14px;
+  border-radius: 14px 14px 14px 4px;
+  font-size: 14px;
+  max-width: 92%;
+  line-height: 1.5;
+}
+.msg-zia-bubble.error { border-color: #FECACA; background: #FEF2F2; }
+.chat-acciones-rapidas { display: flex; flex-direction: column; gap: 8px; }
+.btn-chat-accion {
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border: 2px solid var(--borde);
+  border-radius: 12px;
+  background: var(--blanco);
+  font-size: 14px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-chat-accion:hover { border-color: var(--verde-medio); background: #F7FBF4; }
+.btn-chat-accion:active { opacity: 0.92; }
 .preloader {
   text-align: center;
   padding: 40px 20px;
@@ -419,6 +459,20 @@ html, body {
   </div>
 </div>
 
+<div id="vista-registro-plan" class="vista">
+  <div class="resultado-wrap">
+    <div class="resultado-header">
+      <h2 class="paso-titulo" style="margin:0">Guarda tu plan gratis</h2>
+      <button type="button" class="btn-secondary" onclick="mostrarVista('vista-resultado')">Volver al plan</button>
+    </div>
+    <p class="paso-desc">Un paso rápido con tu nombre y email antes de generar la lista de la compra.</p>
+    <div class="field"><label for="regNombre">Nombre</label><input id="regNombre" type="text" placeholder="Tu nombre" autocomplete="name"></div>
+    <div class="field"><label for="regEmail">Email</label><input id="regEmail" type="email" placeholder="tu@email.com" autocomplete="email"></div>
+    <div class="error-msg" id="regError"></div>
+    <button type="button" class="btn-primary" id="btnGuardarPlanGratis" style="width:100%;margin-top:10px">Guardar mi plan gratis</button>
+  </div>
+</div>
+
 <div id="vista-lista" class="vista">
   <div class="lista-wrap">
     <div class="resultado-header">
@@ -427,9 +481,16 @@ html, body {
     </div>
     <p id="listaSuper" style="color:var(--texto-suave);margin-bottom:16px"></p>
     <div id="listaContainer"></div>
-    <div id="listaAcciones" class="lista-acciones hidden">
-      <button type="button" class="btn-primary" onclick="irChatDesdeLista('foto')">📸 Foto de nevera → recetas</button>
-      <button type="button" class="btn-secondary" onclick="irChatDesdeLista('chat')">💬 Hablar con ZIA</button>
+    <div id="panelChatPostLista" class="chat-post-lista hidden">
+      <p id="chatSaludo" class="chat-saludo"></p>
+      <div id="chatMensajes" class="chat-mensajes"></div>
+      <div class="chat-acciones-rapidas">
+        <button type="button" class="btn-chat-accion" data-msg="🛒 Hazme la lista de la compra">🛒 Hazme la lista de la compra</button>
+        <button type="button" class="btn-chat-accion" data-msg="💰 Quiero ahorrar esta semana">💰 Quiero ahorrar esta semana</button>
+        <button type="button" class="btn-chat-accion" data-msg="🍽️ ¿Qué como con lo que tengo?">🍽️ ¿Qué como con lo que tengo?</button>
+        <button type="button" class="btn-chat-accion" data-msg="📅 Planifícame la semana">📅 Planifícame la semana</button>
+        <button type="button" class="btn-chat-accion" data-msg="💊 Suplementación">💊 Suplementación</button>
+      </div>
     </div>
     <div class="preloader hidden" id="listaLoading"><div class="spinner"></div><p>Generando categorías, pesos y precios…</p></div>
   </div>
@@ -448,6 +509,7 @@ const datos = {
 let historialChat = [];
 let planActual = null;
 let textoPlanRaw = '';
+let authToken = localStorage.getItem('zia_token') || '';
 
 const INTOLERANCIAS_OPTS = [
   { id: 'ninguna', label: 'Ninguna' },
@@ -542,9 +604,9 @@ function leerPaso1() {
   const edad = Number(datos.edad);
   const peso = Number(datos.peso);
   const altura = Number(datos.altura);
-  if (!Number.isFinite(edad) || edad < 10 || edad > 100) return 'La edad debe estar entre 10 y 100 años.';
-  if (!Number.isFinite(peso) || peso < 30 || peso > 200) return 'El peso debe estar entre 30 y 200 kg.';
-  if (!Number.isFinite(altura) || altura < 100 || altura > 220) return 'La altura debe estar entre 100 y 220 cm.';
+  if (!Number.isFinite(edad) || edad < 10 || edad > 100) return 'La edad debe ser un número entre 10 y 100 años. Revisa el valor.';
+  if (!Number.isFinite(peso) || peso < 30 || peso > 200) return 'El peso debe ser un número entre 30 y 200 kg. Revisa el valor.';
+  if (!Number.isFinite(altura) || altura < 100 || altura > 220) return 'La altura debe ser un número entre 100 y 220 cm. Revisa el valor.';
   return '';
 }
 
@@ -633,28 +695,103 @@ document.getElementById('btnAplicarCambios').addEventListener('click', async () 
 });
 
 document.getElementById('btnListaOK').addEventListener('click', async () => {
+  authToken = localStorage.getItem('zia_token') || '';
+  if (authToken) {
+    await irAListaGenerar();
+    return;
+  }
+  document.getElementById('regNombre').value = datos.nombre || '';
+  document.getElementById('regEmail').value = datos.email || '';
+  const re = document.getElementById('regError');
+  re.textContent = '';
+  re.classList.remove('visible');
+  mostrarVista('vista-registro-plan');
+});
+
+document.getElementById('btnGuardarPlanGratis').addEventListener('click', async () => {
+  const nombre = document.getElementById('regNombre').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const errEl = document.getElementById('regError');
+  errEl.textContent = '';
+  errEl.classList.remove('visible');
+  if (!nombre || !email) {
+    errEl.textContent = 'Indica nombre y email para guardar tu plan.';
+    errEl.classList.add('visible');
+    return;
+  }
+  const password = 'Zia_' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g, '').slice(0, 14) : String(Math.random()).slice(2, 18)) + 'aA1!';
+  const btn = document.getElementById('btnGuardarPlanGratis');
+  btn.disabled = true;
+  try {
+    const reg = await fetch(API + '/web/registro', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, nombre }),
+    });
+    const regData = await reg.json();
+    if (!regData.ok) throw new Error(regData.error || 'No se pudo completar el registro.');
+    const log = await fetch(API + '/web/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const logData = await log.json();
+    if (!logData.ok) throw new Error(logData.error || 'Cuenta creada, pero no se pudo iniciar sesión. Prueba más tarde.');
+    authToken = logData.token;
+    localStorage.setItem('zia_token', authToken);
+    datos.nombre = nombre;
+    datos.email = email;
+    await sincronizarPerfilServidor();
+    await irAListaGenerar();
+  } catch (e) {
+    errEl.textContent = String(e.message || e);
+    errEl.classList.add('visible');
+  }
+  btn.disabled = false;
+});
+
+async function sincronizarPerfilServidor() {
+  if (!authToken) return;
+  try {
+    await fetch(API + '/web/perfil', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+      body: JSON.stringify({
+        objetivo: datos.objetivo,
+        intolerancias: Array.isArray(datos.intolerancias) ? datos.intolerancias.join(', ') : datos.intolerancias,
+        supermercado: datos.supermercado,
+        presupuesto: datos.presupuesto,
+        peso: datos.peso,
+        altura: datos.altura,
+      }),
+    });
+  } catch (e) {}
+}
+
+async function irAListaGenerar() {
   mostrarVista('vista-lista');
   document.getElementById('listaLoading').classList.remove('hidden');
   document.getElementById('listaContainer').innerHTML = '';
-  document.getElementById('listaAcciones').classList.add('hidden');
+  document.getElementById('panelChatPostLista').classList.add('hidden');
+  document.getElementById('chatMensajes').innerHTML = '';
   document.getElementById('listaSuper').textContent = 'Supermercado: ' + (datos.supermercado || '—');
 
-  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${datos.intolerancias.join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS. Para los precios, usa como referencia PRECIO REAL ACTUAL en España en 2025 típico de Mercadona (venta al público en tienda u online); si el supermercado del usuario no es Mercadona, indica precios equivalentes realistas para esa cadena tomando como ancla los niveles de Mercadona España 2025.\n\nPara cada ítem: nombre del producto en una sola línea JUNTO con cantidad y unidad (ej. "Espinacas 300 g", "Leche semidesnatada 1 L"); el precio_estimado_eur es solo el importe en EUR de esa línea.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
+  const mensaje = `Con este plan semanal del usuario (JSON):\n${JSON.stringify(planActual || {}).slice(0, 10000)}\n\nPerfil: supermercado ${datos.supermercado}, presupuesto ${datos.presupuesto} €/sem, intolerancias: ${(datos.intolerancias || []).join(', ')}.\n\nGenera la LISTA DE LA COMPRA agrupada por CATEGORÍAS. Para los precios, usa como referencia PRECIO REAL ACTUAL en España en 2025 típico de Mercadona (venta al público en tienda u online); si el supermercado del usuario no es Mercadona, indica precios equivalentes realistas para esa cadena tomando como ancla los niveles de Mercadona España 2025.\n\nPara cada ítem: nombre del producto y cantidad con unidad separados por un punto medio (ej. producto "Espinacas", cantidad "300g" → mostrar como "Espinacas · 300g"); el precio_estimado_eur es solo el importe en EUR de esa línea.\n\nResponde SOLO con JSON válido:\n{ "categorias": { "Nombre categoría": [ { "producto": "", "cantidad": "", "peso_o_unidad": "", "precio_estimado_eur": 0.00 } ] }, "total_estimado_eur": 0.00 }`;
   try {
     const data = await llamarChat(mensaje);
     const lista = extraerListaJson(data);
     renderLista(lista, data.respuesta);
   } catch (e) {
     document.getElementById('listaContainer').innerHTML = '<p class="raw-fallback">No se pudo generar la lista automáticamente. Revisa la conexión o inténtalo más tarde.</p>';
-    document.getElementById('listaAcciones').classList.add('hidden');
+    document.getElementById('panelChatPostLista').classList.add('hidden');
   }
   document.getElementById('listaLoading').classList.add('hidden');
-});
+}
 
 function perfilPayload() {
   return {
     objetivo: datos.objetivo,
-    intolerancias: datos.intolerancias.join(', '),
+    intolerancias: Array.isArray(datos.intolerancias) ? datos.intolerancias.join(', ') : String(datos.intolerancias || ''),
     supermercado: datos.supermercado,
     plan: 'free',
     nombre: datos.nombre,
@@ -675,9 +812,11 @@ async function llamarChat(mensaje) {
     historial: historialChat.slice(-12),
     perfil: perfilPayload(),
   };
+  const headers = { 'Content-Type': 'application/json' };
+  if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
   const res = await fetch(API + '/web/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -793,24 +932,48 @@ function tituloCategoriaConIcono(cat) {
   return '🛒 ' + (raw || 'Categoría');
 }
 
-function irChatDesdeLista(modo) {
-  mostrarVista('vista-resultado');
-  const ta = document.getElementById('inputCambios');
-  if (modo === 'foto') {
-    ta.value = 'Quiero ideas de recetas con lo que tengo en la nevera (te describo el contenido o más adelante te envío foto en la app). ¿Qué me recomiendas?';
-  } else {
-    ta.value = 'Hola ZIA, ya tengo la lista de la compra y quiero hablar contigo sobre mi plan o la dieta.';
-  }
-  ta.focus();
-  setTimeout(function () { ta.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 300);
+function actualizarChatSaludo() {
+  const n = (datos.nombre || '').trim();
+  document.getElementById('chatSaludo').textContent = n
+    ? ('¡Hola, ' + n + '! Soy ZIA. Elige una opción o escribe lo que necesites.')
+    : '¡Hola! Soy ZIA. Elige una opción para seguir.';
 }
 
+async function enviarMensajeChat(texto) {
+  const box = document.getElementById('chatMensajes');
+  const u = document.createElement('div');
+  u.className = 'msg-user-bubble';
+  u.textContent = texto;
+  box.appendChild(u);
+  const typing = document.createElement('div');
+  typing.className = 'msg-zia-bubble';
+  typing.textContent = 'ZIA está pensando…';
+  box.appendChild(typing);
+  box.scrollTop = box.scrollHeight;
+  try {
+    authToken = localStorage.getItem('zia_token') || authToken;
+    const data = await llamarChat(texto);
+    typing.remove();
+    const z = document.createElement('div');
+    z.className = 'msg-zia-bubble';
+    if (data.paywall) z.classList.add('error');
+    z.textContent = data.respuesta || '(Sin respuesta)';
+    box.appendChild(z);
+  } catch (err) {
+    typing.remove();
+    const z = document.createElement('div');
+    z.className = 'msg-zia-bubble error';
+    z.textContent = 'No pude responder ahora. ' + (err.message || err);
+    box.appendChild(z);
+  }
+  box.scrollTop = box.scrollHeight;
+}
 function renderLista(lista, raw) {
   const el = document.getElementById('listaContainer');
-  const acc = document.getElementById('listaAcciones');
+  const panel = document.getElementById('panelChatPostLista');
   if (!lista || !lista.categorias) {
     el.innerHTML = '<div class="raw-fallback">' + escapeHtml(raw || 'Sin lista parseada.') + '</div>';
-    acc.classList.add('hidden');
+    panel.classList.add('hidden');
     return;
   }
   let html = '';
@@ -826,7 +989,7 @@ function renderLista(lista, raw) {
       if (parteCant) {
         const pl = prod.toLowerCase();
         const cl = parteCant.toLowerCase();
-        if (!pl.includes(cl)) nombreLinea = (prod + ' ' + parteCant).trim();
+        if (!pl.includes(cl)) nombreLinea = (prod + ' · ' + parteCant).trim();
       }
       const precio = item.precio_estimado_eur != null ? Number(item.precio_estimado_eur).toFixed(2) + ' €' : '';
       html += '<div class="item-row"><span class="nom-cant">' + escapeHtml(nombreLinea || '—') + '</span><span class="precio-solo">' + (precio ? escapeHtml(precio) : '—') + '</span></div>';
@@ -837,8 +1000,16 @@ function renderLista(lista, raw) {
     html += '<div class="dia-card" style="margin-top:16px;padding:14px"><strong>Total estimado:</strong> ' + Number(total).toFixed(2) + ' €</div>';
   }
   el.innerHTML = html;
-  acc.classList.remove('hidden');
+  actualizarChatSaludo();
+  panel.classList.remove('hidden');
 }
+
+document.getElementById('panelChatPostLista').addEventListener('click', function (e) {
+  const b = e.target.closest('.btn-chat-accion');
+  if (!b) return;
+  const msg = b.getAttribute('data-msg');
+  if (msg) enviarMensajeChat(msg);
+});
 
 showPaso(1);
 </script>
