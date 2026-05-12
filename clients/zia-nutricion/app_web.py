@@ -175,7 +175,7 @@ def generar_plan():
                 pf = supabase.table("perfiles").select("*").eq("user_id", uid).single().execute().data or {}
             except Exception:
                 pf = {}
-            merged = {**body, **{k: v for k, v in pf.items() if v is not None}}
+            merged = {**body, **{k: v for k, v in pf.items() if v is not None}
             p = _perfil_desde_json_body(merged)
 
         dias = 7
@@ -232,7 +232,7 @@ def generar_lista():
                 pf = supabase.table("perfiles").select("*").eq("user_id", uid).single().execute().data or {}
             except Exception:
                 pf = {}
-            merged = {**body, **{k: v for k, v in pf.items() if v is not None}}
+            merged = {**body, **{k: v for k, v in pf.items() if v is not None}
             p = _perfil_desde_json_body(merged)
 
         plan_dias = body.get("plan_dias", [])
