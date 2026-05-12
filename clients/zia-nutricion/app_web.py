@@ -209,9 +209,24 @@ Responde SOLO JSON sin markdown. Exactamente {dias} elementos en "dias", cada un
                 log.warning("generar-plan: no se guardo en Supabase: %s", ex)
 
         return jsonify({"ok": True, "plan": plan_out})
+    except json.JSONDecodeError as e:
+        import traceback
+
+        log.exception(
+            "generar-plan JSONDecodeError: %s\n%s",
+            e,
+            traceback.format_exc(),
+        )
+        return jsonify(
+            {"ok": False, "error": str(e), "trace": traceback.format_exc()}
+        ), 500
     except Exception as e:
-        log.exception("generar-plan: %s", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
+        import traceback
+
+        log.exception("generar-plan ERROR: %s\n%s", e, traceback.format_exc())
+        return jsonify(
+            {"ok": False, "error": str(e), "trace": traceback.format_exc()}
+        ), 500
 
 @app.route("/web/generar-lista", methods=["POST"])
 def generar_lista():
@@ -254,9 +269,24 @@ Incluye precios reales de {supermercado}. Agrupa en categorías: Frutas y Verdur
         )
         lista_raw = json.loads(res.choices[0].message.content or "{}")
         return jsonify({"ok": True, "lista_compra": lista_raw})
+    except json.JSONDecodeError as e:
+        import traceback
+
+        log.exception(
+            "generar-lista JSONDecodeError: %s\n%s",
+            e,
+            traceback.format_exc(),
+        )
+        return jsonify(
+            {"ok": False, "error": str(e), "trace": traceback.format_exc()}
+        ), 500
     except Exception as e:
-        log.exception("generar-lista: %s", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
+        import traceback
+
+        log.exception("generar-lista ERROR: %s\n%s", e, traceback.format_exc())
+        return jsonify(
+            {"ok": False, "error": str(e), "trace": traceback.format_exc()}
+        ), 500
 
 
 @app.route("/web/mi-plan", methods=["GET"])
