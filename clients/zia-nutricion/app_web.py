@@ -250,7 +250,7 @@ Incluye precios reales de {supermercado}. Agrupa en categorías: Frutas y Verdur
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
-            max_tokens=400,
+            max_tokens=2000,
         )
         lista_raw = json.loads(res.choices[0].message.content or "{}")
         return jsonify({"ok": True, "lista_compra": lista_raw})
@@ -339,9 +339,9 @@ PERFIL DEL USUARIO:
             mensajes.append({"role": h["role"], "content": h["content"]})
         mensajes.append({"role": "user", "content": mensaje})
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=mensajes,
-            max_tokens=400
+            max_tokens=2000
         )
         respuesta = response.choices[0].message.content
         if user_id is not None:
