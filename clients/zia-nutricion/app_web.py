@@ -170,7 +170,7 @@ def generar_plan():
             p = _perfil_desde_json_body(body)
         else:
             u = supabase.auth.get_user(token).user
-            uid = u.
+            uid = u.id
             try:
                 pf = supabase.table("perfiles").select("*").eq("user_id", uid).single().execute().data or {}
             except Exception:
